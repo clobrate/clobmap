@@ -42,15 +42,15 @@ function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
-        const target = e.target as HTMLElement | null;
-        if (target?.closest("input,textarea,[contenteditable=true]")) return;
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === "/") {
         e.preventDefault();
+        e.stopPropagation();
         toggleViewMode();
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    // capture: run before CodeMirror's keymap (which binds Cmd+/ to toggle-comment).
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
   }, [toggleViewMode]);
 
   return (
