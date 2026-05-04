@@ -103,22 +103,22 @@ root:
 
 ### Node fields
 
-| Field      | Type     | Required | Purpose                                  |
-|------------|----------|----------|------------------------------------------|
-| `text`     | string   | yes      | Node label                               |
-| `id`       | string   | yes      | Stable identity for layout cache         |
-| `children` | Node[]   | no       | Child nodes (default `[]`)               |
-| `note`     | string   | no       | Optional longer description              |
-| `color`    | string   | no       | Optional hex color                       |
-| `collapsed`| boolean  | no       | UI state — hidden in mind-map view       |
+| Field       | Type    | Required | Purpose                            |
+| ----------- | ------- | -------- | ---------------------------------- |
+| `text`      | string  | yes      | Node label                         |
+| `id`        | string  | yes      | Stable identity for layout cache   |
+| `children`  | Node[]  | no       | Child nodes (default `[]`)         |
+| `note`      | string  | no       | Optional longer description        |
+| `color`     | string  | no       | Optional hex color                 |
+| `collapsed` | boolean | no       | UI state — hidden in mind-map view |
 
 ### Document fields
 
-| Field    | Type   | Required | Purpose                |
-|----------|--------|----------|------------------------|
-| `title`  | string | yes      | Document title         |
-| `root`   | Node   | yes      | The single root node   |
-| `version`| number | no       | Schema version (start 1)|
+| Field     | Type   | Required | Purpose                  |
+| --------- | ------ | -------- | ------------------------ |
+| `title`   | string | yes      | Document title           |
+| `root`    | Node   | yes      | The single root node     |
+| `version` | number | no       | Schema version (start 1) |
 
 ### Why explicit IDs?
 
@@ -160,17 +160,17 @@ IDs are auto-generated on creation (`n` + base36 counter). Users don't see them 
 
 ### Mind-map interactions
 
-| Action                  | Gesture                            |
-|-------------------------|------------------------------------|
-| Add child node          | `Tab` on selected node, or `+` button |
-| Add sibling node        | `Enter` on selected node           |
-| Edit node text          | Double-click, or `F2`              |
-| Delete node             | `Delete` / `Backspace`             |
-| Collapse/expand         | Click chevron, or `Space`          |
-| Move node               | Drag-and-drop onto another node    |
-| Pan                     | Drag empty area, or trackpad scroll|
-| Zoom                    | Scroll wheel, or pinch             |
-| Fit to screen           | `Cmd/Ctrl + 0`                     |
+| Action           | Gesture                               |
+| ---------------- | ------------------------------------- |
+| Add child node   | `Tab` on selected node, or `+` button |
+| Add sibling node | `Enter` on selected node              |
+| Edit node text   | Double-click, or `F2`                 |
+| Delete node      | `Delete` / `Backspace`                |
+| Collapse/expand  | Click chevron, or `Space`             |
+| Move node        | Drag-and-drop onto another node       |
+| Pan              | Drag empty area, or trackpad scroll   |
+| Zoom             | Scroll wheel, or pinch                |
+| Fit to screen    | `Cmd/Ctrl + 0`                        |
 
 ### Theming
 
@@ -230,58 +230,66 @@ clobmap/
 
 ## 9. Key Library Choices
 
-| Concern               | Library                       | Why                                                 |
-|-----------------------|-------------------------------|-----------------------------------------------------|
-| Mind-map rendering    | **React Flow**                | Mature, handles pan/zoom/drag/edges, customizable   |
-| YAML editor           | **CodeMirror 6**              | Lightweight, great mobile support, tree-sitter integrations |
-| YAML parse/serialize  | **`yaml` (npm)**              | Preserves order, comments, supports streaming errors|
-| State management      | **Zustand**                   | Tiny, no boilerplate, fine for this scope           |
-| Build tool            | **Vite**                      | Tauri's recommended default                         |
-| Styling               | **Tailwind CSS** or CSS Modules | Pick one; lean toward Tailwind for speed           |
-| Rust YAML             | **`serde_yaml`**              | Validation on save                                  |
-| Tauri plugins         | `tauri-plugin-fs`, `tauri-plugin-dialog`, `tauri-plugin-store` | Standard set                  |
+| Concern              | Library                                                        | Why                                                         |
+| -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------- |
+| Mind-map rendering   | **React Flow**                                                 | Mature, handles pan/zoom/drag/edges, customizable           |
+| YAML editor          | **CodeMirror 6**                                               | Lightweight, great mobile support, tree-sitter integrations |
+| YAML parse/serialize | **`yaml` (npm)**                                               | Preserves order, comments, supports streaming errors        |
+| State management     | **Zustand**                                                    | Tiny, no boilerplate, fine for this scope                   |
+| Build tool           | **Vite**                                                       | Tauri's recommended default                                 |
+| Styling              | **Tailwind CSS** or CSS Modules                                | Pick one; lean toward Tailwind for speed                    |
+| Rust YAML            | **`serde_yaml`**                                               | Validation on save                                          |
+| Tauri plugins        | `tauri-plugin-fs`, `tauri-plugin-dialog`, `tauri-plugin-store` | Standard set                                                |
 
 ---
 
 ## 10. Roadmap
 
 ### Phase 0 — Scaffold (week 1)
+
 - `npm create tauri-app@latest` → React + TS + Vite template
 - Confirm desktop builds on macOS
 - Wire up a "hello world" `invoke()` to prove the IPC path
 
 ### Phase 1 — YAML editor + tree model (week 2)
+
 - CodeMirror with YAML syntax highlighting
 - Parse → in-memory tree on every change
 - Errors shown inline, no crashing
 
 ### Phase 2 — Mind-map view (weeks 3–4)
+
 - React Flow with custom node component
 - Auto-layout (radial or horizontal tree)
 - Read-only first, then editable
 
 ### Phase 3 — Toggle + bidirectional sync (week 5)
+
 - Toggle button + split view
 - Edits in either view propagate
 - Parse-error tolerance in mind-map view
 
 ### Phase 4 — File I/O (week 6)
+
 - Open / Save / Save As via Tauri dialogs
 - Recent files
 - File watcher for external changes
 
 ### Phase 5 — Polish (week 7)
+
 - Dark mode
 - Keyboard shortcuts pass
 - Empty state, onboarding
 - Window state persistence
 
 ### Phase 6 — Cross-platform builds (week 8)
+
 - Windows + Linux desktop builds
 - Web build (static site)
 - Code signing / notarization for macOS
 
 ### Phase 7 — Mobile (later)
+
 - iOS + Android via Tauri v2 mobile
 - Touch-first gestures pass for the mind-map
 - This is its own milestone — expect 3–4 weeks of platform-specific work

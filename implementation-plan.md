@@ -15,6 +15,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** A buildable, runnable Tauri + React + TypeScript project on the developer's primary OS.
 
 **Work**
+
 - Run `npm create tauri-app@latest` → React + TS + Vite template (scaffold into the existing repo, do not nest a new repo).
 - Update `.gitignore` to cover Tauri/Node artifacts (`node_modules/`, `src-tauri/target/`, `dist/`, `dist-web/`, `.DS_Store`).
 - Configure ESLint + Prettier + TypeScript strict mode.
@@ -25,6 +26,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - First commit landing the scaffold; push to remote if one is configured.
 
 **Exit criteria**
+
 - [ ] `npm run tauri dev` opens a working window on macOS.
 - [ ] Frontend invokes `ping` command, displays Rust response.
 - [ ] `npm run tauri build` produces a `.app` / `.dmg` bundle.
@@ -40,6 +42,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Pure-TypeScript tree model and YAML serde, fully tested, no UI yet.
 
 **Work**
+
 - Define `Node` and `Document` TypeScript types matching the schema in `design.md`.
 - Implement `parseYaml(text) → Result<Document, ParseError>` using the `yaml` npm package (Document API to preserve comments/order).
 - Implement `serializeYaml(doc) → string` that round-trips faithfully.
@@ -48,6 +51,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - ID generation: monotonic counter persisted with the document.
 
 **Exit criteria**
+
 - [ ] All tree ops covered by unit tests (Vitest).
 - [ ] Round-trip test: parse → serialize → parse produces identical tree for ≥10 fixture files.
 - [ ] Comment preservation test: a YAML file with comments survives a structural edit.
@@ -63,6 +67,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** A working YAML editor with live parsing and error feedback. Single-view mode only.
 
 **Work**
+
 - Integrate CodeMirror 6 with YAML syntax highlighting.
 - Wire editor → store → parser; debounce 150ms.
 - Display parse errors inline (gutter marker + tooltip with message).
@@ -70,6 +75,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Zustand store holding: `{ yamlText, parsedDoc, parseError, isDirty }`.
 
 **Exit criteria**
+
 - [ ] User can type YAML; tree state updates in store.
 - [ ] Invalid YAML shows error at correct line, last valid tree retained.
 - [ ] No re-parses when text hasn't changed.
@@ -85,6 +91,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Render the parsed tree as a mind-map. No editing yet.
 
 **Work**
+
 - Integrate React Flow.
 - Custom node component: rounded rectangle, text label, hover affordances stubbed (no actions yet).
 - Layout algorithm: horizontal tree (left-to-right). Use `dagre` or custom recursive layout.
@@ -93,6 +100,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Empty state: friendly illustration when document has only a root.
 
 **Exit criteria**
+
 - [ ] Loading a fixture YAML renders a correct mind-map.
 - [ ] Pan and zoom work on mouse, trackpad, and touch.
 - [ ] 500-node document renders in <500ms and pans at 60fps.
@@ -108,6 +116,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** All node operations available from the canvas.
 
 **Work**
+
 - Selection state (single-select first; multi-select deferred).
 - Keyboard shortcuts: `Tab` (add child), `Enter` (add sibling), `F2` (rename), `Delete`, `Space` (collapse), `Cmd/Ctrl+0` (fit).
 - Inline rename (double-click → input element overlay).
@@ -116,6 +125,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Undo/redo across the document state (not just text).
 
 **Exit criteria**
+
 - [ ] Every operation in `design.md` §6 keyboard table works.
 - [ ] Drag-to-reparent updates YAML correctly.
 - [ ] Undo/redo restores tree exactly (verified by deep equality test).
@@ -131,6 +141,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** YAML view and mind-map view are equally authoritative. Edits in either propagate.
 
 **Work**
+
 - Toggle button + `Cmd/Ctrl+/` shortcut.
 - Split-view mode for windows ≥1200px wide.
 - When mind-map edits: re-serialize YAML, replace text in CodeMirror without losing cursor position if possible.
@@ -138,6 +149,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Parse-error tolerance: mind-map view freezes on the last valid tree, shows a subtle banner.
 
 **Exit criteria**
+
 - [ ] Round-trip property test: 100 random tree mutations via mind-map produce YAML that parses back to the same tree.
 - [ ] Editing YAML mid-typing (incomplete syntax) never crashes the canvas.
 - [ ] Split view: edits in one pane reflect in the other within 200ms.
@@ -153,6 +165,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Open, save, save-as, recent files, dirty-state tracking.
 
 **Work**
+
 - Rust commands: `open_file(path)`, `save_file(path, contents)`, `show_open_dialog()`, `show_save_dialog()`.
 - Frontend storage adapter: `tauri.ts` implementing a `StorageAdapter` interface.
 - Track dirty state in store; warn on close/quit if unsaved.
@@ -161,6 +174,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Window title shows filename + dirty indicator.
 
 **Exit criteria**
+
 - [ ] Cmd+O / Cmd+S / Cmd+Shift+S work and behave like native apps.
 - [ ] Closing window with unsaved changes prompts to save.
 - [ ] External edit (e.g. via `vim`) reloads cleanly.
@@ -176,6 +190,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Same React app runs as a static site in the browser. No Tauri APIs called.
 
 **Work**
+
 - Storage adapter `web.ts`: File System Access API where supported (Chromium); file picker + download fallback (Safari/Firefox).
 - IndexedDB draft buffer for auto-save.
 - Build script `npm run build:web` outputs `dist-web/` static files.
@@ -183,6 +198,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Service worker for offline use (optional, but small).
 
 **Exit criteria**
+
 - [ ] `npm run build:web` produces a static site that opens in Chrome, Safari, Firefox.
 - [ ] All editing features work in browser; only file I/O paths differ.
 - [ ] Browser version handles refresh: draft is restored from IndexedDB.
@@ -197,6 +213,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** App feels deliberate and is usable by keyboard-only and screen-reader users.
 
 **Work**
+
 - Light/dark theme follows OS, manual override in settings.
 - Settings panel (minimal: theme, font size, layout direction, auto-save toggle).
 - Empty state and onboarding (one-time intro overlay).
@@ -206,6 +223,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Focus indicators visible at all times.
 
 **Exit criteria**
+
 - [ ] App is fully operable with keyboard only, no mouse needed.
 - [ ] Axe accessibility scan: zero critical or serious violations.
 - [ ] VoiceOver (macOS) reads node text on selection.
@@ -221,6 +239,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Desktop app checks for updates, downloads, and installs them with user consent. Mobile uses store updates (out of scope for this phase).
 
 **Work**
+
 - Add `tauri-plugin-updater` to project.
 - Generate update signing keypair (`tauri signer generate`); store private key in CI secrets.
 - Configure `tauri.conf.json` with updater endpoints and the public key.
@@ -235,6 +254,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Update channel support: `stable` and `beta` (config-only; `beta` opt-in via setting).
 
 **Exit criteria**
+
 - [ ] Local end-to-end test: app v1.0.0 detects, downloads, verifies, and installs v1.0.1.
 - [ ] Tampered `latest.json` (wrong signature) is rejected without installing.
 - [ ] Offline launch does not block startup or show errors.
@@ -251,6 +271,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Signed, notarized, installable builds for macOS, Windows, and Linux.
 
 **Work**
+
 - **macOS:** Apple Developer account, code signing certificate, notarization via `notarytool`. Build `.dmg` and `.app`.
 - **Windows:** code signing certificate (EV or OV — OV is fine for v1, will trigger SmartScreen warnings until reputation builds). Build `.msi` and `.exe`.
 - **Linux:** AppImage (universal), `.deb` (Debian/Ubuntu), optionally Flatpak later. No signing required for AppImage; `.deb` can be GPG-signed.
@@ -260,6 +281,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
   - Linux: Ubuntu LTS + Fedora (or Arch).
 
 **Exit criteria**
+
 - [ ] Signed macOS build passes Gatekeeper on a fresh machine (no "unidentified developer" warning).
 - [ ] Notarization staple verified (`spctl --assess`).
 - [ ] Signed Windows installer runs without admin prompt and SmartScreen does not block (warning acceptable until reputation builds).
@@ -276,6 +298,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** A git tag triggers signed, notarized, published releases on all desktop platforms.
 
 **Work**
+
 - GitHub Actions workflows:
   - PR: lint, type-check, unit tests, build smoke-test (one platform).
   - Push to main: full test suite + nightly build artifact.
@@ -285,6 +308,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Auto-generated changelog from conventional commits.
 
 **Exit criteria**
+
 - [ ] Tagging `v1.0.0-test` produces three signed installers + `latest.json` on a draft GitHub release.
 - [ ] An older installed version, with the new release published, auto-updates successfully end-to-end.
 - [ ] CI runs in <20 minutes for the full release pipeline.
@@ -300,6 +324,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** When something breaks in production, we know about it without users having to file bugs.
 
 **Work**
+
 - Crash reporting: integrate **Sentry** (or similar) for both Rust panics and JS errors.
 - **Privacy-respecting by default:** opt-in telemetry, off by default. No identifiable data, no document contents ever sent.
 - Local log files (Tauri's `tauri-plugin-log`) — accessible via Help → "Open log folder".
@@ -307,6 +332,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Error boundary in React: any render crash shows a friendly recovery screen with "report" button.
 
 **Exit criteria**
+
 - [ ] Forced Rust panic appears in Sentry dashboard within 1 minute (when telemetry enabled).
 - [ ] Forced JS error caught by error boundary; user can recover without restarting app.
 - [ ] Telemetry can be toggled off; toggling off stops all network calls (verified by network inspector).
@@ -322,6 +348,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Same app on phones and tablets via Tauri v2 mobile.
 
 **Work**
+
 - Initialize Tauri mobile targets (`tauri ios init`, `tauri android init`).
 - Touch-first gesture pass for mind-map (pinch-zoom, two-finger pan, long-press for context menu).
 - Adaptive layout: split view never on mobile; toggle button always visible.
@@ -331,6 +358,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - App Store / Play Store listings, screenshots, privacy declarations.
 
 **Exit criteria**
+
 - [ ] App runs on iOS simulator, Android emulator, and at least one real device per platform.
 - [ ] Touch gestures feel comparable to native apps (subjective but tested with ≥3 users).
 - [ ] No desktop-only UI elements visible on mobile (e.g., right-click menus).
@@ -347,6 +375,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Last-mile work to make the app safe to put in front of paying or many users.
 
 **Work**
+
 - **Security review** of `tauri.conf.json` capabilities — minimum necessary permissions only.
 - Audit IPC commands: input validation, no path traversal, no arbitrary file reads.
 - `npm audit` and `cargo audit` clean; CVE policy documented.
@@ -359,6 +388,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Privacy policy + terms (even if simple).
 
 **Exit criteria**
+
 - [ ] Tauri capability allowlist reviewed; no `**` wildcards on filesystem unless justified.
 - [ ] All `#[tauri::command]` handlers validate inputs.
 - [ ] Zero high-severity findings in `npm audit` and `cargo audit`.
@@ -375,6 +405,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 **Goal:** Public 1.0.0 release.
 
 **Work**
+
 - Tag `v1.0.0`.
 - Landing page (one-pager: what it is, screenshots, download links, "open in browser").
 - Submit to Hacker News / Product Hunt / niche communities (PKM, productivity, indie dev).
@@ -382,6 +413,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - Prepare a v1.0.1 patch branch in advance for the inevitable launch-day bug.
 
 **Exit criteria**
+
 - [ ] `v1.0.0` GitHub release published with signed binaries for all desktop platforms.
 - [ ] App available on App Store and Play Store (or in review).
 - [ ] Web build live at the project URL.
@@ -394,24 +426,24 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 
 ## Total Time Estimate
 
-| Phase | Range |
-|---|---|
-| 0. Scaffold | 2–4 days |
-| 1. Data model | 4–6 days |
-| 2. YAML editor | 3–5 days |
-| 3. Mind-map (read) | 5–7 days |
-| 4. Mind-map (edit) | 7–10 days |
-| 5. Toggle & sync | 5–7 days |
-| 6. File I/O | 4–6 days |
-| 7. Web build | 4–5 days |
-| 8. Polish & a11y | 5–7 days |
-| 9. Auto-update | 5–7 days |
-| 10. Sign & build | 7–10 days |
-| 11. CI/CD | 4–6 days |
-| 12. Observability | 3–4 days |
-| 13. Mobile | 15–20 days |
-| 14. Hardening | 5–10 days |
-| 15. Launch | 5+ days |
+| Phase              | Range      |
+| ------------------ | ---------- |
+| 0. Scaffold        | 2–4 days   |
+| 1. Data model      | 4–6 days   |
+| 2. YAML editor     | 3–5 days   |
+| 3. Mind-map (read) | 5–7 days   |
+| 4. Mind-map (edit) | 7–10 days  |
+| 5. Toggle & sync   | 5–7 days   |
+| 6. File I/O        | 4–6 days   |
+| 7. Web build       | 4–5 days   |
+| 8. Polish & a11y   | 5–7 days   |
+| 9. Auto-update     | 5–7 days   |
+| 10. Sign & build   | 7–10 days  |
+| 11. CI/CD          | 4–6 days   |
+| 12. Observability  | 3–4 days   |
+| 13. Mobile         | 15–20 days |
+| 14. Hardening      | 5–10 days  |
+| 15. Launch         | 5+ days    |
 
 **Desktop + web v1 (skip mobile):** ~13–17 weeks at 15 hrs/week.
 **Full cross-platform v1:** ~18–22 weeks.
