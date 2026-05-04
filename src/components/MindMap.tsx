@@ -1,20 +1,232 @@
-import { useMemo } from "react";
-import { Background, Controls, MiniMap, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import { useCallback, useEffect, useMemo } from "react";
+import {
+  Background,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  ReactFlowProvider,
+  applyNodeChanges,
+  useReactFlow,
+  type Edge,
+  type Node,
+  type NodeChange,
+  type NodeMouseHandler,
+  type OnNodeDrag,
+} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useDocumentStore } from "../store/document";
+import { useUIStore } from "../store/ui";
 import { layoutMindMap, type MindNodeData } from "../lib/layout";
 import { MindMapNode } from "./MindMapNode";
+import { ContextMenu } from "./ContextMenu";
+import {
+  addChild,
+  addSibling,
+  deleteNode,
+  findById,
+  idGeneratorForDocument,
+  moveNode,
+  OpError,
+  updateNode,
+} from "../model";
 
 const nodeTypes = { mind: MindMapNode };
 
 export function MindMap() {
+  return (
+    <ReactFlowProvider>
+      <MindMapInner />
+    </ReactFlowProvider>
+  );
+}
+
+function MindMapInner() {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
   const parseError = useDocumentStore((s) => s.parseError);
+  const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
+  const undo = useDocumentStore((s) => s.undo);
+  const redo = useDocumentStore((s) => s.redo);
 
-  const { nodes, edges } = useMemo<{ nodes: Node<MindNodeData>[]; edges: Edge[] }>(() => {
-    if (!parsedDoc) return { nodes: [], edges: [] };
-    return layoutMindMap(parsedDoc);
-  }, [parsedDoc]);
+  const selectedId = useUIStore((s) => s.selectedNodeId);
+  const setSelected = useUIStore((s) => s.setSelected);
+  const editingId = useUIStore((s) => s.editingNodeId);
+  const setEditing = useUIStore((s) => s.setEditing);
+  const contextMenu = useUIStore((s) => s.contextMenu);
+  const openContextMenu = useUIStore((s) => s.openContextMenu);
+  const closeContextMenu = useUIStore((s) => s.closeContextMenu);
+
+  const layout = useMemo(
+    () => (parsedDoc ? layoutMindMap(parsedDoc) : { nodes: [], edges: [] }),
+    [parsedDoc],
+  );
+
+  const reactFlow = useReactFlow<Node<MindNodeData>, Edge>();
+
+  // Keep React Flow's internal node positions in sync with layout positions.
+  useEffect(() => {
+    reactFlow.setNodes(layout.nodes.map((n) => ({ ...n, selected: n.id === selectedId })));
+    reactFlow.setEdges(layout.edges);
+  }, [layout.nodes, layout.edges, selectedId, reactFlow]);
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange<Node<MindNodeData>>[]) => {
+      reactFlow.setNodes((current) => applyNodeChanges(changes, current));
+    },
+    [reactFlow],
+  );
+
+  const onNodeClick: NodeMouseHandler<Node<MindNodeData>> = useCallback(
+    (_e, node) => {
+      setSelected(node.id);
+      closeContextMenu();
+    },
+    [setSelected, closeContextMenu],
+  );
+
+  const onNodeDoubleClick: NodeMouseHandler<Node<MindNodeData>> = useCallback(
+    (_e, node) => {
+      setSelected(node.id);
+      setEditing(node.id);
+    },
+    [setSelected, setEditing],
+  );
+
+  const onNodeContextMenu: NodeMouseHandler<Node<MindNodeData>> = useCallback(
+    (e, node) => {
+      e.preventDefault();
+      setSelected(node.id);
+      openContextMenu(node.id, e.clientX, e.clientY);
+    },
+    [setSelected, openContextMenu],
+  );
+
+  const onPaneClick = useCallback(() => {
+    setSelected(null);
+    setEditing(null);
+    closeContextMenu();
+  }, [setSelected, setEditing, closeContextMenu]);
+
+  const onNodeDragStop: OnNodeDrag<Node<MindNodeData>> = useCallback(
+    (_e, node) => {
+      const tree = useDocumentStore.getState().parsedDoc;
+      if (!tree) return;
+      const intersecting = reactFlow.getIntersectingNodes(node).filter((n) => n.id !== node.id);
+      const target = intersecting[0];
+      if (target) {
+        try {
+          applyTreeChange(moveNode(tree, node.id, target.id));
+          return;
+        } catch (err) {
+          if (!(err instanceof OpError)) throw err;
+        }
+      }
+      // Snap back to laid-out position
+      reactFlow.setNodes(layout.nodes.map((n) => ({ ...n, selected: n.id === selectedId })));
+    },
+    [applyTreeChange, layout.nodes, selectedId, reactFlow],
+  );
+
+  // Global keyboard handler for the canvas
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (editingId !== null) return;
+      const tree = useDocumentStore.getState().parsedDoc;
+      if (!tree) return;
+
+      const isCmd = e.metaKey || e.ctrlKey;
+
+      if (isCmd && e.key === "0") {
+        e.preventDefault();
+        reactFlow.fitView({ padding: 0.2 });
+        return;
+      }
+      if (isCmd && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (isCmd && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setEditing(null);
+        closeContextMenu();
+        return;
+      }
+
+      if (!selectedId) return;
+      const selected = findById(tree, selectedId);
+      if (!selected) return;
+
+      switch (e.key) {
+        case "Tab": {
+          e.preventDefault();
+          const ids = idGeneratorForDocument(tree);
+          const result = addChild(tree, selectedId, "New", ids);
+          applyTreeChange(result.doc);
+          setSelected(result.newId);
+          setEditing(result.newId);
+          return;
+        }
+        case "Enter": {
+          if (selectedId === tree.root.id) return;
+          e.preventDefault();
+          try {
+            const ids = idGeneratorForDocument(tree);
+            const result = addSibling(tree, selectedId, "New", ids);
+            applyTreeChange(result.doc);
+            setSelected(result.newId);
+            setEditing(result.newId);
+          } catch (err) {
+            if (!(err instanceof OpError)) throw err;
+          }
+          return;
+        }
+        case "F2": {
+          e.preventDefault();
+          setEditing(selectedId);
+          return;
+        }
+        case "Delete":
+        case "Backspace": {
+          if (selectedId === tree.root.id) return;
+          e.preventDefault();
+          try {
+            applyTreeChange(deleteNode(tree, selectedId));
+            setSelected(null);
+          } catch (err) {
+            if (!(err instanceof OpError)) throw err;
+          }
+          return;
+        }
+        case " ": {
+          e.preventDefault();
+          if (!selected.children.length) return;
+          applyTreeChange(updateNode(tree, selectedId, { collapsed: !selected.collapsed }));
+          return;
+        }
+        default:
+          return;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [
+    applyTreeChange,
+    closeContextMenu,
+    editingId,
+    redo,
+    reactFlow,
+    selectedId,
+    setEditing,
+    setSelected,
+    undo,
+  ]);
 
   if (!parsedDoc) {
     return (
@@ -25,20 +237,24 @@ export function MindMap() {
   }
 
   return (
-    <div className="h-full w-full bg-neutral-950">
+    <div className="relative h-full w-full bg-neutral-950">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        defaultNodes={[]}
+        defaultEdges={[]}
         nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
+        onNodeContextMenu={onNodeContextMenu}
+        onNodeDragStop={onNodeDragStop}
+        onPaneClick={onPaneClick}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         panOnScroll
         zoomOnScroll
         minZoom={0.1}
         maxZoom={2}
-        nodesDraggable={false}
         nodesConnectable={false}
-        elementsSelectable
         proOptions={{ hideAttribution: true }}
         colorMode="dark"
       >
@@ -46,6 +262,70 @@ export function MindMap() {
         <Controls position="bottom-right" showInteractive={false} />
         <MiniMap pannable zoomable className="!bg-neutral-900" />
       </ReactFlow>
+      {contextMenu && findById(parsedDoc, contextMenu.nodeId) && (
+        <ContextMenu
+          nodeId={contextMenu.nodeId}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          tree={parsedDoc}
+          onClose={closeContextMenu}
+          onAddChild={() => handleAddChild(contextMenu.nodeId)}
+          onAddSibling={() => handleAddSibling(contextMenu.nodeId)}
+          onDelete={() => handleDelete(contextMenu.nodeId)}
+          onToggleCollapse={() => handleToggleCollapse(contextMenu.nodeId)}
+          onRename={() => {
+            setEditing(contextMenu.nodeId);
+            closeContextMenu();
+          }}
+        />
+      )}
     </div>
   );
+
+  function handleAddChild(nodeId: string) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree) return;
+    const ids = idGeneratorForDocument(tree);
+    const result = addChild(tree, nodeId, "New", ids);
+    applyTreeChange(result.doc);
+    setSelected(result.newId);
+    setEditing(result.newId);
+    closeContextMenu();
+  }
+
+  function handleAddSibling(nodeId: string) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree || nodeId === tree.root.id) return;
+    try {
+      const ids = idGeneratorForDocument(tree);
+      const result = addSibling(tree, nodeId, "New", ids);
+      applyTreeChange(result.doc);
+      setSelected(result.newId);
+      setEditing(result.newId);
+    } catch (err) {
+      if (!(err instanceof OpError)) throw err;
+    }
+    closeContextMenu();
+  }
+
+  function handleDelete(nodeId: string) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree || nodeId === tree.root.id) return;
+    try {
+      applyTreeChange(deleteNode(tree, nodeId));
+      setSelected(null);
+    } catch (err) {
+      if (!(err instanceof OpError)) throw err;
+    }
+    closeContextMenu();
+  }
+
+  function handleToggleCollapse(nodeId: string) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree) return;
+    const node = findById(tree, nodeId);
+    if (!node || node.children.length === 0) return;
+    applyTreeChange(updateNode(tree, nodeId, { collapsed: !node.collapsed }));
+    closeContextMenu();
+  }
 }

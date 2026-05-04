@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { parseYaml } from "../model";
+import { parseLiveYaml } from "../model";
 import { useDocumentStore } from "./document";
 
 export function useDebouncedParse(delayMs = 150): void {
@@ -9,8 +9,8 @@ export function useDebouncedParse(delayMs = 150): void {
 
   useEffect(() => {
     const handle = setTimeout(() => {
-      const result = parseYaml(yamlText);
-      if (result.ok) applyValidParse(result.value);
+      const result = parseLiveYaml(yamlText);
+      if (result.ok) applyValidParse(result.value.tree, result.value.doc);
       else applyParseError(result.error);
     }, delayMs);
     return () => clearTimeout(handle);

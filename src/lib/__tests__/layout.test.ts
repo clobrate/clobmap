@@ -42,6 +42,30 @@ describe("layoutMindMap", () => {
     expect(b?.data.hasChildren).toBe(false);
   });
 
+  it("hides descendants under a collapsed node", () => {
+    const collapsed: MindDocument = {
+      title: "T",
+      root: {
+        id: "n1",
+        text: "Root",
+        children: [
+          {
+            id: "n2",
+            text: "A",
+            collapsed: true,
+            children: [{ id: "n3", text: "A1", children: [] }],
+          },
+        ],
+      },
+    };
+    const { nodes, edges } = layoutMindMap(collapsed);
+    expect(nodes.map((n) => n.id).sort()).toEqual(["n1", "n2"]);
+    expect(edges).toHaveLength(1);
+    const a = nodes.find((n) => n.id === "n2");
+    expect(a?.data.hiddenChildCount).toBe(1);
+    expect(a?.data.collapsed).toBe(true);
+  });
+
   it("produces deterministic positions for identical input", () => {
     const a = layoutMindMap(tree());
     const b = layoutMindMap(tree());

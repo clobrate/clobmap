@@ -38,3 +38,4 @@ coverage
 .env
 .env.local
 .env.*.local
+stress-1000.yaml

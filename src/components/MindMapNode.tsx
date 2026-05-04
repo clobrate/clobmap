@@ -1,20 +1,36 @@
+import { useEffect, useRef, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Node } from "@xyflow/react";
 import type { MindNodeData } from "../lib/layout";
+import { useDocumentStore } from "../store/document";
+import { useUIStore } from "../store/ui";
+import { updateText } from "../model";
 
 type Props = NodeProps<Node<MindNodeData>>;
 
-export function MindMapNode({ data }: Props) {
-  const { text, isRoot, color, note, hasChildren } = data;
+export function MindMapNode({ id, data, selected }: Props) {
+  const { text, isRoot, color, note, hasChildren, collapsed, hiddenChildCount } = data;
+
+  const editingNodeId = useUIStore((s) => s.editingNodeId);
+  const setEditing = useUIStore((s) => s.setEditing);
+  const isEditing = editingNodeId === id;
 
   const baseClass = isRoot
-    ? "rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 shadow-sm"
-    : "rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 shadow-sm hover:border-neutral-500";
+    ? "rounded-lg border bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 shadow-sm transition"
+    : "rounded-md border bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 shadow-sm transition hover:border-neutral-500";
 
-  const style = color ? { borderColor: color } : undefined;
+  const borderClass = selected
+    ? isRoot
+      ? "border-emerald-300 ring-2 ring-emerald-400/60"
+      : "border-emerald-400 ring-2 ring-emerald-400/40"
+    : isRoot
+      ? "border-emerald-500/40"
+      : "border-neutral-700";
+
+  const style = color && !selected ? { borderColor: color } : undefined;
 
   return (
-    <div className={baseClass} style={style} title={note}>
+    <div className={`${baseClass} ${borderClass}`} style={style} title={note}>
       {!isRoot && (
         <Handle
           type="target"
@@ -22,7 +38,18 @@ export function MindMapNode({ data }: Props) {
           className="!h-2 !w-2 !border-0 !bg-neutral-500"
         />
       )}
-      <div className="max-w-[160px] truncate">{text}</div>
+      {isEditing ? (
+        <InlineRename initialText={text} nodeId={id} onClose={() => setEditing(null)} />
+      ) : (
+        <div className="flex max-w-[180px] items-center gap-1.5">
+          <span className="truncate">{text}</span>
+          {collapsed && hiddenChildCount > 0 && (
+            <span className="ml-auto rounded bg-neutral-700/70 px-1 py-px text-[10px] tabular-nums text-neutral-300">
+              +{hiddenChildCount}
+            </span>
+          )}
+        </div>
+      )}
       {hasChildren && (
         <Handle
           type="source"
@@ -31,5 +58,52 @@ export function MindMapNode({ data }: Props) {
         />
       )}
     </div>
+  );
+}
+
+function InlineRename({
+  initialText,
+  nodeId,
+  onClose,
+}: {
+  initialText: string;
+  nodeId: string;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(initialText);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const commit = () => {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (tree && value !== initialText) {
+      applyTreeChange(updateText(tree, nodeId, value));
+    }
+    onClose();
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      className="w-full rounded border border-neutral-600 bg-neutral-950 px-1 py-0.5 text-sm text-neutral-100 outline-none focus:border-emerald-400"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+    />
   );
 }

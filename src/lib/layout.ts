@@ -11,13 +11,20 @@ export interface MindNodeData extends Record<string, unknown> {
   isRoot: boolean;
   color?: string;
   note?: string;
-  collapsed?: boolean;
+  collapsed: boolean;
   hasChildren: boolean;
+  hiddenChildCount: number;
 }
 
 export interface LayoutResult {
   nodes: Node<MindNodeData>[];
   edges: Edge[];
+}
+
+function countDescendants(node: MindNode): number {
+  let n = node.children.length;
+  for (const child of node.children) n += countDescendants(child);
+  return n;
 }
 
 export function layoutMindMap(doc: MindDocument): LayoutResult {
@@ -36,6 +43,8 @@ export function layoutMindMap(doc: MindDocument): LayoutResult {
 
   const visit = (node: MindNode, parentId: string | null, depth: number): void => {
     graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    const collapsed = Boolean(node.collapsed);
+    const hiddenChildCount = collapsed ? countDescendants(node) : 0;
     nodes.push({
       id: node.id,
       type: "mind",
@@ -46,8 +55,9 @@ export function layoutMindMap(doc: MindDocument): LayoutResult {
         isRoot: parentId === null,
         color: node.color,
         note: node.note,
-        collapsed: node.collapsed,
+        collapsed,
         hasChildren: node.children.length > 0,
+        hiddenChildCount,
       },
     });
     if (parentId) {
@@ -59,8 +69,10 @@ export function layoutMindMap(doc: MindDocument): LayoutResult {
         type: "smoothstep",
       });
     }
-    for (const child of node.children) {
-      visit(child, node.id, depth + 1);
+    if (!collapsed) {
+      for (const child of node.children) {
+        visit(child, node.id, depth + 1);
+      }
     }
   };
 
