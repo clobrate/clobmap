@@ -1,0 +1,5 @@
+title: Minimal
+root:
+  id: n1
+  text: Root
+  children: []

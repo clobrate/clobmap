@@ -20,6 +20,9 @@ dist-web
 src-tauri/target
 src-tauri/gen/schemas
 
+# Test coverage
+coverage
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json

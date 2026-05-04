@@ -1,0 +1,14 @@
+title: "Edge: special chars"
+root:
+  id: n1
+  text: 'Quotes: "ok" and ''fine'''
+  children:
+    - id: n2
+      text: "Colon: separator"
+      children: []
+    - id: n3
+      text: "Hash # not a comment"
+      children: []
+    - id: n4
+      text: "Multi\nline"
+      children: []

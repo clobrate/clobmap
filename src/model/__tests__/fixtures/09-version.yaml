@@ -1,0 +1,6 @@
+title: Versioned
+version: 1
+root:
+  id: n1
+  text: Root
+  children: []

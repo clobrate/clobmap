@@ -1,0 +1,14 @@
+title: Flat
+root:
+  id: n1
+  text: Central idea
+  children:
+    - id: n2
+      text: Branch A
+      children: []
+    - id: n3
+      text: Branch B
+      children: []
+    - id: n4
+      text: Branch C
+      children: []

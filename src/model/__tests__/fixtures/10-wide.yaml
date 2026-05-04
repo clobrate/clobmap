@@ -1,0 +1,13 @@
+title: Wide tree
+root:
+  id: n1
+  text: Root
+  children:
+    - { id: n2, text: A, children: [] }
+    - { id: n3, text: B, children: [] }
+    - { id: n4, text: C, children: [] }
+    - { id: n5, text: D, children: [] }
+    - { id: n6, text: E, children: [] }
+    - { id: n7, text: F, children: [] }
+    - { id: n8, text: G, children: [] }
+    - { id: n9, text: H, children: [] }

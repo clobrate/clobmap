@@ -1,0 +1,11 @@
+title: "Café — résumé · 日本語"
+root:
+  id: n1
+  text: "Idée 💡"
+  children:
+    - id: n2
+      text: "Сделать"
+      children: []
+    - id: n3
+      text: "中文 🎉"
+      children: []

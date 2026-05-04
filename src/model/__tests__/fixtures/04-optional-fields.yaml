@@ -1,0 +1,14 @@
+title: Optional Fields
+version: 1
+root:
+  id: n1
+  text: Root
+  note: This is the root node
+  color: "#ff0000"
+  collapsed: false
+  children:
+    - id: n2
+      text: Branch
+      note: Has a note
+      collapsed: true
+      children: []

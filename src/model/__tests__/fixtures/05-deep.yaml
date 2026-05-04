@@ -1,0 +1,20 @@
+title: Deep tree
+root:
+  id: n1
+  text: L0
+  children:
+    - id: n2
+      text: L1
+      children:
+        - id: n3
+          text: L2
+          children:
+            - id: n4
+              text: L3
+              children:
+                - id: n5
+                  text: L4
+                  children:
+                    - id: n6
+                      text: L5
+                      children: []
