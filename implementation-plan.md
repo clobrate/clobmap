@@ -185,26 +185,52 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 
 ---
 
-## Phase 7 — Web Build
+## Phase 7 — Web Build & Public Deployment
 
-**Goal:** Same React app runs as a static site in the browser. No Tauri APIs called.
+**Goal:** The React app runs as a static site in the browser, hosted at https://clobmap.com via Cloudflare Pages.
 
-**Work**
+**Hosting decision:** Cloudflare Pages (selected over a self-managed OCI VM). Free tier, global CDN, automatic Let's Encrypt TLS, preview deploys per PR, deploy-on-push from GitHub. The whole flow is "git push → live in ~60s."
+
+**Build work**
 
 - Storage adapter `web.ts`: File System Access API where supported (Chromium); file picker + download fallback (Safari/Firefox).
 - IndexedDB draft buffer for auto-save.
 - Build script `npm run build:web` outputs `dist-web/` static files.
 - Environment detection: feature-flag adapter selection at module load.
+- SPA fallback: a `_redirects` (or `dist-web/index.html` 200-rewrite) so refreshing on a sub-route doesn't 404.
 - Service worker for offline use (optional, but small).
+
+**Deployment work**
+
+- Create a Cloudflare account and link the GitHub repo to a new Pages project (`clobmap`).
+- Configure the project: build command `npm run build:web`, output directory `dist-web`, Node version pinned in a `.nvmrc` or via env var.
+- Custom domain `clobmap.com`:
+  - Add the domain in Cloudflare Pages → "Custom domains."
+  - Move DNS authority for `clobmap.com` from DreamHost to Cloudflare (change the registrar's NS records to Cloudflare's nameservers — DreamHost remains the registrar; Cloudflare just runs DNS). This unblocks apex-domain CNAME flattening, which DreamHost doesn't support cleanly.
+  - Cloudflare auto-issues an Edge TLS certificate.
+- Production branch: `main`. Every push triggers a deploy.
+- Preview deploys: every PR builds to a `*.pages.dev` URL automatically.
+- Add `clobmap.com` and `www.clobmap.com` (with redirect to apex).
+- Set HTTP headers via `_headers` file: long cache for `/assets/*`, `Cache-Control: no-cache` for `index.html`, baseline security headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, sensible `Content-Security-Policy`).
+
+**Alternatives left open** (not pursued for v1):
+
+- Self-hosted on an OCI Always Free VM with Caddy (auto-TLS) — viable if you later need server-side anything or want full control.
+- GitHub Pages — free, but no preview deploys, weaker headers/redirect controls.
+- Netlify / Vercel — equivalent DX but tighter free-tier bandwidth limits than Cloudflare's unlimited.
 
 **Exit criteria**
 
-- [ ] `npm run build:web` produces a static site that opens in Chrome, Safari, Firefox.
+- [ ] `npm run build:web` produces a static site that opens correctly in Chrome, Safari, Firefox when served from any path.
 - [ ] All editing features work in browser; only file I/O paths differ.
-- [ ] Browser version handles refresh: draft is restored from IndexedDB.
-- [ ] Lighthouse score: Performance ≥90, Accessibility ≥95.
+- [ ] Browser version handles refresh: draft is restored from IndexedDB; deep links don't 404.
+- [ ] Lighthouse score: Performance ≥90, Accessibility ≥95 on the deployed origin.
+- [ ] `https://clobmap.com` resolves with a valid TLS cert and serves the latest `main`.
+- [ ] `https://www.clobmap.com` 301-redirects to apex.
+- [ ] A PR opens a preview deploy at a `*.pages.dev` URL automatically.
+- [ ] Pushing to `main` updates production within 2 minutes; rollback to a previous deployment is one click.
 
-**Estimate:** 4–5 days
+**Estimate:** 4–6 days (build adapters + first-time DNS/Pages wiring)
 
 ---
 
@@ -295,13 +321,13 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 
 ## Phase 11 — CI/CD & Release Pipeline
 
-**Goal:** A git tag triggers signed, notarized, published releases on all desktop platforms.
+**Goal:** A git tag triggers signed, notarized, published releases on all desktop platforms. (Web deploys are already covered by Cloudflare Pages from Phase 7 — this phase doesn't need to re-implement them.)
 
 **Work**
 
 - GitHub Actions workflows:
-  - PR: lint, type-check, unit tests, build smoke-test (one platform).
-  - Push to main: full test suite + nightly build artifact.
+  - PR: lint, type-check, unit tests, build smoke-test (one platform). Cloudflare Pages handles its own preview deploy in parallel.
+  - Push to main: full test suite + nightly desktop build artifact. Cloudflare auto-deploys the web bundle.
   - Tag `v*`: matrix build on macOS, Windows, Linux runners; sign; notarize; publish to GitHub Releases; generate signed `latest.json`.
 - Secrets: signing keys, Apple ID, notarization credentials, updater private key.
 - Release script that bumps version in `package.json`, `Cargo.toml`, and `tauri.conf.json` atomically.
