@@ -1,7 +1,10 @@
 import { useEffect } from "react";
 import { YamlEditor } from "./components/YamlEditor";
+import { MindMap } from "./components/MindMap";
 import { StatusBar } from "./components/StatusBar";
+import { ViewToggle } from "./components/ViewToggle";
 import { useDocumentStore } from "./store/document";
+import { useUIStore } from "./store/ui";
 import { useDebouncedParse } from "./store/useDebouncedParse";
 import { parseYaml } from "./model";
 
@@ -15,7 +18,7 @@ root:
       text: Edit me — this is YAML
       children: []
     - id: n3
-      text: A toggle to mind-map view is coming next phase
+      text: Toggle the Mind-map button to see this rendered
       children:
         - id: n4
           text: Tab indent works
@@ -27,6 +30,7 @@ root:
 
 function App() {
   const reset = useDocumentStore((s) => s.reset);
+  const viewMode = useUIStore((s) => s.viewMode);
   useDebouncedParse(150);
 
   useEffect(() => {
@@ -38,11 +42,9 @@ function App() {
     <main className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
       <header className="flex items-center justify-between border-b border-neutral-800 bg-neutral-900 px-3 py-2">
         <h1 className="text-sm font-medium tracking-tight">clobmap</h1>
-        <span className="text-xs text-neutral-500">YAML editor · Phase 2</span>
+        <ViewToggle />
       </header>
-      <div className="min-h-0 flex-1">
-        <YamlEditor />
-      </div>
+      <div className="min-h-0 flex-1">{viewMode === "yaml" ? <YamlEditor /> : <MindMap />}</div>
       <StatusBar />
     </main>
   );
