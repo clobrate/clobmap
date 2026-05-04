@@ -7,6 +7,7 @@ import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { parseYaml } from "../model";
 import { useDocumentStore } from "../store/document";
+import { useUIStore } from "../store/ui";
 
 const yamlLinter = linter((view) => {
   const text = view.state.doc.toString();
@@ -27,10 +28,24 @@ const yamlLinter = linter((view) => {
   return [diagnostic];
 });
 
+function findIdLine(text: string, id: string): number {
+  const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`^\\s*-?\\s*id:\\s*['"\`]?${escaped}['"\`]?\\s*$`, "m");
+  const match = regex.exec(text);
+  if (!match) return -1;
+  return text.slice(0, match.index).split("\n").length;
+}
+
 export function YamlEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
   const setYamlText = useDocumentStore((s) => s.setYamlText);
 
+  const yamlText = useDocumentStore((s) => s.yamlText);
+  const viewMode = useUIStore((s) => s.viewMode);
+  const selectedNodeId = useUIStore((s) => s.selectedNodeId);
+
+  // Mount the editor once.
   useEffect(() => {
     if (!containerRef.current) return;
     const initial = useDocumentStore.getState().yamlText;
@@ -62,8 +77,39 @@ export function YamlEditor() {
     });
 
     const view = new EditorView({ state, parent: containerRef.current });
-    return () => view.destroy();
+    viewRef.current = view;
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
   }, [setYamlText]);
+
+  // Mirror external yamlText changes (e.g. from mind-map edits) into the editor.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current === yamlText) return;
+    view.dispatch({
+      changes: { from: 0, to: current.length, insert: yamlText },
+    });
+  }, [yamlText]);
+
+  // When the YAML view becomes visible with a selected node, jump cursor to it.
+  useEffect(() => {
+    if (viewMode === "mindmap" || !selectedNodeId) return;
+    const view = viewRef.current;
+    if (!view) return;
+    const text = view.state.doc.toString();
+    const lineNum = findIdLine(text, selectedNodeId);
+    if (lineNum < 1) return;
+    const line = view.state.doc.line(Math.min(lineNum, view.state.doc.lines));
+    view.dispatch({
+      selection: { anchor: line.from, head: line.from },
+      scrollIntoView: true,
+    });
+    if (viewMode === "yaml") view.focus();
+  }, [viewMode, selectedNodeId]);
 
   return <div ref={containerRef} className="h-full w-full overflow-hidden" />;
 }

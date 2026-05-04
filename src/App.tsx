@@ -6,7 +6,7 @@ import { ViewToggle } from "./components/ViewToggle";
 import { useDocumentStore } from "./store/document";
 import { useUIStore } from "./store/ui";
 import { useDebouncedParse } from "./store/useDebouncedParse";
-import { parseYaml } from "./model";
+import { parseLiveYaml } from "./model";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -31,12 +31,27 @@ root:
 function App() {
   const reset = useDocumentStore((s) => s.reset);
   const viewMode = useUIStore((s) => s.viewMode);
+  const toggleViewMode = useUIStore((s) => s.toggleViewMode);
   useDebouncedParse(150);
 
   useEffect(() => {
-    const result = parseYaml(DEFAULT_YAML);
-    reset(DEFAULT_YAML, result.ok ? result.value : null);
+    const result = parseLiveYaml(DEFAULT_YAML);
+    if (result.ok) reset(DEFAULT_YAML, result.value.tree, result.value.doc);
+    else reset(DEFAULT_YAML, null);
   }, [reset]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest("input,textarea,[contenteditable=true]")) return;
+        e.preventDefault();
+        toggleViewMode();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleViewMode]);
 
   return (
     <main className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
@@ -44,7 +59,28 @@ function App() {
         <h1 className="text-sm font-medium tracking-tight">clobmap</h1>
         <ViewToggle />
       </header>
-      <div className="min-h-0 flex-1">{viewMode === "yaml" ? <YamlEditor /> : <MindMap />}</div>
+      <div className="flex min-h-0 flex-1">
+        {viewMode === "yaml" && (
+          <div className="flex-1">
+            <YamlEditor />
+          </div>
+        )}
+        {viewMode === "mindmap" && (
+          <div className="flex-1">
+            <MindMap />
+          </div>
+        )}
+        {viewMode === "split" && (
+          <>
+            <div className="flex-1 border-r border-neutral-800">
+              <YamlEditor />
+            </div>
+            <div className="flex-1">
+              <MindMap />
+            </div>
+          </>
+        )}
+      </div>
       <StatusBar />
     </main>
   );

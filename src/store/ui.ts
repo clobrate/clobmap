@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type ViewMode = "yaml" | "mindmap";
+export type ViewMode = "yaml" | "mindmap" | "split";
 
 export interface UIState {
   viewMode: ViewMode;
@@ -21,7 +21,12 @@ export const useUIStore = create<UIState>((set) => ({
   editingNodeId: null,
   contextMenu: null,
   setViewMode: (mode) => set({ viewMode: mode }),
-  toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === "yaml" ? "mindmap" : "yaml" })),
+  toggleViewMode: () =>
+    set((s) => {
+      const order: ViewMode[] = ["yaml", "split", "mindmap"];
+      const i = order.indexOf(s.viewMode);
+      return { viewMode: order[(i + 1) % order.length]! };
+    }),
   setSelected: (id) => set({ selectedNodeId: id }),
   setEditing: (id) => set({ editingNodeId: id }),
   openContextMenu: (nodeId, x, y) => set({ contextMenu: { nodeId, x, y } }),

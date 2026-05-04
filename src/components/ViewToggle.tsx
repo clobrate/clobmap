@@ -2,6 +2,7 @@ import { useUIStore, type ViewMode } from "../store/ui";
 
 const tabs: ReadonlyArray<{ value: ViewMode; label: string }> = [
   { value: "yaml", label: "YAML" },
+  { value: "split", label: "Split" },
   { value: "mindmap", label: "Mind-map" },
 ];
 
