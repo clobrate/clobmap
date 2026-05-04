@@ -1,26 +1,49 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useEffect } from "react";
+import { YamlEditor } from "./components/YamlEditor";
+import { StatusBar } from "./components/StatusBar";
+import { useDocumentStore } from "./store/document";
+import { useDebouncedParse } from "./store/useDebouncedParse";
+import { parseYaml } from "./model";
+
+const DEFAULT_YAML = `title: Welcome to clobmap
+version: 1
+root:
+  id: n1
+  text: Mind map
+  children:
+    - id: n2
+      text: Edit me — this is YAML
+      children: []
+    - id: n3
+      text: A toggle to mind-map view is coming next phase
+      children:
+        - id: n4
+          text: Tab indent works
+          children: []
+        - id: n5
+          text: Cmd/Ctrl+Z undoes
+          children: []
+`;
 
 function App() {
-  const [pong, setPong] = useState<string>("…");
-  const [error, setError] = useState<string | null>(null);
+  const reset = useDocumentStore((s) => s.reset);
+  useDebouncedParse(150);
 
   useEffect(() => {
-    invoke<string>("ping")
-      .then(setPong)
-      .catch((e) => setError(String(e)));
-  }, []);
+    const result = parseYaml(DEFAULT_YAML);
+    reset(DEFAULT_YAML, result.ok ? result.value : null);
+  }, [reset]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-      <div className="text-center">
-        <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-          clobmap
-        </h1>
-        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-          {error ? `IPC error: ${error}` : `frontend ↔ rust: ${pong}`}
-        </p>
+    <main className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
+      <header className="flex items-center justify-between border-b border-neutral-800 bg-neutral-900 px-3 py-2">
+        <h1 className="text-sm font-medium tracking-tight">clobmap</h1>
+        <span className="text-xs text-neutral-500">YAML editor · Phase 2</span>
+      </header>
+      <div className="min-h-0 flex-1">
+        <YamlEditor />
       </div>
+      <StatusBar />
     </main>
   );
 }
