@@ -11,7 +11,7 @@ import {
   updateText,
 } from "../ops";
 import { createIdGenerator, idGeneratorForDocument } from "../ids";
-import type { MindDocument } from "../types";
+import { SCHEMA_VERSION, type MindDocument } from "../types";
 
 function fixture(): MindDocument {
   return {
@@ -206,6 +206,10 @@ describe("emptyDocument", () => {
     const doc = emptyDocument();
     expect(doc.root.children).toEqual([]);
     expect(doc.root.id).toBe("n1");
+  });
+
+  it("stamps the current schema version", () => {
+    expect(emptyDocument().version).toBe(SCHEMA_VERSION);
   });
 
   it("uses the supplied id generator", () => {

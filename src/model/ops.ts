@@ -1,5 +1,5 @@
 import type { IdGenerator } from "./ids";
-import type { MindDocument, MindNode } from "./types";
+import { SCHEMA_VERSION, type MindDocument, type MindNode } from "./types";
 
 export class OpError extends Error {
   constructor(message: string) {
@@ -215,6 +215,7 @@ export function emptyDocument(title = "Untitled", ids?: IdGenerator): MindDocume
   const id = ids ? ids.next() : "n1";
   return {
     title,
+    version: SCHEMA_VERSION,
     root: { id, text: title, children: [] },
   };
 }
