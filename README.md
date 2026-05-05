@@ -4,7 +4,7 @@ A minimalistic, cross-platform mind-mapping app where the **YAML view and the mi
 
 Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web, and (later) iOS / Android.
 
-> **Status:** Phase 5 / 15 — bidirectional sync, split view, and round-trip property test in place. See [Roadmap](#roadmap) for the full plan.
+> **Status:** Phase 6 / 15 — local file I/O is wired up: open/save/save-as, recent files, file watcher, dirty-state tracking. See [Roadmap](#roadmap) for the full plan.
 
 ---
 
@@ -15,6 +15,7 @@ Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web
 - Toggle between **YAML / Split / Mind-map** in the header (or `Cmd/Ctrl + /`); split shows both panes side-by-side.
 - Edits in either view propagate to the other; selecting a node in the canvas jumps the YAML cursor to its line.
 - YAML comments and field ordering survive structural edits made from the canvas.
+- Open / save plain `.yaml` files on disk; recent files persist across launches; external edits are detected and reloaded.
 
 ---
 
@@ -55,11 +56,18 @@ Bundles land at:
 
 The app starts with a sample mind map. Use the **YAML / Split / Mind-map** toggle in the header (or `Cmd/Ctrl + /`) to switch views.
 
-**App-wide shortcut**
+**App-wide shortcuts**
 
-| Action                               | Shortcut       |
-| ------------------------------------ | -------------- |
-| Cycle view (YAML → Split → Mind-map) | `Cmd/Ctrl + /` |
+| Action                               | Shortcut               |
+| ------------------------------------ | ---------------------- |
+| Cycle view (YAML → Split → Mind-map) | `Cmd/Ctrl + /`         |
+| Open file…                           | `Cmd/Ctrl + O`         |
+| Save                                 | `Cmd/Ctrl + S`         |
+| Save As…                             | `Cmd/Ctrl + Shift + S` |
+
+The header **File** menu mirrors these and lists up to 10 recently opened files.
+
+The window title shows `● <filename> — clobmap` while there are unsaved changes; closing the window prompts before discarding them. If the open file is modified externally (e.g. via `vim`) the app reloads it; if you have unsaved edits, it asks first.
 
 ### YAML view
 
@@ -141,8 +149,8 @@ Top-level fields:
 ```
 clobmap/
 ├── src/                      # React frontend (TypeScript)
-│   ├── components/           # YamlEditor, MindMap, MindMapNode, ViewToggle, ...
-│   ├── lib/                  # Pure helpers (layout via Dagre)
+│   ├── components/           # YamlEditor, MindMap, MindMapNode, ViewToggle, FileMenu, ...
+│   ├── lib/                  # Layout (Dagre), storage adapter, recentFiles, file actions
 │   ├── model/                # YAML serde, tree ops, diff, AST apply (95% test coverage)
 │   ├── store/                # Zustand stores (document, ui) + parse hook
 │   ├── App.tsx
@@ -178,24 +186,24 @@ npm run format:check     # Prettier check
 
 Implementation plan in [`implementation-plan.md`](./implementation-plan.md). One phase = one logically-complete release with hard exit criteria. ✅ = shipped.
 
-| Phase | Status | What it adds                                                                                                                                                   |
-| ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | ✅     | Tauri + React + TS scaffold; lint, format, typecheck, ping IPC                                                                                                 |
-| 1     | ✅     | Pure-TS data model: YAML parse/serialize, tree ops, diff, comment-preserving AST apply                                                                         |
-| 2     | ✅     | YAML editor view with live parsing, inline error markers, status bar                                                                                           |
-| 3     | ✅     | Read-only mind-map view (React Flow + Dagre, view toggle in header)                                                                                            |
-| 4     | ✅     | Mind-map editing — selection, keyboard ops, inline rename, drag-to-reparent, context menu, undo/redo, collapse                                                 |
-| 5     | ✅     | **Bidirectional toggle (`Cmd/Ctrl+/`), split view, external-edit sync into CodeMirror, selection-to-line cursor jump, 100-iteration round-trip property test** |
-| 6     |        | File I/O — open/save, recent files, file watcher                                                                                                               |
-| 7     |        | Web build (browser-only static site)                                                                                                                           |
-| 8     |        | UI polish + accessibility (keyboard navigation, screen reader, light/dark intent)                                                                              |
-| 9     |        | Auto-update via signed `latest.json`                                                                                                                           |
-| 10    |        | Cross-platform desktop builds + signing/notarization                                                                                                           |
-| 11    |        | CI/CD + release pipeline                                                                                                                                       |
-| 12    |        | Observability (Sentry, opt-in telemetry, error boundaries)                                                                                                     |
-| 13    |        | Mobile (iOS / Android via Tauri v2)                                                                                                                            |
-| 14    |        | Production hardening (security review, perf, docs, license)                                                                                                    |
-| 15    |        | 1.0.0 launch                                                                                                                                                   |
+| Phase | Status | What it adds                                                                                                                                               |
+| ----- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | ✅     | Tauri + React + TS scaffold; lint, format, typecheck, ping IPC                                                                                             |
+| 1     | ✅     | Pure-TS data model: YAML parse/serialize, tree ops, diff, comment-preserving AST apply                                                                     |
+| 2     | ✅     | YAML editor view with live parsing, inline error markers, status bar                                                                                       |
+| 3     | ✅     | Read-only mind-map view (React Flow + Dagre, view toggle in header)                                                                                        |
+| 4     | ✅     | Mind-map editing — selection, keyboard ops, inline rename, drag-to-reparent, context menu, undo/redo, collapse                                             |
+| 5     | ✅     | Bidirectional toggle (`Cmd/Ctrl+/`), split view, external-edit sync into CodeMirror, selection-to-line cursor jump, 100-iteration round-trip property test |
+| 6     | ✅     | **File I/O — open/save/save-as, recent files (persisted), file watcher with reload prompt, window title sync, close confirmation on unsaved changes**      |
+| 7     |        | Web build (browser-only static site)                                                                                                                       |
+| 8     |        | UI polish + accessibility (keyboard navigation, screen reader, light/dark intent)                                                                          |
+| 9     |        | Auto-update via signed `latest.json`                                                                                                                       |
+| 10    |        | Cross-platform desktop builds + signing/notarization                                                                                                       |
+| 11    |        | CI/CD + release pipeline                                                                                                                                   |
+| 12    |        | Observability (Sentry, opt-in telemetry, error boundaries)                                                                                                 |
+| 13    |        | Mobile (iOS / Android via Tauri v2)                                                                                                                        |
+| 14    |        | Production hardening (security review, perf, docs, license)                                                                                                |
+| 15    |        | 1.0.0 launch                                                                                                                                               |
 
 ---
 

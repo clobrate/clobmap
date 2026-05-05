@@ -23,6 +23,7 @@ export interface DocumentState {
   parseError: ParseError | null;
   originalText: string;
   isDirty: boolean;
+  currentFilePath: string | null;
   undoStack: HistoryEntry[];
   redoStack: HistoryEntry[];
 
@@ -32,7 +33,13 @@ export interface DocumentState {
   applyTreeChange: (newTree: MindDocument) => void;
   undo: () => void;
   redo: () => void;
-  reset: (text: string, parsed: MindDocument | null, doc?: Document | null) => void;
+  reset: (
+    text: string,
+    parsed: MindDocument | null,
+    doc?: Document | null,
+    filePath?: string | null,
+  ) => void;
+  markSavedAt: (path: string) => void;
 }
 
 function reSerialize(
@@ -56,6 +63,7 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   parseError: null,
   originalText: "",
   isDirty: false,
+  currentFilePath: null,
   undoStack: [],
   redoStack: [],
 
@@ -122,7 +130,7 @@ export const useDocumentStore = create<DocumentState>((set) => ({
       };
     }),
 
-  reset: (text, parsed, doc) =>
+  reset: (text, parsed, doc, filePath) =>
     set({
       yamlText: text,
       originalText: text,
@@ -130,7 +138,16 @@ export const useDocumentStore = create<DocumentState>((set) => ({
       yamlDoc: doc ?? null,
       parseError: null,
       isDirty: false,
+      currentFilePath: filePath ?? null,
       undoStack: [],
       redoStack: [],
     }),
+
+  markSavedAt: (path) =>
+    set((s) => ({
+      ...s,
+      currentFilePath: path,
+      originalText: s.yamlText,
+      isDirty: false,
+    })),
 }));
