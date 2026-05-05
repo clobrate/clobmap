@@ -45,7 +45,7 @@ export async function saveFile(): Promise<void> {
 
 export async function saveFileAs(): Promise<void> {
   const state = useDocumentStore.getState();
-  const path = await tauriStorage.pickSavePath(state.currentFilePath ?? "untitled.yaml");
+  const path = await tauriStorage.pickSavePath(state.currentFilePath ?? "untitled.clobmap.yaml");
   if (!path) return;
   await tauriStorage.save(path, state.yamlText);
   useDocumentStore.getState().markSavedAt(path);

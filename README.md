@@ -15,7 +15,7 @@ Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web
 - Toggle between **YAML / Split / Mind-map** in the header (or `Cmd/Ctrl + /`); split shows both panes side-by-side.
 - Edits in either view propagate to the other; selecting a node in the canvas jumps the YAML cursor to its line.
 - YAML comments and field ordering survive structural edits made from the canvas.
-- Open / save plain `.yaml` files on disk; recent files persist across launches; external edits are detected and reloaded.
+- Open / save mind maps as `.clobmap.yaml` files (plain `.yaml` / `.yml` also opens); recent files persist across launches; external edits are detected and reloaded.
 
 ---
 
@@ -103,6 +103,14 @@ Invalid YAML keeps the **last valid mind-map** rendered — your work isn't lost
 Mind-map mutations preserve YAML comments and field ordering wherever possible (via in-place AST surgery, not full re-serialization).
 
 ---
+
+## File extension
+
+Mind maps are saved as **`.clobmap.yaml`**:
+
+- The trailing `.yaml` keeps every YAML-aware tool happy — vim, VS Code, GitHub, `git diff`, and other editors apply YAML syntax highlighting automatically.
+- The `.clobmap.yaml` compound suffix lets the OS register clobmap as the handler for _just_ mind-map files (registered in the installer in Phase 10) without hijacking every `.yaml` file on your machine.
+- Plain `.yaml` / `.yml` files still open — the format is unchanged, only the recommended filename differs.
 
 ## YAML format
 

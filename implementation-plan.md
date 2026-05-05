@@ -301,6 +301,11 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - **macOS:** Apple Developer account, code signing certificate, notarization via `notarytool`. Build `.dmg` and `.app`.
 - **Windows:** code signing certificate (EV or OV — OV is fine for v1, will trigger SmartScreen warnings until reputation builds). Build `.msi` and `.exe`.
 - **Linux:** AppImage (universal), `.deb` (Debian/Ubuntu), optionally Flatpak later. No signing required for AppImage; `.deb` can be GPG-signed.
+- **File association — register `.clobmap.yaml`** as a clobmap document on each platform:
+  - macOS: `CFBundleDocumentTypes` entry in `Info.plist` (Tauri's `bundle.macOS.fileAssociations`).
+  - Windows: file extension + ProgID registered by the MSI installer.
+  - Linux: `MimeType=application/x-clobmap-yaml` in the `.desktop` file plus an `application/x-clobmap-yaml.xml` MIME registration.
+  - Do NOT claim `.yaml` / `.yml` — only `.clobmap.yaml`.
 - Test on real machines (or VMs):
   - macOS: latest + one major version back.
   - Windows: 10 + 11.
@@ -314,6 +319,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - [ ] AppImage runs on Ubuntu LTS without dependency install.
 - [ ] All three platforms produce binaries via the same release tag.
 - [ ] Binary sizes documented; macOS bundle <30MB.
+- [ ] Double-clicking a `.clobmap.yaml` file in Finder / Explorer / a Linux file manager opens it in clobmap; double-clicking a plain `.yaml` does not.
 
 **Estimate:** 7–10 days (lots of one-time setup pain)
 

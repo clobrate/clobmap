@@ -2,7 +2,10 @@ import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialo
 import { readTextFile, watch, writeTextFile } from "@tauri-apps/plugin-fs";
 import type { OpenedFile, StorageAdapter } from "./types";
 
-const FILTERS = [{ name: "Mind map (YAML)", extensions: ["yaml", "yml"] }];
+const FILTERS = [
+  { name: "Clobmap mind map", extensions: ["clobmap.yaml"] },
+  { name: "YAML files", extensions: ["yaml", "yml"] },
+];
 
 export const tauriStorage: StorageAdapter = {
   async open(): Promise<OpenedFile | null> {

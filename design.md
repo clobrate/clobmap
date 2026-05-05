@@ -34,7 +34,7 @@ A user toggling between the two sees the same content. Editing in either view up
 ## 2. Guiding Principles
 
 - **YAML is the source of truth.** The mind-map view is a rendering of the YAML tree. This eliminates a class of sync bugs and makes "view source" trivial.
-- **Local-first.** Documents are plain `.yaml` files on the user's disk. No server required.
+- **Local-first.** Documents are plain `.clobmap.yaml` files (any `.yaml` / `.yml` file also opens) on the user's disk. No server required.
 - **Minimal chrome.** No sidebars by default. The canvas (or text editor) fills the window. Controls appear on hover or via keyboard.
 - **One codebase, one mental model.** All UI is web; Rust handles only what the browser cannot (filesystem, OS dialogs, watchers).
 
@@ -184,7 +184,7 @@ IDs are auto-generated on creation (`n` + base36 counter). Users don't see them 
 
 ### Desktop / mobile (Tauri)
 
-- Documents are `.yaml` (or `.clobmap.yaml`) files on disk.
+- Documents save as `.clobmap.yaml`; plain `.yaml` / `.yml` files also open.
 - Open / Save / Save As use native dialogs.
 - A "recent files" list is persisted in app state (`tauri-plugin-store`).
 - Optional file watcher: if a file is modified externally (e.g. user edits in their text editor), reload after confirming no unsaved changes.
@@ -196,7 +196,7 @@ IDs are auto-generated on creation (`n` + base36 counter). Users don't see them 
 
 ### File extension
 
-`.yaml` is fine for v1 — the file is just YAML and other tools can read it. We may add a `.clobmap.yaml` convention later if we need richer metadata.
+**`.clobmap.yaml`** — chosen so the file is still pure YAML (every YAML-aware tool keeps working) while the compound suffix lets the OS register clobmap as the handler for _just_ mind-map files, without hijacking every `.yaml` on the user's machine. OS-level file association is wired up in Phase 10 (signing/bundling). Plain `.yaml` / `.yml` files continue to open — the format is identical, only the filename convention changes.
 
 ---
 
