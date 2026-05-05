@@ -19,6 +19,7 @@ import { checkForUpdate, shouldRunScheduledCheck } from "./lib/updater";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { SplitPanes } from "./components/SplitPanes";
 import { saveSplitRatioPref } from "./lib/settings";
+import { bootstrapOpenFromOs } from "./lib/openFromOs";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -228,6 +229,17 @@ function App() {
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
+  // OS-driven file opens: argv on launch + RunEvent::Opened during runtime.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void bootstrapOpenFromOs().then((stop) => {
+      unlisten = stop;
+    });
+    return () => {
+      unlisten?.();
+    };
   }, []);
 
   // Scheduled update check: 30s after launch, then once per 24h.

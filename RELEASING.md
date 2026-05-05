@@ -155,8 +155,124 @@ gh release delete v0.2.0 --cleanup-tag --yes
 | Each platform entry's `signature` matches the bundle's `.sig` file contents                 | yes      |
 | App version in `package.json`, `Cargo.toml`, `tauri.conf.json`, and `latest.json` all match | yes      |
 
+## macOS signing & notarization
+
+Set up once, by whoever holds the Apple Developer membership.
+
+### Find your signing identity
+
+In Keychain Access (or `security find-identity -p codesigning -v`) look for an entry of the form:
+
+```
+Developer ID Application: Your Name (TEAMID12)
+```
+
+That whole string (including the parentheses with the Team ID) is your **`APPLE_SIGNING_IDENTITY`**.
+
+### Generate an app-specific password
+
+Apple notarization needs a password that's different from your Apple ID login password.
+
+1. https://appleid.apple.com → Sign in.
+2. **Sign-in and Security** → **App-Specific Passwords** → **+** → label it `clobmap-notarization`.
+3. Copy the generated `xxxx-xxxx-xxxx-xxxx` value.
+
+### Find your Team ID
+
+https://developer.apple.com/account → **Membership** → 10-character "Team ID."
+
+### Set the env vars locally
+
+Append to `~/.zshrc` (or `.bashrc`):
+
+```bash
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID12)"
+export APPLE_ID="you@example.com"
+export APPLE_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+export APPLE_TEAM_ID="TEAMID12"
+```
+
+Reload (`source ~/.zshrc`) before building.
+
+### Build a signed + notarized `.dmg`
+
+```bash
+npm run tauri build
+```
+
+When the env vars above are set, Tauri:
+
+1. Code-signs the `.app` with your Developer ID + hardened runtime.
+2. Submits the bundle to Apple's notarization service via `notarytool`.
+3. Staples the notarization ticket to the `.dmg`.
+
+Total time: ~5–10 minutes including Apple's notarization wait.
+
+### Verify locally
+
+```bash
+# Should print: source=Notarized Developer ID
+spctl --assess --type execute --verbose \
+  src-tauri/target/release/bundle/macos/clobmap.app
+
+# Should print: The validate action worked!
+xcrun stapler validate \
+  src-tauri/target/release/bundle/dmg/clobmap_*.dmg
+```
+
+If a stranger downloads the `.dmg` and double-clicks the `.app`, **no** "unidentified developer" warning should appear — only the standard "downloaded from the internet" prompt that any signed app gets.
+
+### Verify file association
+
+After install:
+
+1. Open Finder. Right-click any `.clobmap.yaml` file → **Get Info**.
+2. **Open with:** should default to **clobmap.app**.
+3. Double-click the file → clobmap launches and opens it.
+4. A plain `.yaml` file should **not** be associated with clobmap.
+
+If either is wrong, run `lsregister` to refresh:
+
+```bash
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister \
+  -kill -r -domain local -domain user
+```
+
+## CI secrets for macOS signing
+
+In the GitHub repo's Actions secrets, mirror the local env vars:
+
+| Secret                       | Value                                                                |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `APPLE_SIGNING_IDENTITY`     | full string, e.g. `Developer ID Application: Your Name (TEAMID12)`   |
+| `APPLE_CERTIFICATE`          | base64-encoded `.p12` export of your Developer ID cert + private key |
+| `APPLE_CERTIFICATE_PASSWORD` | password you used when exporting the `.p12`                          |
+| `APPLE_ID`                   | your Apple ID email                                                  |
+| `APPLE_PASSWORD`             | the app-specific password                                            |
+| `APPLE_TEAM_ID`              | your Team ID                                                         |
+
+To produce the base64 `.p12`:
+
+```bash
+# In Keychain Access, export the cert + private key as cert.p12 with a password.
+base64 -i ~/cert.p12 -o ~/cert.p12.b64
+# Paste the contents of ~/cert.p12.b64 as the secret value.
+```
+
+Phase 11's CI workflow will base64-decode this into a temporary keychain on each runner.
+
+## Windows signing
+
+Deferred — see `implementation-plan.md` Phase 10 alternatives. Builds currently emit unsigned `.msi` / `.exe`. Users see a SmartScreen "unrecognized app" warning that they can dismiss with **More info → Run anyway**. This is acceptable until clobmap has a Windows user base big enough to warrant a code-signing cert.
+
+When ready, the cleanest path is **Azure Trusted Signing** — no USB token, ~$10/month, integrates with `signtool`. Add the Azure plugin to Tauri's Windows bundle config and the corresponding env vars to CI.
+
+## Linux signing
+
+AppImage is unsigned by convention. The `.deb` package can be GPG-signed if we ever publish via apt; for direct downloads it isn't necessary.
+
 ## Deferred to later phases
 
-- **Update channels (stable / beta).** The plumbing is straightforward — point the beta endpoint at a different `latest.json` artifact. Will be added when we genuinely have something to ship as beta.
-- **Automated CI release pipeline.** Phase 11 turns step 4–8 into a GitHub Actions matrix that runs from a tag.
-- **Notarization for macOS.** Phase 10 wires up Apple notarization so Gatekeeper accepts the signed `.dmg` without warnings.
+- **Update channels (stable / beta).** Point the beta endpoint at a different `latest.json` artifact. Add when there's something to ship as beta.
+- **Automated CI release pipeline.** Phase 11 turns the manual signing/notarization steps into a GitHub Actions matrix triggered by a tag.
+- **Windows code-signing.** See above.

@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "clobmap",
-        "width": 800,
-        "height": 600
+        "width": 1100,
+        "height": 720
       }
     ],
     "security": {
@@ -31,7 +31,38 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "shortDescription": "Minimalistic mind-mapping with YAML toggle",
+    "longDescription": "clobmap is a minimalistic mind-mapping app where the YAML view and the visual mind-map view are equally first-class. Edit either; the other follows.",
+    "category": "Productivity",
+    "copyright": "© 2026 clobmap contributors",
+    "fileAssociations": [
+      {
+        "name": "Clobmap mind map",
+        "description": "Clobmap mind-map document",
+        "ext": ["clobmap.yaml"],
+        "role": "Editor",
+        "mimeType": "application/x-clobmap-yaml"
+      }
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "frameworks": [],
+      "exceptionDomain": ""
+    },
+    "windows": {
+      "wix": {
+        "language": ["en-US"]
+      },
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
   },
   "plugins": {
     "updater": {
