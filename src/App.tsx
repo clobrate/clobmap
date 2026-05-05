@@ -17,6 +17,8 @@ import { clearDraft, loadDraft, saveDraft } from "./lib/draft";
 import { applyTheme, resolveTheme, watchSystemTheme } from "./lib/theme";
 import { checkForUpdate, shouldRunScheduledCheck } from "./lib/updater";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { SplitPanes } from "./components/SplitPanes";
+import { saveSplitRatioPref } from "./lib/settings";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -51,6 +53,8 @@ function App() {
   const viewMode = useUIStore((s) => s.viewMode);
   const toggleViewMode = useUIStore((s) => s.toggleViewMode);
   const splitOrientation = useUIStore((s) => s.splitOrientation);
+  const splitRatio = useUIStore((s) => s.splitRatio);
+  const setSplitRatio = useUIStore((s) => s.setSplitRatio);
   const setAutoSave = useUIStore((s) => s.setAutoSave);
   const setSplitOrientation = useUIStore((s) => s.setSplitOrientation);
   const setThemePreference = useUIStore((s) => s.setThemePreference);
@@ -93,13 +97,21 @@ function App() {
     void loadSettings().then((s) => {
       setAutoSave(s.autoSave);
       setSplitOrientation(s.splitOrientation);
+      setSplitRatio(s.splitRatio);
       setThemePreference(s.themePreference);
       setFontSize(s.fontSize);
       const resolved = resolveTheme(s.themePreference);
       setResolvedTheme(resolved);
       applyTheme(resolved);
     });
-  }, [setAutoSave, setSplitOrientation, setThemePreference, setFontSize, setResolvedTheme]);
+  }, [
+    setAutoSave,
+    setSplitOrientation,
+    setSplitRatio,
+    setThemePreference,
+    setFontSize,
+    setResolvedTheme,
+  ]);
 
   // Re-resolve and apply theme whenever preference changes.
   useEffect(() => {
@@ -281,13 +293,7 @@ function App() {
           <SettingsMenu />
         </div>
       </header>
-      <div
-        className={
-          viewMode === "split" && splitOrientation === "vertical"
-            ? "flex min-h-0 flex-1 flex-col"
-            : "flex min-h-0 flex-1"
-        }
-      >
+      <div className="flex min-h-0 flex-1">
         {viewMode === "yaml" && (
           <div className="flex-1">
             <YamlEditor />
@@ -299,20 +305,14 @@ function App() {
           </div>
         )}
         {viewMode === "split" && (
-          <>
-            <div
-              className={
-                splitOrientation === "horizontal"
-                  ? "flex-1 border-r border-neutral-200 dark:border-neutral-800"
-                  : "flex-1 border-b border-neutral-200 dark:border-neutral-800"
-              }
-            >
-              <YamlEditor />
-            </div>
-            <div className="flex-1">
-              <MindMap />
-            </div>
-          </>
+          <SplitPanes
+            orientation={splitOrientation}
+            ratio={splitRatio}
+            onRatioChange={setSplitRatio}
+            onRatioCommit={(r) => void saveSplitRatioPref(r)}
+            first={<YamlEditor />}
+            second={<MindMap />}
+          />
         )}
       </div>
       <StatusBar />

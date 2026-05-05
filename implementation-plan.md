@@ -18,8 +18,22 @@ npm run typecheck
 npm run test
 npm run test:coverage
 npm run build
-npm run build:web
 npm run tauri dev
+npm run dev
+Open http://localhost:1420
+
+# Preview the production bundle (no hot reload, no source maps)
+
+npm run build:web
+npm run preview:web
+Open http://localhost:4173
+(useful right before git push^)
+
+Things specific to browser testing:
+
+- Open the same browser you want to verify — FSA only works in Chromium-based (Chrome, Edge, Brave). Safari/Firefox should fall back to download.
+- Clear localStorage between sessions if you want to test the first-launch experience: DevTools → Application → Local Storage → right-click http://localhost:1420 → Clear.
+- Network throttling / offline mode is in DevTools → Network → "Offline" — useful for confirming the app still loads with cached assets / no auto-update errors.
 
 **Goal:** A buildable, runnable Tauri + React + TypeScript project on the developer's primary OS.
 

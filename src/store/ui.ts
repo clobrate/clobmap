@@ -19,6 +19,7 @@ export interface ClipboardEntry {
 export interface UIState {
   viewMode: ViewMode;
   splitOrientation: SplitOrientation;
+  splitRatio: number;
   autoSave: boolean;
   themePreference: ThemePreference;
   resolvedTheme: ResolvedTheme;
@@ -35,6 +36,7 @@ export interface UIState {
   toggleViewMode: () => void;
   setSplitOrientation: (o: SplitOrientation) => void;
   toggleSplitOrientation: () => void;
+  setSplitRatio: (ratio: number) => void;
   setAutoSave: (on: boolean) => void;
   setThemePreference: (t: ThemePreference) => void;
   setResolvedTheme: (t: ResolvedTheme) => void;
@@ -52,6 +54,7 @@ export interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   viewMode: "split",
   splitOrientation: "horizontal",
+  splitRatio: 0.5,
   autoSave: false,
   themePreference: "system",
   resolvedTheme: "dark",
@@ -76,6 +79,7 @@ export const useUIStore = create<UIState>((set) => ({
     set((s) => ({
       splitOrientation: s.splitOrientation === "horizontal" ? "vertical" : "horizontal",
     })),
+  setSplitRatio: (ratio) => set({ splitRatio: Math.max(0.2, Math.min(0.8, ratio)) }),
   setAutoSave: (on) => set({ autoSave: on }),
   setThemePreference: (t) => set({ themePreference: t }),
   setResolvedTheme: (t) => set({ resolvedTheme: t }),
