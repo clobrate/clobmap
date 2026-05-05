@@ -1,6 +1,4 @@
 import { useEffect } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { confirm } from "@tauri-apps/plugin-dialog";
 import { YamlEditor } from "./components/YamlEditor";
 import { MindMap } from "./components/MindMap";
 import { StatusBar } from "./components/StatusBar";
@@ -12,8 +10,9 @@ import { useUIStore } from "./store/ui";
 import { useDebouncedParse } from "./store/useDebouncedParse";
 import { parseLiveYaml } from "./model";
 import { openFile, saveFile, saveFileAs } from "./lib/fileActions";
-import { tauriStorage } from "./lib/storage";
+import { storage } from "./lib/storage";
 import { loadSettings } from "./lib/settings";
+import { isTauri } from "./lib/env";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -70,8 +69,7 @@ function App() {
     });
   }, [setAutoSave, setSplitOrientation]);
 
-  // Auto-save: when enabled, the document has a path, no parse error, and is
-  // dirty, persist to disk after a 1-second debounce.
+  // Auto-save: debounced disk write when YAML is valid and the doc has a path.
   useEffect(() => {
     if (!autoSave || !currentFilePath || parseError || !isDirty) return;
     const handle = setTimeout(() => {
@@ -115,41 +113,63 @@ function App() {
     return () => window.removeEventListener("keydown", handler, { capture: true });
   }, [toggleViewMode]);
 
-  // Reflect filename + dirty marker in the OS window title.
+  // Reflect filename + dirty marker in the window/document title.
   useEffect(() => {
     const title = `${isDirty ? "● " : ""}${basename(currentFilePath)} — clobmap`;
-    void getCurrentWindow().setTitle(title);
+    document.title = title;
+    if (!isTauri()) return;
+    let cancelled = false;
+    void import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+      if (cancelled) return;
+      void getCurrentWindow().setTitle(title);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isDirty, currentFilePath]);
 
-  // Confirm before discarding unsaved changes on window close.
+  // Confirm before discarding unsaved changes when the user tries to close.
   useEffect(() => {
-    const win = getCurrentWindow();
-    let unlisten: (() => void) | undefined;
-    void win
-      .onCloseRequested(async (event) => {
-        if (!useDocumentStore.getState().isDirty) return;
-        const ok = await confirm("Discard unsaved changes?", {
-          title: "Unsaved changes",
-          kind: "warning",
-          okLabel: "Discard and quit",
-          cancelLabel: "Keep editing",
+    if (isTauri()) {
+      let unlisten: (() => void) | undefined;
+      let cancelled = false;
+      void import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+        if (cancelled) return;
+        void import("@tauri-apps/plugin-dialog").then(async ({ confirm }) => {
+          if (cancelled) return;
+          unlisten = await getCurrentWindow().onCloseRequested(async (event) => {
+            if (!useDocumentStore.getState().isDirty) return;
+            const ok = await confirm("Discard unsaved changes?", {
+              title: "Unsaved changes",
+              kind: "warning",
+              okLabel: "Discard and quit",
+              cancelLabel: "Keep editing",
+            });
+            if (!ok) event.preventDefault();
+          });
         });
-        if (!ok) event.preventDefault();
-      })
-      .then((u) => {
-        unlisten = u;
       });
-    return () => {
-      unlisten?.();
+      return () => {
+        cancelled = true;
+        unlisten?.();
+      };
+    }
+    // Web: native beforeunload prompt.
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!useDocumentStore.getState().isDirty) return;
+      e.preventDefault();
+      e.returnValue = "";
     };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
-  // Watch the open file for external modifications.
+  // Watch the open file for external modifications (Tauri only — web watcher is a no-op).
   useEffect(() => {
-    if (!currentFilePath) return;
+    if (!currentFilePath || !isTauri()) return;
     let cancelled = false;
     let stop: (() => void) | undefined;
-    void tauriStorage
+    void storage
       .watch(currentFilePath, () => {
         if (cancelled) return;
         void handleExternalChange(currentFilePath);
@@ -220,13 +240,14 @@ async function handleExternalChange(path: string) {
   if (state.currentFilePath !== path) return;
   let next: string;
   try {
-    next = await tauriStorage.read(path);
+    next = await storage.read(path);
   } catch {
     return;
   }
   if (next === state.yamlText) return;
 
   if (state.isDirty) {
+    const { confirm } = await import("@tauri-apps/plugin-dialog");
     const ok = await confirm("The file changed on disk. Reload and discard your unsaved changes?", {
       title: "External change",
       kind: "warning",
