@@ -194,24 +194,25 @@ npm run format:check     # Prettier check
 
 Implementation plan in [`implementation-plan.md`](./implementation-plan.md). One phase = one logically-complete release with hard exit criteria. ✅ = shipped.
 
-| Phase | Status | What it adds                                                                                                                                               |
-| ----- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | ✅     | Tauri + React + TS scaffold; lint, format, typecheck, ping IPC                                                                                             |
-| 1     | ✅     | Pure-TS data model: YAML parse/serialize, tree ops, diff, comment-preserving AST apply                                                                     |
-| 2     | ✅     | YAML editor view with live parsing, inline error markers, status bar                                                                                       |
-| 3     | ✅     | Read-only mind-map view (React Flow + Dagre, view toggle in header)                                                                                        |
-| 4     | ✅     | Mind-map editing — selection, keyboard ops, inline rename, drag-to-reparent, context menu, undo/redo, collapse                                             |
-| 5     | ✅     | Bidirectional toggle (`Cmd/Ctrl+/`), split view, external-edit sync into CodeMirror, selection-to-line cursor jump, 100-iteration round-trip property test |
-| 6     | ✅     | **File I/O — open/save/save-as, recent files (persisted), file watcher with reload prompt, window title sync, close confirmation on unsaved changes**      |
-| 7     |        | Web build (browser-only static site)                                                                                                                       |
-| 8     |        | UI polish + accessibility (keyboard navigation, screen reader, light/dark intent)                                                                          |
-| 9     |        | Auto-update via signed `latest.json`                                                                                                                       |
-| 10    |        | Cross-platform desktop builds + signing/notarization                                                                                                       |
-| 11    |        | CI/CD + release pipeline                                                                                                                                   |
-| 12    |        | Observability (Sentry, opt-in telemetry, error boundaries)                                                                                                 |
-| 13    |        | Mobile (iOS / Android via Tauri v2)                                                                                                                        |
-| 14    |        | Production hardening (security review, perf, docs, license)                                                                                                |
-| 15    |        | 1.0.0 launch                                                                                                                                               |
+| Phase | Status | What it adds                                                                                                                                                    |
+| ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | ✅     | Tauri + React + TS scaffold; lint, format, typecheck, ping IPC                                                                                                  |
+| 1     | ✅     | Pure-TS data model: YAML parse/serialize, tree ops, diff, comment-preserving AST apply                                                                          |
+| 2     | ✅     | YAML editor view with live parsing, inline error markers, status bar                                                                                            |
+| 3     | ✅     | Read-only mind-map view (React Flow + Dagre, view toggle in header)                                                                                             |
+| 4     | ✅     | Mind-map editing — selection, keyboard ops, inline rename, drag-to-reparent, context menu, undo/redo, collapse                                                  |
+| 5     | ✅     | Bidirectional toggle (`Cmd/Ctrl+/`), split view, external-edit sync into CodeMirror, selection-to-line cursor jump, 100-iteration round-trip property test      |
+| 6     | ✅     | **File I/O — open/save/save-as, recent files (persisted), file watcher with reload prompt, window title sync, close confirmation on unsaved changes**           |
+| 6.5   |        | UX improvements — context-menu polish (edit note, color, duplicate), cut/paste subtrees, click-to-collapse chevron, vertical/horizontal split, auto-save toggle |
+| 7     |        | Web build + deployment to clobmap.com (Cloudflare Pages)                                                                                                        |
+| 8     |        | UI polish + accessibility (keyboard navigation, screen reader, light/dark intent)                                                                               |
+| 9     |        | Auto-update via signed `latest.json`                                                                                                                            |
+| 10    |        | Cross-platform desktop builds + signing/notarization                                                                                                            |
+| 11    |        | CI/CD + release pipeline                                                                                                                                        |
+| 12    |        | Observability (Sentry, opt-in telemetry, error boundaries)                                                                                                      |
+| 13    |        | Mobile (iOS / Android via Tauri v2)                                                                                                                             |
+| 14    |        | Production hardening (security review, perf, docs, license)                                                                                                     |
+| 15    |        | 1.0.0 launch                                                                                                                                                    |
 
 ---
 

@@ -185,6 +185,41 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 
 ---
 
+## Phase 6.5 — UX Improvements
+
+**Goal:** Round out the editing experience with frequently-used features before turning attention to public web deployment. Inserted between Phase 6 and Phase 7 so desktop users see a richer app the moment we go live.
+
+**Work**
+
+- **Right-click polish.** Verify the existing context menu (Phase 4) renders sensibly for every node type — root, internal branch, leaf, expanded, collapsed — and extend it with:
+  - **Edit note…** — inline input that writes to the optional `note` field.
+  - **Set color…** — small native color picker that writes the `color` field; "Clear color" option resets it.
+  - **Cut**, **Paste here** — see below.
+  - **Duplicate** — clone the subtree as a sibling immediately after the source.
+- **Disconnect / reconnect (cut + paste subtrees).** A first-class way to move a branch across long distances where drag-to-reparent is impractical:
+  - `Cmd/Ctrl + X` — store the selected subtree in an in-memory clipboard (not OS clipboard) and visually fade the source.
+  - `Cmd/Ctrl + V` — attach the clipboard subtree as a child of the currently selected node.
+  - Cycle prevention: pasting under a descendant of the cut node is rejected with a status-bar message.
+  - `Esc` clears the clipboard and the ghost styling.
+- **Click-to-collapse chevron.** Render a small `▸` / `▾` glyph on every node with children. Clicking it toggles the node's `collapsed` flag without changing the current selection. Keyboard `Space` continues to work for the selected node.
+- **Split orientation toggle.** A new UI store field `splitOrientation: "horizontal" | "vertical"`. Default `horizontal` (panes side-by-side, current behavior). A small button next to the view toggle flips to vertical (panes stacked), useful on portrait monitors and ultrawide screens with a tall sidebar layout.
+- **Auto-save toggle.** A new setting `autoSave: boolean`, off by default, exposed in a header dropdown. When on, **and** the document has a `currentFilePath`, **and** there are no parse errors, **and** there are unsaved changes, write to disk after a 1-second debounce. Auto-save **never** writes when YAML is invalid — the last-known-good text is what would be saved otherwise. The setting persists via `tauri-plugin-store` so it survives restart.
+
+**Exit criteria**
+
+- [ ] Right-clicking the root, an internal branch, and a leaf each shows a sensible menu; every action runs without throwing for every node type, including collapsed and root cases where actions are disabled.
+- [ ] Edit-note and set-color round-trip into the YAML and survive reload.
+- [ ] `Cmd/Ctrl + X` followed by `Cmd/Ctrl + V` on a different parent moves the subtree exactly (deep-equality test in `src/store/__tests__`).
+- [ ] Pasting a cut subtree under one of its own descendants is rejected and the original tree is unchanged.
+- [ ] Clicking the chevron on a node toggles `collapsed` and **does not** change `selectedNodeId`.
+- [ ] Split-orientation toggle: switching mid-edit preserves both panes' content and cursor positions; the layout responds within one frame.
+- [ ] With auto-save on and a saved file open, typing in either pane causes the file to update on disk within ~1.2s; introducing a parse error pauses auto-save until the YAML is valid again.
+- [ ] Auto-save preference survives an app restart.
+
+**Estimate:** 3–5 days
+
+---
+
 ## Phase 7 — Web Build & Public Deployment
 
 **Goal:** The React app runs as a static site in the browser, hosted at https://clobmap.com via Cloudflare Pages.
@@ -458,27 +493,28 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 
 ## Total Time Estimate
 
-| Phase              | Range      |
-| ------------------ | ---------- |
-| 0. Scaffold        | 2–4 days   |
-| 1. Data model      | 4–6 days   |
-| 2. YAML editor     | 3–5 days   |
-| 3. Mind-map (read) | 5–7 days   |
-| 4. Mind-map (edit) | 7–10 days  |
-| 5. Toggle & sync   | 5–7 days   |
-| 6. File I/O        | 4–6 days   |
-| 7. Web build       | 4–5 days   |
-| 8. Polish & a11y   | 5–7 days   |
-| 9. Auto-update     | 5–7 days   |
-| 10. Sign & build   | 7–10 days  |
-| 11. CI/CD          | 4–6 days   |
-| 12. Observability  | 3–4 days   |
-| 13. Mobile         | 15–20 days |
-| 14. Hardening      | 5–10 days  |
-| 15. Launch         | 5+ days    |
+| Phase                | Range      |
+| -------------------- | ---------- |
+| 0. Scaffold          | 2–4 days   |
+| 1. Data model        | 4–6 days   |
+| 2. YAML editor       | 3–5 days   |
+| 3. Mind-map (read)   | 5–7 days   |
+| 4. Mind-map (edit)   | 7–10 days  |
+| 5. Toggle & sync     | 5–7 days   |
+| 6. File I/O          | 4–6 days   |
+| 6.5. UX improvements | 3–5 days   |
+| 7. Web build         | 4–6 days   |
+| 8. Polish & a11y     | 5–7 days   |
+| 9. Auto-update       | 5–7 days   |
+| 10. Sign & build     | 7–10 days  |
+| 11. CI/CD            | 4–6 days   |
+| 12. Observability    | 3–4 days   |
+| 13. Mobile           | 15–20 days |
+| 14. Hardening        | 5–10 days  |
+| 15. Launch           | 5+ days    |
 
-**Desktop + web v1 (skip mobile):** ~13–17 weeks at 15 hrs/week.
-**Full cross-platform v1:** ~18–22 weeks.
+**Desktop + web v1 (skip mobile):** ~14–18 weeks at 15 hrs/week.
+**Full cross-platform v1:** ~19–23 weeks.
 
 ---
 
@@ -486,9 +522,9 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 
 ```
 0 → 1 → 2 ─┐
-         ├→ 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 14 → 15
-         │                                              ↑
-         └──────────────── 13 (mobile) ─────────────────┘
+         ├→ 3 → 4 → 5 → 6 → 6.5 → 7 → 8 → 9 → 10 → 11 → 12 → 14 → 15
+         │                                                    ↑
+         └────────────────────── 13 (mobile) ─────────────────┘
 ```
 
 Phase 13 (mobile) can start any time after Phase 8 in parallel with the desktop release path; it must rejoin before Phase 14.
