@@ -60,6 +60,14 @@ describe("diffTrees", () => {
     expect(t && "after" in t && t.after).toBe("renamed");
   });
 
+  it("detects color changes", () => {
+    const before = fixture();
+    const after = updateNode(before, "n3", { color: "#ff0000" });
+    const changes = diffTrees(before, after).changes;
+    const f = changes.find((c) => c.type === "fields");
+    expect(f && "changed" in f && f.changed).toEqual(["color"]);
+  });
+
   it("detects field changes", () => {
     const before = fixture();
     const after = updateNode(before, "n3", { note: "x", collapsed: true });

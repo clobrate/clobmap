@@ -65,6 +65,50 @@ root:
     expect(r.error.message).toMatch(/id/);
   });
 
+  it("rejects missing text on a node", () => {
+    const r = parseYaml(`title: x
+root:
+  id: n1
+  children: []
+`);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/text/);
+  });
+
+  it("rejects a child entry that is not a mapping", () => {
+    const r = parseYaml(`title: x
+root:
+  id: n1
+  text: root
+  children:
+    - just a string
+`);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/expected mapping/);
+  });
+
+  it("rejects a document missing the root field", () => {
+    const r = parseYaml(`title: x
+`);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/root/);
+  });
+
+  it("treats explicit null children as an empty list", () => {
+    const r = parseYaml(`title: x
+root:
+  id: n1
+  text: root
+  children: ~
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.root.children).toEqual([]);
+  });
+
   it("rejects unknown top-level fields", () => {
     const r = parseYaml(`title: x
 mystery: 1

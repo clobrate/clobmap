@@ -72,4 +72,14 @@ describe("idGeneratorForDocument", () => {
     const ids = idGeneratorForDocument(doc);
     expect(ids.next()).toBe("n1");
   });
+
+  it("rejects ids whose base36 doesn't round-trip cleanly", () => {
+    // "n0a" has a leading zero; parseInt accepts it but toString(36) yields "a".
+    const doc: MindDocument = {
+      title: "x",
+      root: { id: "n0a", text: "root", children: [] },
+    };
+    const ids = idGeneratorForDocument(doc);
+    expect(ids.next()).toBe("n1");
+  });
 });

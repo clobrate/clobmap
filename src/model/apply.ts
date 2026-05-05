@@ -2,11 +2,19 @@ import { isMap, isScalar, isSeq, type Document, Scalar, YAMLMap, YAMLSeq } from 
 import type { MindDocument, MindNode } from "./types";
 
 export function applyTreeToDocument(doc: Document, after: MindDocument): void {
-  setScalarValue(doc.contents as YAMLMap, "title", after.title);
+  let top: YAMLMap;
+  if (isMap(doc.contents)) {
+    top = doc.contents;
+  } else {
+    top = new YAMLMap();
+    doc.contents = top;
+  }
+
+  setScalarValue(top, "title", after.title);
   if (after.version !== undefined) {
-    setScalarValue(doc.contents as YAMLMap, "version", after.version);
-  } else if (isMap(doc.contents) && doc.contents.has("version")) {
-    doc.contents.delete("version");
+    setScalarValue(top, "version", after.version);
+  } else if (top.has("version")) {
+    top.delete("version");
   }
 
   const index = buildIdIndex(doc);
@@ -16,15 +24,12 @@ export function applyTreeToDocument(doc: Document, after: MindDocument): void {
 }
 
 function ensureRootMap(doc: Document): YAMLMap {
-  const root = doc.get("root", true);
+  // applyTreeToDocument has already ensured doc.contents is a YAMLMap.
+  const top = doc.contents as YAMLMap;
+  const root = top.get("root", true);
   if (isMap(root)) return root;
   const fresh = new YAMLMap();
-  if (isMap(doc.contents)) {
-    doc.contents.set("root", fresh);
-  } else {
-    doc.contents = new YAMLMap();
-    (doc.contents as YAMLMap).set("root", fresh);
-  }
+  top.set("root", fresh);
   return fresh;
 }
 
