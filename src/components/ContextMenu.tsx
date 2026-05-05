@@ -43,7 +43,7 @@ export function ContextMenu({
   return (
     <div
       data-context-menu
-      className="absolute z-50 min-w-[180px] rounded-md border border-neutral-700 bg-neutral-900 py-1 text-sm text-neutral-100 shadow-lg"
+      className="fixed z-50 min-w-[180px] rounded-md border border-neutral-700 bg-neutral-900 py-1 text-sm text-neutral-100 shadow-lg"
       style={{ left: x, top: y }}
     >
       <Item label="Rename" shortcut="F2" onClick={onRename} />

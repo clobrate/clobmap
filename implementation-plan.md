@@ -204,6 +204,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - **Click-to-collapse chevron.** Render a small `▸` / `▾` glyph on every node with children. Clicking it toggles the node's `collapsed` flag without changing the current selection. Keyboard `Space` continues to work for the selected node.
 - **Split orientation toggle.** A new UI store field `splitOrientation: "horizontal" | "vertical"`. Default `horizontal` (panes side-by-side, current behavior). A small button next to the view toggle flips to vertical (panes stacked), useful on portrait monitors and ultrawide screens with a tall sidebar layout.
 - **Auto-save toggle.** A new setting `autoSave: boolean`, off by default, exposed in a header dropdown. When on, **and** the document has a `currentFilePath`, **and** there are no parse errors, **and** there are unsaved changes, write to disk after a 1-second debounce. Auto-save **never** writes when YAML is invalid — the last-known-good text is what would be saved otherwise. The setting persists via `tauri-plugin-store` so it survives restart.
+- **Context menu works in split mode.** Right-clicking a node in the mind-map pane while split-view is active must position the menu at the click point regardless of pane offset (use viewport-relative `position: fixed` rather than container-relative `absolute`).
 
 **Exit criteria**
 
@@ -215,6 +216,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 - [ ] Split-orientation toggle: switching mid-edit preserves both panes' content and cursor positions; the layout responds within one frame.
 - [ ] With auto-save on and a saved file open, typing in either pane causes the file to update on disk within ~1.2s; introducing a parse error pauses auto-save until the YAML is valid again.
 - [ ] Auto-save preference survives an app restart.
+- [ ] In split view, right-clicking a node in the mind-map pane opens the context menu directly under the cursor (no offset from the pane's position on screen).
 
 **Estimate:** 3–5 days
 
