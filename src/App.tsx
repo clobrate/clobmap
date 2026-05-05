@@ -15,6 +15,8 @@ import { loadSettings } from "./lib/settings";
 import { isTauri } from "./lib/env";
 import { clearDraft, loadDraft, saveDraft } from "./lib/draft";
 import { applyTheme, resolveTheme, watchSystemTheme } from "./lib/theme";
+import { checkForUpdate, shouldRunScheduledCheck } from "./lib/updater";
+import { UpdateBanner } from "./components/UpdateBanner";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -43,6 +45,8 @@ function basename(path: string | null): string {
 }
 
 function App() {
+  const availableUpdate = useUIStore((s) => s.availableUpdate);
+  const setAvailableUpdate = useUIStore((s) => s.setAvailableUpdate);
   const reset = useDocumentStore((s) => s.reset);
   const viewMode = useUIStore((s) => s.viewMode);
   const toggleViewMode = useUIStore((s) => s.toggleViewMode);
@@ -214,6 +218,34 @@ function App() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
+  // Scheduled update check: 30s after launch, then once per 24h.
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+
+    const run = async () => {
+      if (!shouldRunScheduledCheck()) return;
+      const update = await checkForUpdate();
+      if (!cancelled && update) {
+        setAvailableUpdate({
+          version: update.version,
+          date: update.date,
+          body: update.body,
+          install: update.install,
+        });
+      }
+    };
+
+    const startup = setTimeout(run, 30_000);
+    const intervalId = setInterval(run, 60 * 60 * 1000); // hourly poll; gated by 24h check inside
+
+    return () => {
+      cancelled = true;
+      clearTimeout(startup);
+      clearInterval(intervalId);
+    };
+  }, [setAvailableUpdate]);
+
   // Watch the open file for external modifications (Tauri only — web watcher is a no-op).
   useEffect(() => {
     if (!currentFilePath || !isTauri()) return;
@@ -236,6 +268,9 @@ function App() {
 
   return (
     <main className="flex h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      {availableUpdate && (
+        <UpdateBanner update={availableUpdate} onDismiss={() => setAvailableUpdate(null)} />
+      )}
       <header className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-2">
           <h1 className="text-sm font-medium tracking-tight">clobmap</h1>

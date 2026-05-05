@@ -3,6 +3,7 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": ["main"],
+  "platforms": ["macOS", "windows", "linux"],
   "permissions": [
     "core:default",
     "core:window:default",
@@ -22,6 +23,9 @@
       "identifier": "fs:allow-watch",
       "allow": [{ "path": "**" }]
     },
-    "store:default"
+    "store:default",
+    "updater:default",
+    "process:default",
+    "process:allow-restart"
   ]
 }

@@ -6,6 +6,8 @@ import {
   saveSplitOrientationPref,
   saveThemePref,
 } from "../lib/settings";
+import { isTauri } from "../lib/env";
+import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "System" },
@@ -25,6 +27,28 @@ export function SettingsMenu() {
   const setThemePreference = useUIStore((s) => s.setThemePreference);
   const fontSize = useUIStore((s) => s.fontSize);
   const setFontSize = useUIStore((s) => s.setFontSize);
+  const setAvailableUpdate = useUIStore((s) => s.setAvailableUpdate);
+
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "none">("idle");
+
+  const onCheckForUpdates = async () => {
+    setUpdateStatus("checking");
+    clearLastCheckTime();
+    const update = await checkForUpdate();
+    if (update) {
+      setAvailableUpdate({
+        version: update.version,
+        date: update.date,
+        body: update.body,
+        install: update.install,
+      });
+      setUpdateStatus("idle");
+      setOpen(false);
+    } else {
+      setUpdateStatus("none");
+      setTimeout(() => setUpdateStatus("idle"), 3000);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -120,6 +144,27 @@ export function SettingsMenu() {
               />
             </div>
           </div>
+          {isTauri() && (
+            <>
+              <Divider />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => void onCheckForUpdates()}
+                disabled={updateStatus === "checking"}
+                className="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-800"
+              >
+                <span>Check for updates</span>
+                <span className="text-xs text-neutral-500">
+                  {updateStatus === "checking"
+                    ? "Checking…"
+                    : updateStatus === "none"
+                      ? "Up to date"
+                      : ""}
+                </span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

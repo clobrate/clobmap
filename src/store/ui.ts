@@ -5,6 +5,13 @@ export type SplitOrientation = "horizontal" | "vertical";
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 
+export interface UpdatePayload {
+  version: string;
+  date?: string;
+  body?: string;
+  install: () => Promise<void>;
+}
+
 export interface ClipboardEntry {
   nodeId: string;
 }
@@ -22,6 +29,7 @@ export interface UIState {
   contextMenu: { nodeId: string; x: number; y: number } | null;
   clipboard: ClipboardEntry | null;
   liveAnnouncement: string;
+  availableUpdate: UpdatePayload | null;
 
   setViewMode: (mode: ViewMode) => void;
   toggleViewMode: () => void;
@@ -38,6 +46,7 @@ export interface UIState {
   closeContextMenu: () => void;
   setClipboard: (entry: ClipboardEntry | null) => void;
   announce: (message: string) => void;
+  setAvailableUpdate: (u: UpdatePayload | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -53,6 +62,7 @@ export const useUIStore = create<UIState>((set) => ({
   contextMenu: null,
   clipboard: null,
   liveAnnouncement: "",
+  availableUpdate: null,
 
   setViewMode: (mode) => set({ viewMode: mode }),
   toggleViewMode: () =>
@@ -77,4 +87,5 @@ export const useUIStore = create<UIState>((set) => ({
   closeContextMenu: () => set({ contextMenu: null }),
   setClipboard: (entry) => set({ clipboard: entry }),
   announce: (message) => set({ liveAnnouncement: message }),
+  setAvailableUpdate: (u) => set({ availableUpdate: u }),
 }));
