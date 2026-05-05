@@ -31,7 +31,7 @@ export interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  viewMode: "yaml",
+  viewMode: "split",
   splitOrientation: "horizontal",
   autoSave: false,
 
