@@ -247,7 +247,7 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
   - Cloudflare auto-issues an Edge TLS certificate.
 - Production branch: `main`. Every push triggers a deploy.
 - Preview deploys: every PR builds to a `*.pages.dev` URL automatically.
-- - This is skipped for now. 
+- - This is skipped for now.
 - Add `clobmap.com` and `www.clobmap.com` (with redirect to apex).
 - Set HTTP headers via `_headers` file: long cache for `/assets/*`, `Cache-Control: no-cache` for `index.html`, baseline security headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, sensible `Content-Security-Policy`).
 

@@ -13,6 +13,7 @@ import { openFile, saveFile, saveFileAs } from "./lib/fileActions";
 import { storage } from "./lib/storage";
 import { loadSettings } from "./lib/settings";
 import { isTauri } from "./lib/env";
+import { clearDraft, loadDraft, saveDraft } from "./lib/draft";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -54,12 +55,27 @@ function App() {
   const autoSave = useUIStore((s) => s.autoSave);
   useDebouncedParse(150);
 
-  // Seed initial document on mount.
+  // Seed initial document on mount. If a draft exists from a previous session,
+  // restore it as the starting state; otherwise use the welcome sample.
   useEffect(() => {
-    const result = parseLiveYaml(DEFAULT_YAML);
-    if (result.ok) reset(DEFAULT_YAML, result.value.tree, result.value.doc);
-    else reset(DEFAULT_YAML, null);
+    const draft = loadDraft();
+    const initialText = draft ?? DEFAULT_YAML;
+    const result = parseLiveYaml(initialText);
+    if (result.ok) reset(initialText, result.value.tree, result.value.doc);
+    else reset(initialText, null);
   }, [reset]);
+
+  // Persist a draft of the in-progress YAML so closing the tab never loses work.
+  // Saves while dirty (debounced); clears when the document is clean (just
+  // saved, just opened, etc.).
+  useEffect(() => {
+    if (!isDirty) {
+      clearDraft();
+      return;
+    }
+    const handle = setTimeout(() => saveDraft(yamlText), 500);
+    return () => clearTimeout(handle);
+  }, [yamlText, isDirty]);
 
   // Hydrate persisted settings (auto-save, split orientation) on mount.
   useEffect(() => {
@@ -154,11 +170,17 @@ function App() {
         unlisten?.();
       };
     }
-    // Web: native beforeunload prompt.
+    // Web: native beforeunload prompt. Modern browsers ignore the custom
+    // message but still display their own "Leave site?" prompt when
+    // preventDefault + returnValue are set. Older Safari respects a returned
+    // string. The localStorage draft (above) is the real safety net if the
+    // browser suppresses the prompt.
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!useDocumentStore.getState().isDirty) return;
+      if (!useDocumentStore.getState().isDirty) return undefined;
+      const msg = "You have unsaved changes. Leave anyway?";
       e.preventDefault();
-      e.returnValue = "";
+      e.returnValue = msg;
+      return msg;
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
