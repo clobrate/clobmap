@@ -4,7 +4,7 @@ A minimalistic, cross-platform mind-mapping app where the **YAML view and the mi
 
 Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web, and (later) iOS / Android.
 
-> **Status:** Phase 7 / 15 — web build is in place. The same React app runs as a static site (`npm run build:web` → `dist-web/`) and is ready to deploy to https://clobmap.com via Cloudflare Pages. Tauri-only features (file watcher, native dialogs) gracefully fall back to web equivalents (input picker, downloads, `beforeunload`). See [Roadmap](#roadmap) for the full plan.
+> **Status:** Phase 7 / 15 — **live at https://clobmap.com**. The web build deploys to Cloudflare Pages on every push to `main`; `www.clobmap.com` 301-redirects to apex; TLS auto-issued. Tauri-only features (file watcher, native dialogs) gracefully fall back to web equivalents (input picker, downloads, `beforeunload`). See [Roadmap](#roadmap) for the full plan.
 
 ---
 
@@ -218,25 +218,25 @@ npm run format:check     # Prettier check
 
 Implementation plan in [`implementation-plan.md`](./implementation-plan.md). One phase = one logically-complete release with hard exit criteria. ✅ = shipped.
 
-| Phase | Status | What it adds                                                                                                                                                                                                    |
-| ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | ✅     | Tauri + React + TS scaffold; lint, format, typecheck, ping IPC                                                                                                                                                  |
-| 1     | ✅     | Pure-TS data model: YAML parse/serialize, tree ops, diff, comment-preserving AST apply                                                                                                                          |
-| 2     | ✅     | YAML editor view with live parsing, inline error markers, status bar                                                                                                                                            |
-| 3     | ✅     | Read-only mind-map view (React Flow + Dagre, view toggle in header)                                                                                                                                             |
-| 4     | ✅     | Mind-map editing — selection, keyboard ops, inline rename, drag-to-reparent, context menu, undo/redo, collapse                                                                                                  |
-| 5     | ✅     | Bidirectional toggle (`Cmd/Ctrl+/`), split view, external-edit sync into CodeMirror, selection-to-line cursor jump, 100-iteration round-trip property test                                                      |
-| 6     | ✅     | File I/O — open/save/save-as, recent files (persisted), file watcher with reload prompt, window title sync, close confirmation on unsaved changes                                                               |
-| 6.5   | ✅     | UX improvements — context menu polish (edit note, color, duplicate), cut/paste subtrees, click-to-collapse chevron, horizontal/vertical split, auto-save toggle, fixed context-menu position in split mode      |
-| 7     | ✅     | **Web build (`npm run build:web`) with File System Access API + input/download fallback, platform-aware storage and settings, SPA `_redirects` + `_headers`. Cloudflare Pages deploy is the manual next step.** |
-| 8     |        | UI polish + accessibility (keyboard navigation, screen reader, light/dark intent)                                                                                                                               |
-| 9     |        | Auto-update via signed `latest.json`                                                                                                                                                                            |
-| 10    |        | Cross-platform desktop builds + signing/notarization                                                                                                                                                            |
-| 11    |        | CI/CD + release pipeline                                                                                                                                                                                        |
-| 12    |        | Observability (Sentry, opt-in telemetry, error boundaries)                                                                                                                                                      |
-| 13    |        | Mobile (iOS / Android via Tauri v2)                                                                                                                                                                             |
-| 14    |        | Production hardening (security review, perf, docs, license)                                                                                                                                                     |
-| 15    |        | 1.0.0 launch                                                                                                                                                                                                    |
+| Phase | Status | What it adds                                                                                                                                                                                                                              |
+| ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | ✅     | Tauri + React + TS scaffold; lint, format, typecheck, ping IPC                                                                                                                                                                            |
+| 1     | ✅     | Pure-TS data model: YAML parse/serialize, tree ops, diff, comment-preserving AST apply                                                                                                                                                    |
+| 2     | ✅     | YAML editor view with live parsing, inline error markers, status bar                                                                                                                                                                      |
+| 3     | ✅     | Read-only mind-map view (React Flow + Dagre, view toggle in header)                                                                                                                                                                       |
+| 4     | ✅     | Mind-map editing — selection, keyboard ops, inline rename, drag-to-reparent, context menu, undo/redo, collapse                                                                                                                            |
+| 5     | ✅     | Bidirectional toggle (`Cmd/Ctrl+/`), split view, external-edit sync into CodeMirror, selection-to-line cursor jump, 100-iteration round-trip property test                                                                                |
+| 6     | ✅     | File I/O — open/save/save-as, recent files (persisted), file watcher with reload prompt, window title sync, close confirmation on unsaved changes                                                                                         |
+| 6.5   | ✅     | UX improvements — context menu polish (edit note, color, duplicate), cut/paste subtrees, click-to-collapse chevron, horizontal/vertical split, auto-save toggle, fixed context-menu position in split mode                                |
+| 7     | ✅     | **Web build live at https://clobmap.com — Cloudflare Pages, auto-deploy from `main`, www→apex 301, TLS auto-issued. Platform-aware storage (FSA + input/download fallback) and settings (localStorage on web, plugin-store on desktop).** |
+| 8     |        | UI polish + accessibility (keyboard navigation, screen reader, light/dark intent)                                                                                                                                                         |
+| 9     |        | Auto-update via signed `latest.json`                                                                                                                                                                                                      |
+| 10    |        | Cross-platform desktop builds + signing/notarization                                                                                                                                                                                      |
+| 11    |        | CI/CD + release pipeline                                                                                                                                                                                                                  |
+| 12    |        | Observability (Sentry, opt-in telemetry, error boundaries)                                                                                                                                                                                |
+| 13    |        | Mobile (iOS / Android via Tauri v2)                                                                                                                                                                                                       |
+| 14    |        | Production hardening (security review, perf, docs, license)                                                                                                                                                                               |
+| 15    |        | 1.0.0 launch                                                                                                                                                                                                                              |
 
 ---
 
