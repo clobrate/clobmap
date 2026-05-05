@@ -27,6 +27,8 @@ function findParent(
   parent: MindNode | null = null,
 ): { parent: MindNode; index: number } | null {
   if (node.id === id) {
+    // Defensive: every caller validates id !== root.id first, so parent is non-null here.
+    /* v8 ignore next */
     return parent ? { parent, index: parent.children.indexOf(node) } : null;
   }
   for (const child of node.children) {
@@ -205,9 +207,12 @@ function addChildExisting(
     children.splice(insertAt, 0, node);
     return { ...n, children };
   });
+  // Defensive: both callers validate parentId before invoking this helper.
+  /* v8 ignore start */
   if (!found || newRoot === null) {
     throw new OpError(`moveNode: parent "${parentId}" disappeared during move`);
   }
+  /* v8 ignore stop */
   return { ...doc, root: newRoot };
 }
 
@@ -231,14 +236,11 @@ export function duplicateNode(
   if (id === doc.root.id) {
     throw new OpError("duplicateNode: cannot duplicate root");
   }
-  const original = findById(doc, id);
-  if (!original) {
-    throw new OpError(`duplicateNode: node "${id}" not found`);
-  }
   const parentInfo = findParent(doc.root, id);
   if (!parentInfo) {
-    throw new OpError(`duplicateNode: parent of "${id}" not found`);
+    throw new OpError(`duplicateNode: node "${id}" not found`);
   }
+  const original = parentInfo.parent.children[parentInfo.index]!;
   const clone = cloneWithNewIds(original, ids);
   const inserted = addChildExisting(doc, parentInfo.parent.id, clone, parentInfo.index + 1);
   return { doc: inserted, newId: clone.id };

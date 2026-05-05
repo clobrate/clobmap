@@ -12,6 +12,15 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
 
 ## Phase 0 — Scaffold & Development Environment
 
+Validate yourself:
+npm run lint
+npm run typecheck
+npm run test
+npm run test:coverage
+npm run build
+npm run build:web
+npm run tauri dev
+
 **Goal:** A buildable, runnable Tauri + React + TypeScript project on the developer's primary OS.
 
 **Work**
@@ -316,6 +325,12 @@ Time estimates assume one developer at ~15 hrs/week. Treat them as ranges, not c
   - On install: download, verify signature, install, prompt to relaunch.
 - Handle failure modes: no network, corrupt download, signature mismatch (refuse install, log).
 - Update channel support: `stable` and `beta` (config-only; `beta` opt-in via setting).
+
+  Note:
+  Two things you have to do before the first real release
+  1. Generate a signing keypair and replace REPLACE_WITH_PUBKEY_FROM_TAURI_SIGNER_GENERATE in src-tauri/tauri.conf.json with the public key. Step-by-step in RELEASING.md §1–2.
+  2. Stash the private key + passphrase as GitHub secrets (TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD). The CI pipeline in Phase 11 will use them.
+     Until you generate the keypair, the placeholder pubkey means a real auto-update would fail signature verification — which is the correct safe-by-default behavior.
 
 **Exit criteria**
 
