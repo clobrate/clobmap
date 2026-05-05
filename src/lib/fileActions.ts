@@ -1,4 +1,4 @@
-import { confirm } from "@tauri-apps/plugin-dialog";
+import { confirm, message } from "@tauri-apps/plugin-dialog";
 import { useDocumentStore } from "../store/document";
 import { parseLiveYaml } from "../model";
 import { tauriStorage } from "./storage";
@@ -14,23 +14,33 @@ async function confirmDiscard(): Promise<boolean> {
   });
 }
 
+async function showError(title: string, err: unknown): Promise<void> {
+  const detail = err instanceof Error ? err.message : String(err);
+  console.error(title, err);
+  await message(`${title}\n\n${detail}`, { title: "clobmap", kind: "error" });
+}
+
 export async function openFromPath(path: string): Promise<void> {
   try {
     const contents = await tauriStorage.read(path);
     loadIntoStore(contents, path);
     await addRecentFile(path);
   } catch (err) {
-    console.error("Failed to open", path, err);
+    await showError(`Could not open ${path}`, err);
     await removeRecentFile(path);
   }
 }
 
 export async function openFile(): Promise<void> {
   if (!(await confirmDiscard())) return;
-  const result = await tauriStorage.open();
-  if (!result) return;
-  loadIntoStore(result.contents, result.path);
-  await addRecentFile(result.path);
+  try {
+    const result = await tauriStorage.open();
+    if (!result) return;
+    loadIntoStore(result.contents, result.path);
+    await addRecentFile(result.path);
+  } catch (err) {
+    await showError("Could not open file", err);
+  }
 }
 
 export async function saveFile(): Promise<void> {
@@ -38,18 +48,32 @@ export async function saveFile(): Promise<void> {
   if (!state.currentFilePath) {
     return saveFileAs();
   }
-  await tauriStorage.save(state.currentFilePath, state.yamlText);
-  state.markSavedAt(state.currentFilePath);
-  await addRecentFile(state.currentFilePath);
+  try {
+    await tauriStorage.save(state.currentFilePath, state.yamlText);
+    state.markSavedAt(state.currentFilePath);
+    await addRecentFile(state.currentFilePath);
+  } catch (err) {
+    await showError(`Could not save to ${state.currentFilePath}`, err);
+  }
 }
 
 export async function saveFileAs(): Promise<void> {
   const state = useDocumentStore.getState();
-  const path = await tauriStorage.pickSavePath(state.currentFilePath ?? "untitled.clobmap.yaml");
+  let path: string | null;
+  try {
+    path = await tauriStorage.pickSavePath(state.currentFilePath ?? "untitled.clobmap.yaml");
+  } catch (err) {
+    await showError("Could not open save dialog", err);
+    return;
+  }
   if (!path) return;
-  await tauriStorage.save(path, state.yamlText);
-  useDocumentStore.getState().markSavedAt(path);
-  await addRecentFile(path);
+  try {
+    await tauriStorage.save(path, state.yamlText);
+    useDocumentStore.getState().markSavedAt(path);
+    await addRecentFile(path);
+  } catch (err) {
+    await showError(`Could not save to ${path}`, err);
+  }
 }
 
 export async function openRecent(path: string): Promise<void> {
