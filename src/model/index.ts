@@ -13,6 +13,8 @@ export {
   updateText,
   updateNode,
   moveNode,
+  duplicateNode,
+  cloneWithNewIds,
   emptyDocument,
 } from "./ops";
 export { diffTrees, type NodeChange, type TreeDiff } from "./diff";

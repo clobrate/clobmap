@@ -23,6 +23,7 @@ import {
   addChild,
   addSibling,
   deleteNode,
+  duplicateNode,
   findById,
   idGeneratorForDocument,
   moveNode,
@@ -54,6 +55,8 @@ function MindMapInner() {
   const contextMenu = useUIStore((s) => s.contextMenu);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
+  const clipboard = useUIStore((s) => s.clipboard);
+  const setClipboard = useUIStore((s) => s.setClipboard);
 
   const layout = useMemo(
     () => (parsedDoc ? layoutMindMap(parsedDoc) : { nodes: [], edges: [] }),
@@ -151,11 +154,30 @@ function MindMapInner() {
         redo();
         return;
       }
+      if (isCmd && e.key.toLowerCase() === "x") {
+        if (!selectedId || selectedId === tree.root.id) return;
+        e.preventDefault();
+        useUIStore.getState().setClipboard({ nodeId: selectedId });
+        return;
+      }
+      if (isCmd && e.key.toLowerCase() === "v") {
+        const cb = useUIStore.getState().clipboard;
+        if (!cb || !selectedId) return;
+        e.preventDefault();
+        try {
+          applyTreeChange(moveNode(tree, cb.nodeId, selectedId));
+          useUIStore.getState().setClipboard(null);
+        } catch (err) {
+          if (!(err instanceof OpError)) throw err;
+        }
+        return;
+      }
 
       if (e.key === "Escape") {
         e.preventDefault();
         setEditing(null);
         closeContextMenu();
+        if (useUIStore.getState().clipboard) useUIStore.getState().setClipboard(null);
         return;
       }
 
@@ -268,6 +290,7 @@ function MindMapInner() {
           x={contextMenu.x}
           y={contextMenu.y}
           tree={parsedDoc}
+          isClipboardActive={clipboard !== null}
           onClose={closeContextMenu}
           onAddChild={() => handleAddChild(contextMenu.nodeId)}
           onAddSibling={() => handleAddSibling(contextMenu.nodeId)}
@@ -277,6 +300,11 @@ function MindMapInner() {
             setEditing(contextMenu.nodeId);
             closeContextMenu();
           }}
+          onDuplicate={() => handleDuplicate(contextMenu.nodeId)}
+          onEditNote={(note) => handleEditNote(contextMenu.nodeId, note)}
+          onSetColor={(color) => handleSetColor(contextMenu.nodeId, color)}
+          onCut={() => handleCut(contextMenu.nodeId)}
+          onPaste={() => handlePaste(contextMenu.nodeId)}
         />
       )}
     </div>
@@ -326,6 +354,53 @@ function MindMapInner() {
     const node = findById(tree, nodeId);
     if (!node || node.children.length === 0) return;
     applyTreeChange(updateNode(tree, nodeId, { collapsed: !node.collapsed }));
+    closeContextMenu();
+  }
+
+  function handleDuplicate(nodeId: string) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree || nodeId === tree.root.id) return;
+    try {
+      const ids = idGeneratorForDocument(tree);
+      const result = duplicateNode(tree, nodeId, ids);
+      applyTreeChange(result.doc);
+      setSelected(result.newId);
+    } catch (err) {
+      if (!(err instanceof OpError)) throw err;
+    }
+    closeContextMenu();
+  }
+
+  function handleEditNote(nodeId: string, note: string) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree) return;
+    applyTreeChange(updateNode(tree, nodeId, { note }));
+    closeContextMenu();
+  }
+
+  function handleSetColor(nodeId: string, color: string | null) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree) return;
+    applyTreeChange(updateNode(tree, nodeId, { color: color ?? "" }));
+    closeContextMenu();
+  }
+
+  function handleCut(nodeId: string) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree || nodeId === tree.root.id) return;
+    setClipboard({ nodeId });
+    closeContextMenu();
+  }
+
+  function handlePaste(targetId: string) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree || !clipboard) return;
+    try {
+      applyTreeChange(moveNode(tree, clipboard.nodeId, targetId));
+      setClipboard(null);
+    } catch (err) {
+      if (!(err instanceof OpError)) throw err;
+    }
     closeContextMenu();
   }
 }

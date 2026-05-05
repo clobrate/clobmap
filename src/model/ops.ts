@@ -211,6 +211,39 @@ function addChildExisting(
   return { ...doc, root: newRoot };
 }
 
+export function cloneWithNewIds(node: MindNode, ids: IdGenerator): MindNode {
+  const cloned: MindNode = {
+    id: ids.next(),
+    text: node.text,
+    children: node.children.map((c) => cloneWithNewIds(c, ids)),
+  };
+  if (node.note !== undefined) cloned.note = node.note;
+  if (node.color !== undefined) cloned.color = node.color;
+  if (node.collapsed !== undefined) cloned.collapsed = node.collapsed;
+  return cloned;
+}
+
+export function duplicateNode(
+  doc: MindDocument,
+  id: string,
+  ids: IdGenerator,
+): { doc: MindDocument; newId: string } {
+  if (id === doc.root.id) {
+    throw new OpError("duplicateNode: cannot duplicate root");
+  }
+  const original = findById(doc, id);
+  if (!original) {
+    throw new OpError(`duplicateNode: node "${id}" not found`);
+  }
+  const parentInfo = findParent(doc.root, id);
+  if (!parentInfo) {
+    throw new OpError(`duplicateNode: parent of "${id}" not found`);
+  }
+  const clone = cloneWithNewIds(original, ids);
+  const inserted = addChildExisting(doc, parentInfo.parent.id, clone, parentInfo.index + 1);
+  return { doc: inserted, newId: clone.id };
+}
+
 export function emptyDocument(title = "Untitled", ids?: IdGenerator): MindDocument {
   const id = ids ? ids.next() : "n1";
   return {

@@ -4,7 +4,7 @@ import type { Node } from "@xyflow/react";
 import type { MindNodeData } from "../lib/layout";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
-import { updateText } from "../model";
+import { updateNode, updateText } from "../model";
 
 type Props = NodeProps<Node<MindNodeData>>;
 
@@ -13,7 +13,9 @@ export function MindMapNode({ id, data, selected }: Props) {
 
   const editingNodeId = useUIStore((s) => s.editingNodeId);
   const setEditing = useUIStore((s) => s.setEditing);
+  const clipboard = useUIStore((s) => s.clipboard);
   const isEditing = editingNodeId === id;
+  const isClipped = clipboard?.nodeId === id;
 
   const baseClass = isRoot
     ? "rounded-lg border bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 shadow-sm transition"
@@ -27,10 +29,12 @@ export function MindMapNode({ id, data, selected }: Props) {
       ? "border-emerald-500/40"
       : "border-neutral-700";
 
+  const dimClass = isClipped ? "opacity-40 outline-dashed outline-1 outline-amber-400/60" : "";
+
   const style = color && !selected ? { borderColor: color } : undefined;
 
   return (
-    <div className={`${baseClass} ${borderClass}`} style={style} title={note}>
+    <div className={`${baseClass} ${borderClass} ${dimClass}`} style={style} title={note}>
       {!isRoot && (
         <Handle
           type="target"
@@ -41,12 +45,10 @@ export function MindMapNode({ id, data, selected }: Props) {
       {isEditing ? (
         <InlineRename initialText={text} nodeId={id} onClose={() => setEditing(null)} />
       ) : (
-        <div className="flex max-w-[180px] items-center gap-1.5">
+        <div className="flex max-w-[200px] items-center gap-1.5">
           <span className="truncate">{text}</span>
-          {collapsed && hiddenChildCount > 0 && (
-            <span className="ml-auto rounded bg-neutral-700/70 px-1 py-px text-[10px] tabular-nums text-neutral-300">
-              +{hiddenChildCount}
-            </span>
+          {hasChildren && (
+            <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
           )}
         </div>
       )}
@@ -58,6 +60,41 @@ export function MindMapNode({ id, data, selected }: Props) {
         />
       )}
     </div>
+  );
+}
+
+function Chevron({
+  nodeId,
+  collapsed,
+  hiddenChildCount,
+}: {
+  nodeId: string;
+  collapsed: boolean;
+  hiddenChildCount: number;
+}) {
+  const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
+
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => {
+        // Stop ReactFlow from selecting the node when the chevron is clicked.
+        e.stopPropagation();
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        const tree = useDocumentStore.getState().parsedDoc;
+        if (!tree) return;
+        applyTreeChange(updateNode(tree, nodeId, { collapsed: !collapsed }));
+      }}
+      className="ml-auto flex items-center gap-1 rounded px-1 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700/60 hover:text-neutral-100"
+      title={collapsed ? "Expand" : "Collapse"}
+    >
+      <span className="font-mono leading-none">{collapsed ? "▸" : "▾"}</span>
+      {collapsed && hiddenChildCount > 0 && (
+        <span className="tabular-nums text-[10px] text-neutral-300">{hiddenChildCount}</span>
+      )}
+    </button>
   );
 }
 

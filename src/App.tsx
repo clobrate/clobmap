@@ -6,12 +6,14 @@ import { MindMap } from "./components/MindMap";
 import { StatusBar } from "./components/StatusBar";
 import { ViewToggle } from "./components/ViewToggle";
 import { FileMenu } from "./components/FileMenu";
+import { SettingsMenu } from "./components/SettingsMenu";
 import { useDocumentStore } from "./store/document";
 import { useUIStore } from "./store/ui";
 import { useDebouncedParse } from "./store/useDebouncedParse";
 import { parseLiveYaml } from "./model";
 import { openFile, saveFile, saveFileAs } from "./lib/fileActions";
 import { tauriStorage } from "./lib/storage";
+import { loadSettings } from "./lib/settings";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -43,8 +45,14 @@ function App() {
   const reset = useDocumentStore((s) => s.reset);
   const viewMode = useUIStore((s) => s.viewMode);
   const toggleViewMode = useUIStore((s) => s.toggleViewMode);
+  const splitOrientation = useUIStore((s) => s.splitOrientation);
+  const setAutoSave = useUIStore((s) => s.setAutoSave);
+  const setSplitOrientation = useUIStore((s) => s.setSplitOrientation);
   const isDirty = useDocumentStore((s) => s.isDirty);
   const currentFilePath = useDocumentStore((s) => s.currentFilePath);
+  const yamlText = useDocumentStore((s) => s.yamlText);
+  const parseError = useDocumentStore((s) => s.parseError);
+  const autoSave = useUIStore((s) => s.autoSave);
   useDebouncedParse(150);
 
   // Seed initial document on mount.
@@ -53,6 +61,24 @@ function App() {
     if (result.ok) reset(DEFAULT_YAML, result.value.tree, result.value.doc);
     else reset(DEFAULT_YAML, null);
   }, [reset]);
+
+  // Hydrate persisted settings (auto-save, split orientation) on mount.
+  useEffect(() => {
+    void loadSettings().then((s) => {
+      setAutoSave(s.autoSave);
+      setSplitOrientation(s.splitOrientation);
+    });
+  }, [setAutoSave, setSplitOrientation]);
+
+  // Auto-save: when enabled, the document has a path, no parse error, and is
+  // dirty, persist to disk after a 1-second debounce.
+  useEffect(() => {
+    if (!autoSave || !currentFilePath || parseError || !isDirty) return;
+    const handle = setTimeout(() => {
+      void saveFile();
+    }, 1000);
+    return () => clearTimeout(handle);
+  }, [autoSave, currentFilePath, parseError, isDirty, yamlText]);
 
   // App-wide keyboard shortcuts (capture phase to beat CodeMirror).
   useEffect(() => {
@@ -145,9 +171,18 @@ function App() {
           <h1 className="text-sm font-medium tracking-tight">clobmap</h1>
           <FileMenu />
         </div>
-        <ViewToggle />
+        <div className="flex items-center gap-2">
+          <ViewToggle />
+          <SettingsMenu />
+        </div>
       </header>
-      <div className="flex min-h-0 flex-1">
+      <div
+        className={
+          viewMode === "split" && splitOrientation === "vertical"
+            ? "flex min-h-0 flex-1 flex-col"
+            : "flex min-h-0 flex-1"
+        }
+      >
         {viewMode === "yaml" && (
           <div className="flex-1">
             <YamlEditor />
@@ -160,7 +195,13 @@ function App() {
         )}
         {viewMode === "split" && (
           <>
-            <div className="flex-1 border-r border-neutral-800">
+            <div
+              className={
+                splitOrientation === "horizontal"
+                  ? "flex-1 border-r border-neutral-800"
+                  : "flex-1 border-b border-neutral-800"
+              }
+            >
               <YamlEditor />
             </div>
             <div className="flex-1">

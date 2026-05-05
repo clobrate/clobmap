@@ -4,7 +4,7 @@ A minimalistic, cross-platform mind-mapping app where the **YAML view and the mi
 
 Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web, and (later) iOS / Android.
 
-> **Status:** Phase 6 / 15 — local file I/O is wired up: open/save/save-as, recent files, file watcher, dirty-state tracking. See [Roadmap](#roadmap) for the full plan.
+> **Status:** Phase 6.5 / 15 — UX improvements pass: richer right-click menu, cut/paste subtrees, click-to-collapse chevron, horizontal/vertical split, auto-save toggle. See [Roadmap](#roadmap) for the full plan.
 
 ---
 
@@ -16,6 +16,8 @@ Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web
 - Edits in either view propagate to the other; selecting a node in the canvas jumps the YAML cursor to its line.
 - YAML comments and field ordering survive structural edits made from the canvas.
 - Open / save mind maps as `.clobmap.yaml` files (plain `.yaml` / `.yml` also opens); recent files persist across launches; external edits are detected and reloaded.
+- **Auto-save** (toggle in the ⚙ menu): when on and the YAML parses cleanly, edits flush to disk after a short pause.
+- **Split orientation:** side-by-side (default) or stacked, switchable from the ⚙ menu — preference persists across launches.
 
 ---
 
@@ -85,20 +87,21 @@ Invalid YAML keeps the **last valid mind-map** rendered — your work isn't lost
 
 ### Mind-map view
 
-| Action                   | Shortcut                                                    |
-| ------------------------ | ----------------------------------------------------------- |
-| Select a node            | Click                                                       |
-| Clear selection          | Click background                                            |
-| Add a child              | `Tab` (auto-renames)                                        |
-| Add a sibling            | `Enter` (auto-renames)                                      |
-| Rename inline            | `F2` or double-click                                        |
-| Delete                   | `Delete` / `Backspace` (root is protected)                  |
-| Collapse / expand        | `Space` (collapsed nodes show `+N` for hidden descendants)  |
-| Reparent                 | Drag a node onto another (illegal drops snap back)          |
-| Context menu             | Right-click                                                 |
-| Fit to view              | `Cmd/Ctrl + 0`                                              |
-| Undo / redo              | `Cmd/Ctrl + Z` / `Cmd/Ctrl + Shift + Z` (or `Cmd/Ctrl + Y`) |
-| Cancel edit / close menu | `Esc`                                                       |
+| Action                           | Shortcut                                                                     |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| Select a node                    | Click                                                                        |
+| Clear selection                  | Click background                                                             |
+| Add a child                      | `Tab` (auto-renames)                                                         |
+| Add a sibling                    | `Enter` (auto-renames)                                                       |
+| Rename inline                    | `F2` or double-click                                                         |
+| Delete                           | `Delete` / `Backspace` (root is protected)                                   |
+| Collapse / expand                | `Space`, or click the `▸/▾` chevron on the node                              |
+| Reparent (drag)                  | Drag a node onto another (illegal drops snap back)                           |
+| Reparent (cut/paste, long range) | `Cmd/Ctrl + X` on source, select target, `Cmd/Ctrl + V`                      |
+| Context menu                     | Right-click — Rename, Edit note, Set color, Add/Duplicate, Cut/Paste, Delete |
+| Fit to view                      | `Cmd/Ctrl + 0`                                                               |
+| Undo / redo                      | `Cmd/Ctrl + Z` / `Cmd/Ctrl + Shift + Z` (or `Cmd/Ctrl + Y`)                  |
+| Cancel edit / clear clipboard    | `Esc`                                                                        |
 
 Mind-map mutations preserve YAML comments and field ordering wherever possible (via in-place AST surgery, not full re-serialization).
 
@@ -194,25 +197,25 @@ npm run format:check     # Prettier check
 
 Implementation plan in [`implementation-plan.md`](./implementation-plan.md). One phase = one logically-complete release with hard exit criteria. ✅ = shipped.
 
-| Phase | Status | What it adds                                                                                                                                                    |
-| ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | ✅     | Tauri + React + TS scaffold; lint, format, typecheck, ping IPC                                                                                                  |
-| 1     | ✅     | Pure-TS data model: YAML parse/serialize, tree ops, diff, comment-preserving AST apply                                                                          |
-| 2     | ✅     | YAML editor view with live parsing, inline error markers, status bar                                                                                            |
-| 3     | ✅     | Read-only mind-map view (React Flow + Dagre, view toggle in header)                                                                                             |
-| 4     | ✅     | Mind-map editing — selection, keyboard ops, inline rename, drag-to-reparent, context menu, undo/redo, collapse                                                  |
-| 5     | ✅     | Bidirectional toggle (`Cmd/Ctrl+/`), split view, external-edit sync into CodeMirror, selection-to-line cursor jump, 100-iteration round-trip property test      |
-| 6     | ✅     | **File I/O — open/save/save-as, recent files (persisted), file watcher with reload prompt, window title sync, close confirmation on unsaved changes**           |
-| 6.5   |        | UX improvements — context-menu polish (edit note, color, duplicate), cut/paste subtrees, click-to-collapse chevron, vertical/horizontal split, auto-save toggle |
-| 7     |        | Web build + deployment to clobmap.com (Cloudflare Pages)                                                                                                        |
-| 8     |        | UI polish + accessibility (keyboard navigation, screen reader, light/dark intent)                                                                               |
-| 9     |        | Auto-update via signed `latest.json`                                                                                                                            |
-| 10    |        | Cross-platform desktop builds + signing/notarization                                                                                                            |
-| 11    |        | CI/CD + release pipeline                                                                                                                                        |
-| 12    |        | Observability (Sentry, opt-in telemetry, error boundaries)                                                                                                      |
-| 13    |        | Mobile (iOS / Android via Tauri v2)                                                                                                                             |
-| 14    |        | Production hardening (security review, perf, docs, license)                                                                                                     |
-| 15    |        | 1.0.0 launch                                                                                                                                                    |
+| Phase | Status | What it adds                                                                                                                                                                                                   |
+| ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | ✅     | Tauri + React + TS scaffold; lint, format, typecheck, ping IPC                                                                                                                                                 |
+| 1     | ✅     | Pure-TS data model: YAML parse/serialize, tree ops, diff, comment-preserving AST apply                                                                                                                         |
+| 2     | ✅     | YAML editor view with live parsing, inline error markers, status bar                                                                                                                                           |
+| 3     | ✅     | Read-only mind-map view (React Flow + Dagre, view toggle in header)                                                                                                                                            |
+| 4     | ✅     | Mind-map editing — selection, keyboard ops, inline rename, drag-to-reparent, context menu, undo/redo, collapse                                                                                                 |
+| 5     | ✅     | Bidirectional toggle (`Cmd/Ctrl+/`), split view, external-edit sync into CodeMirror, selection-to-line cursor jump, 100-iteration round-trip property test                                                     |
+| 6     | ✅     | **File I/O — open/save/save-as, recent files (persisted), file watcher with reload prompt, window title sync, close confirmation on unsaved changes**                                                          |
+| 6.5   | ✅     | **UX improvements — context menu polish (edit note, color, duplicate), cut/paste subtrees, click-to-collapse chevron, horizontal/vertical split, auto-save toggle, fixed context-menu position in split mode** |
+| 7     |        | Web build + deployment to clobmap.com (Cloudflare Pages)                                                                                                                                                       |
+| 8     |        | UI polish + accessibility (keyboard navigation, screen reader, light/dark intent)                                                                                                                              |
+| 9     |        | Auto-update via signed `latest.json`                                                                                                                                                                           |
+| 10    |        | Cross-platform desktop builds + signing/notarization                                                                                                                                                           |
+| 11    |        | CI/CD + release pipeline                                                                                                                                                                                       |
+| 12    |        | Observability (Sentry, opt-in telemetry, error boundaries)                                                                                                                                                     |
+| 13    |        | Mobile (iOS / Android via Tauri v2)                                                                                                                                                                            |
+| 14    |        | Production hardening (security review, perf, docs, license)                                                                                                                                                    |
+| 15    |        | 1.0.0 launch                                                                                                                                                                                                   |
 
 ---
 

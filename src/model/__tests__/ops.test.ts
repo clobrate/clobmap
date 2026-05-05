@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   addChild,
   addSibling,
+  cloneWithNewIds,
   deleteNode,
+  duplicateNode,
   emptyDocument,
   findById,
   moveNode,
@@ -198,6 +200,64 @@ describe("moveNode", () => {
 
   it("rejects unknown target parent", () => {
     expect(() => moveNode(fixture(), "n3", "missing")).toThrow(OpError);
+  });
+});
+
+describe("cloneWithNewIds", () => {
+  it("regenerates ids for the entire subtree", () => {
+    const ids = createIdGenerator(100);
+    const original = fixture().root.children[0]!; // n2 with n3, n4
+    const clone = cloneWithNewIds(original, ids);
+    const collect = (n: typeof clone): string[] => [n.id, ...n.children.flatMap(collect)];
+    const newIds = collect(clone);
+    expect(newIds).not.toContain("n2");
+    expect(newIds).not.toContain("n3");
+    expect(newIds).not.toContain("n4");
+    expect(new Set(newIds).size).toBe(newIds.length);
+  });
+
+  it("preserves text and optional fields on every node", () => {
+    const ids = createIdGenerator(100);
+    const source = {
+      id: "src",
+      text: "Hi",
+      note: "n",
+      color: "#abc",
+      collapsed: true,
+      children: [{ id: "c", text: "child", children: [] }],
+    };
+    const clone = cloneWithNewIds(source, ids);
+    expect(clone.text).toBe("Hi");
+    expect(clone.note).toBe("n");
+    expect(clone.color).toBe("#abc");
+    expect(clone.collapsed).toBe(true);
+    expect(clone.children[0]!.text).toBe("child");
+  });
+});
+
+describe("duplicateNode", () => {
+  it("inserts a clone with new ids immediately after the source", () => {
+    const ids = createIdGenerator(100);
+    const result = duplicateNode(fixture(), "n2", ids);
+    const root = result.doc.root;
+    const idsInOrder = root.children.map((c) => c.id);
+    const sourceIdx = idsInOrder.indexOf("n2");
+    expect(idsInOrder[sourceIdx + 1]).toBe(result.newId);
+  });
+
+  it("rejects duplicating root", () => {
+    expect(() => duplicateNode(fixture(), "n1", createIdGenerator())).toThrow(OpError);
+  });
+
+  it("rejects unknown id", () => {
+    expect(() => duplicateNode(fixture(), "missing", createIdGenerator())).toThrow(OpError);
+  });
+
+  it("clone preserves child structure and texts", () => {
+    const ids = createIdGenerator(100);
+    const result = duplicateNode(fixture(), "n2", ids);
+    const dup = findById(result.doc, result.newId)!;
+    expect(dup.children.map((c) => c.text).sort()).toEqual(["A1", "A2"]);
   });
 });
 
