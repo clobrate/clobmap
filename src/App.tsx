@@ -14,6 +14,7 @@ import { storage } from "./lib/storage";
 import { loadSettings } from "./lib/settings";
 import { isTauri } from "./lib/env";
 import { clearDraft, loadDraft, saveDraft } from "./lib/draft";
+import { applyTheme, resolveTheme, watchSystemTheme } from "./lib/theme";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -48,6 +49,12 @@ function App() {
   const splitOrientation = useUIStore((s) => s.splitOrientation);
   const setAutoSave = useUIStore((s) => s.setAutoSave);
   const setSplitOrientation = useUIStore((s) => s.setSplitOrientation);
+  const setThemePreference = useUIStore((s) => s.setThemePreference);
+  const setResolvedTheme = useUIStore((s) => s.setResolvedTheme);
+  const setFontSize = useUIStore((s) => s.setFontSize);
+  const themePreference = useUIStore((s) => s.themePreference);
+  const resolvedTheme = useUIStore((s) => s.resolvedTheme);
+  const liveAnnouncement = useUIStore((s) => s.liveAnnouncement);
   const isDirty = useDocumentStore((s) => s.isDirty);
   const currentFilePath = useDocumentStore((s) => s.currentFilePath);
   const yamlText = useDocumentStore((s) => s.yamlText);
@@ -77,13 +84,34 @@ function App() {
     return () => clearTimeout(handle);
   }, [yamlText, isDirty]);
 
-  // Hydrate persisted settings (auto-save, split orientation) on mount.
+  // Hydrate persisted settings on mount.
   useEffect(() => {
     void loadSettings().then((s) => {
       setAutoSave(s.autoSave);
       setSplitOrientation(s.splitOrientation);
+      setThemePreference(s.themePreference);
+      setFontSize(s.fontSize);
+      const resolved = resolveTheme(s.themePreference);
+      setResolvedTheme(resolved);
+      applyTheme(resolved);
     });
-  }, [setAutoSave, setSplitOrientation]);
+  }, [setAutoSave, setSplitOrientation, setThemePreference, setFontSize, setResolvedTheme]);
+
+  // Re-resolve and apply theme whenever preference changes.
+  useEffect(() => {
+    const resolved = resolveTheme(themePreference);
+    setResolvedTheme(resolved);
+    applyTheme(resolved);
+  }, [themePreference, setResolvedTheme]);
+
+  // When the user picked "system", follow OS preference live.
+  useEffect(() => {
+    if (themePreference !== "system") return;
+    return watchSystemTheme((resolved) => {
+      setResolvedTheme(resolved);
+      applyTheme(resolved);
+    });
+  }, [themePreference, setResolvedTheme]);
 
   // Auto-save: debounced disk write when YAML is valid and the doc has a path.
   useEffect(() => {
@@ -207,8 +235,8 @@ function App() {
   }, [currentFilePath]);
 
   return (
-    <main className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
-      <header className="flex items-center justify-between border-b border-neutral-800 bg-neutral-900 px-3 py-2">
+    <main className="flex h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      <header className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-2">
           <h1 className="text-sm font-medium tracking-tight">clobmap</h1>
           <FileMenu />
@@ -240,8 +268,8 @@ function App() {
             <div
               className={
                 splitOrientation === "horizontal"
-                  ? "flex-1 border-r border-neutral-800"
-                  : "flex-1 border-b border-neutral-800"
+                  ? "flex-1 border-r border-neutral-200 dark:border-neutral-800"
+                  : "flex-1 border-b border-neutral-200 dark:border-neutral-800"
               }
             >
               <YamlEditor />
@@ -253,6 +281,15 @@ function App() {
         )}
       </div>
       <StatusBar />
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        data-resolved-theme={resolvedTheme}
+      >
+        {liveAnnouncement}
+      </div>
     </main>
   );
 }

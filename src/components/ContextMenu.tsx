@@ -75,7 +75,8 @@ export function ContextMenu(props: Props) {
   return (
     <div
       data-context-menu
-      className="fixed z-50 min-w-[200px] rounded-md border border-neutral-700 bg-neutral-900 py-1 text-sm text-neutral-100 shadow-lg"
+      role="menu"
+      className="fixed z-50 min-w-[200px] rounded-md border border-neutral-200 bg-white py-1 text-sm text-neutral-900 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
       style={{ left: x, top: y }}
     >
       <Item label="Rename" shortcut="F2" onClick={onRename} />
@@ -124,7 +125,7 @@ function NoteEditor({
   return (
     <div
       data-context-menu
-      className="fixed z-50 w-[280px] rounded-md border border-neutral-700 bg-neutral-900 p-3 text-sm shadow-lg"
+      className="fixed z-50 w-[280px] rounded-md border border-neutral-200 bg-white p-3 text-sm shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
       style={{ left: x, top: y }}
     >
       <label className="mb-1 block text-xs uppercase tracking-wider text-neutral-500">Note</label>
@@ -143,21 +144,21 @@ function NoteEditor({
             onCommit(value);
           }
         }}
-        className="w-full rounded border border-neutral-700 bg-neutral-950 p-2 text-neutral-100 outline-none focus:border-emerald-400"
+        className="w-full rounded border border-neutral-300 bg-white p-2 text-neutral-900 outline-none focus:border-emerald-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
         placeholder="Optional longer description…"
       />
       <div className="mt-2 flex justify-end gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={() => onCommit(value)}
-          className="rounded bg-emerald-500/80 px-2 py-1 text-xs text-emerald-50 hover:bg-emerald-500"
+          className="rounded bg-emerald-500/80 px-2 py-1 text-xs text-white hover:bg-emerald-500 dark:text-emerald-50"
         >
           Save
         </button>
@@ -171,22 +172,28 @@ const PRESET_COLORS = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#a855f7"] as
 function ColorRow({ current, onPick }: { current?: string; onPick: (c: string | null) => void }) {
   return (
     <div className="flex items-center gap-2 px-3 py-1.5">
-      <span className="mr-1 text-neutral-400">Color</span>
+      <span className="mr-1 text-neutral-600 dark:text-neutral-400">Color</span>
       {PRESET_COLORS.map((c) => (
         <button
           key={c}
           type="button"
           onClick={() => onPick(c)}
           aria-label={`Set color ${c}`}
-          className={`h-4 w-4 rounded-full border ${current === c ? "border-white" : "border-neutral-700"}`}
+          aria-pressed={current === c}
+          className={`h-4 w-4 rounded-full border ${
+            current === c
+              ? "border-neutral-900 dark:border-white"
+              : "border-neutral-300 dark:border-neutral-700"
+          }`}
           style={{ backgroundColor: c }}
         />
       ))}
       <button
         type="button"
         onClick={() => onPick(null)}
+        aria-label="Clear color"
         title="Clear color"
-        className="ml-1 h-4 w-4 rounded-full border border-neutral-600 bg-transparent text-[10px] leading-none text-neutral-400 hover:text-neutral-100"
+        className="ml-1 h-4 w-4 rounded-full border border-neutral-400 bg-transparent text-[10px] leading-none text-neutral-500 hover:text-neutral-900 dark:border-neutral-600 dark:text-neutral-400 dark:hover:text-neutral-100"
       >
         ×
       </button>
@@ -195,7 +202,7 @@ function ColorRow({ current, onPick }: { current?: string; onPick: (c: string | 
 }
 
 function Divider() {
-  return <div className="my-1 border-t border-neutral-800" />;
+  return <div className="my-1 border-t border-neutral-200 dark:border-neutral-800" />;
 }
 
 function Item({
@@ -212,13 +219,14 @@ function Item({
   danger?: boolean;
 }) {
   const colorClass = disabled
-    ? "text-neutral-600"
+    ? "text-neutral-400 dark:text-neutral-600"
     : danger
-      ? "text-red-300 hover:bg-red-500/10"
-      : "text-neutral-100 hover:bg-neutral-800";
+      ? "text-red-600 hover:bg-red-500/10 dark:text-red-300"
+      : "text-neutral-900 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800";
   return (
     <button
       type="button"
+      role="menuitem"
       disabled={disabled}
       onClick={onClick}
       className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left ${colorClass}`}

@@ -30,6 +30,7 @@ import {
   OpError,
   updateNode,
 } from "../model";
+import { navigateIntoChildren, navigateSibling, navigateToParent } from "../lib/navigation";
 
 const nodeTypes = { mind: MindMapNode };
 
@@ -57,6 +58,8 @@ function MindMapInner() {
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
   const clipboard = useUIStore((s) => s.clipboard);
   const setClipboard = useUIStore((s) => s.setClipboard);
+  const resolvedTheme = useUIStore((s) => s.resolvedTheme);
+  const announce = useUIStore((s) => s.announce);
 
   const layout = useMemo(
     () => (parsedDoc ? layoutMindMap(parsedDoc) : { nodes: [], edges: [] }),
@@ -232,6 +235,34 @@ function MindMapInner() {
           applyTreeChange(updateNode(tree, selectedId, { collapsed: !selected.collapsed }));
           return;
         }
+        case "ArrowUp":
+        case "ArrowDown": {
+          const target = navigateSibling(tree, selectedId, e.key === "ArrowUp" ? -1 : 1);
+          if (target) {
+            e.preventDefault();
+            setSelected(target.id);
+            announce(`${target.text}, ${target.aria}`);
+          }
+          return;
+        }
+        case "ArrowRight": {
+          const target = navigateIntoChildren(tree, selectedId, applyTreeChange);
+          if (target) {
+            e.preventDefault();
+            setSelected(target.id);
+            announce(`${target.text}, ${target.aria}`);
+          }
+          return;
+        }
+        case "ArrowLeft": {
+          const target = navigateToParent(tree, selectedId);
+          if (target) {
+            e.preventDefault();
+            setSelected(target.id);
+            announce(`${target.text}, ${target.aria}`);
+          }
+          return;
+        }
         default:
           return;
       }
@@ -239,6 +270,7 @@ function MindMapInner() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
+    announce,
     applyTreeChange,
     closeContextMenu,
     editingId,
@@ -252,14 +284,19 @@ function MindMapInner() {
 
   if (!parsedDoc) {
     return (
-      <div className="flex h-full items-center justify-center bg-neutral-950 text-sm text-neutral-500">
+      <div className="flex h-full items-center justify-center bg-white text-sm text-neutral-500 dark:bg-neutral-950">
         {parseError ? "Waiting for valid YAML…" : "No document"}
       </div>
     );
   }
 
   return (
-    <div className="relative h-full w-full bg-neutral-950">
+    <div
+      className="relative h-full w-full bg-white outline-none dark:bg-neutral-950"
+      role="tree"
+      aria-label="Mind map canvas"
+      tabIndex={0}
+    >
       <ReactFlow
         defaultNodes={[]}
         defaultEdges={[]}
@@ -278,11 +315,11 @@ function MindMapInner() {
         maxZoom={2}
         nodesConnectable={false}
         proOptions={{ hideAttribution: true }}
-        colorMode="dark"
+        colorMode={resolvedTheme}
       >
-        <Background gap={16} color="#262626" />
+        <Background gap={16} color={resolvedTheme === "dark" ? "#262626" : "#e5e5e5"} />
         <Controls position="bottom-right" showInteractive={false} />
-        <MiniMap pannable zoomable className="!bg-neutral-900" />
+        <MiniMap pannable zoomable className="!bg-neutral-50 dark:!bg-neutral-900" />
       </ReactFlow>
       {contextMenu && findById(parsedDoc, contextMenu.nodeId) && (
         <ContextMenu

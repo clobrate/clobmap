@@ -27,13 +27,18 @@ export function FileMenu() {
     <div className="relative" ref={ref}>
       <button
         type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="rounded px-2.5 py-1 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100"
+        className="rounded px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
       >
         File
       </button>
       {open && (
-        <div className="absolute left-0 z-50 mt-1 min-w-[260px] rounded-md border border-neutral-700 bg-neutral-900 py-1 text-sm text-neutral-100 shadow-lg">
+        <div
+          role="menu"
+          className="absolute left-0 z-50 mt-1 min-w-[260px] rounded-md border border-neutral-200 bg-white py-1 text-sm text-neutral-900 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+        >
           <Item
             label="Open…"
             shortcut={`${cmdKey}+O`}
@@ -60,7 +65,7 @@ export function FileMenu() {
           />
           {recents.length > 0 && (
             <>
-              <div className="my-1 border-t border-neutral-800" />
+              <div className="my-1 border-t border-neutral-200 dark:border-neutral-800" />
               <div className="px-3 pb-1 pt-2 text-[11px] uppercase tracking-wider text-neutral-500">
                 Recent
               </div>
@@ -97,9 +102,10 @@ function Item({
   return (
     <button
       type="button"
+      role="menuitem"
       onClick={onClick}
       title={title}
-      className="flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left hover:bg-neutral-800"
+      className="flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
     >
       <span className="truncate">{label}</span>
       {shortcut && <span className="text-xs text-neutral-500">{shortcut}</span>}

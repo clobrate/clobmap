@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { useUIStore } from "../store/ui";
-import { saveAutoSavePref, saveSplitOrientationPref } from "../lib/settings";
+import { useUIStore, type ThemePreference } from "../store/ui";
+import {
+  saveAutoSavePref,
+  saveFontSizePref,
+  saveSplitOrientationPref,
+  saveThemePref,
+} from "../lib/settings";
+
+const THEMES: { value: ThemePreference; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
 
 export function SettingsMenu() {
   const [open, setOpen] = useState(false);
@@ -10,6 +21,10 @@ export function SettingsMenu() {
   const setAutoSave = useUIStore((s) => s.setAutoSave);
   const splitOrientation = useUIStore((s) => s.splitOrientation);
   const setSplitOrientation = useUIStore((s) => s.setSplitOrientation);
+  const themePreference = useUIStore((s) => s.themePreference);
+  const setThemePreference = useUIStore((s) => s.setThemePreference);
+  const fontSize = useUIStore((s) => s.fontSize);
+  const setFontSize = useUIStore((s) => s.setFontSize);
 
   useEffect(() => {
     if (!open) return;
@@ -24,14 +39,20 @@ export function SettingsMenu() {
     <div className="relative" ref={ref}>
       <button
         type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Settings"
         onClick={() => setOpen((o) => !o)}
         title="Settings"
-        className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100"
+        className="rounded px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
       >
         ⚙
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-1 min-w-[260px] rounded-md border border-neutral-700 bg-neutral-900 py-1 text-sm text-neutral-100 shadow-lg">
+        <div
+          role="menu"
+          className="absolute right-0 z-50 mt-1 min-w-[280px] rounded-md border border-neutral-200 bg-white py-1 text-sm text-neutral-900 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+        >
           <Toggle
             label="Auto-save"
             sub="Save on the fly when YAML is valid"
@@ -41,9 +62,45 @@ export function SettingsMenu() {
               void saveAutoSavePref(v);
             }}
           />
-          <div className="my-1 border-t border-neutral-800" />
+          <Divider />
           <div className="px-3 py-1.5">
-            <div className="text-neutral-400">Split orientation</div>
+            <div className="text-neutral-600 dark:text-neutral-400">Theme</div>
+            <div className="mt-1 flex gap-1">
+              {THEMES.map((t) => (
+                <SegButton
+                  key={t.value}
+                  active={themePreference === t.value}
+                  onClick={() => {
+                    setThemePreference(t.value);
+                    void saveThemePref(t.value);
+                  }}
+                  label={t.label}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="px-3 py-1.5">
+            <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
+              <span>Font size</span>
+              <span className="tabular-nums text-xs">{fontSize}px</span>
+            </div>
+            <input
+              type="range"
+              min={10}
+              max={24}
+              value={fontSize}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setFontSize(next);
+                void saveFontSizePref(next);
+              }}
+              className="mt-1 w-full accent-emerald-500"
+              aria-label="Font size"
+            />
+          </div>
+          <Divider />
+          <div className="px-3 py-1.5">
+            <div className="text-neutral-600 dark:text-neutral-400">Split orientation</div>
             <div className="mt-1 flex gap-1">
               <SegButton
                 active={splitOrientation === "horizontal"}
@@ -69,6 +126,10 @@ export function SettingsMenu() {
   );
 }
 
+function Divider() {
+  return <div className="my-1 border-t border-neutral-200 dark:border-neutral-800" />;
+}
+
 function Toggle({
   label,
   sub,
@@ -83,20 +144,25 @@ function Toggle({
   return (
     <button
       type="button"
+      role="menuitemcheckbox"
+      aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className="flex w-full items-start justify-between gap-3 px-3 py-1.5 text-left hover:bg-neutral-800"
+      className="flex w-full items-start justify-between gap-3 px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
     >
       <span>
         <span className="block">{label}</span>
         {sub && <span className="block text-xs text-neutral-500">{sub}</span>}
       </span>
       <span
+        aria-hidden="true"
         className={`mt-1 inline-flex h-4 w-7 items-center rounded-full border ${
-          checked ? "border-emerald-400 bg-emerald-500/40" : "border-neutral-600 bg-neutral-800"
+          checked
+            ? "border-emerald-500 bg-emerald-500/40"
+            : "border-neutral-400 bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800"
         }`}
       >
         <span
-          className={`h-3 w-3 rounded-full bg-neutral-100 transition-transform ${
+          className={`h-3 w-3 rounded-full bg-white transition-transform dark:bg-neutral-100 ${
             checked ? "translate-x-3" : "translate-x-0.5"
           }`}
         />
@@ -118,10 +184,11 @@ function SegButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={
         active
-          ? "flex-1 rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-50"
-          : "flex-1 rounded bg-neutral-800/60 px-2 py-1 text-xs text-neutral-400 hover:text-neutral-100"
+          ? "flex-1 rounded bg-neutral-200 px-2 py-1 text-xs text-neutral-900 dark:bg-neutral-700 dark:text-neutral-50"
+          : "flex-1 rounded bg-neutral-100/60 px-2 py-1 text-xs text-neutral-600 hover:text-neutral-900 dark:bg-neutral-800/60 dark:text-neutral-400 dark:hover:text-neutral-100"
       }
     >
       {label}

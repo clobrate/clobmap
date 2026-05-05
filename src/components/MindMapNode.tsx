@@ -18,23 +18,31 @@ export function MindMapNode({ id, data, selected }: Props) {
   const isClipped = clipboard?.nodeId === id;
 
   const baseClass = isRoot
-    ? "rounded-lg border bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 shadow-sm transition"
-    : "rounded-md border bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 shadow-sm transition hover:border-neutral-500";
+    ? "rounded-lg border bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition dark:text-emerald-100"
+    : "rounded-md border bg-white px-3 py-1.5 text-sm text-neutral-900 shadow-sm transition hover:border-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-500";
 
   const borderClass = selected
     ? isRoot
-      ? "border-emerald-300 ring-2 ring-emerald-400/60"
-      : "border-emerald-400 ring-2 ring-emerald-400/40"
+      ? "border-emerald-500 ring-2 ring-emerald-400/60 dark:border-emerald-300"
+      : "border-emerald-500 ring-2 ring-emerald-400/40 dark:border-emerald-400"
     : isRoot
-      ? "border-emerald-500/40"
-      : "border-neutral-700";
+      ? "border-emerald-400/60 dark:border-emerald-500/40"
+      : "border-neutral-300 dark:border-neutral-700";
 
   const dimClass = isClipped ? "opacity-40 outline-dashed outline-1 outline-amber-400/60" : "";
 
   const style = color && !selected ? { borderColor: color } : undefined;
 
   return (
-    <div className={`${baseClass} ${borderClass} ${dimClass}`} style={style} title={note}>
+    <div
+      className={`${baseClass} ${borderClass} ${dimClass}`}
+      style={style}
+      title={note}
+      role="treeitem"
+      aria-level={data.depth + 1}
+      aria-selected={selected}
+      aria-expanded={hasChildren ? !collapsed : undefined}
+    >
       {!isRoot && (
         <Handle
           type="target"
@@ -87,12 +95,15 @@ function Chevron({
         if (!tree) return;
         applyTreeChange(updateNode(tree, nodeId, { collapsed: !collapsed }));
       }}
-      className="ml-auto flex items-center gap-1 rounded px-1 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700/60 hover:text-neutral-100"
+      className="ml-auto flex items-center gap-1 rounded px-1 py-0.5 text-xs text-neutral-500 hover:bg-neutral-200/60 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-700/60 dark:hover:text-neutral-100"
       title={collapsed ? "Expand" : "Collapse"}
+      aria-label={collapsed ? "Expand node" : "Collapse node"}
     >
       <span className="font-mono leading-none">{collapsed ? "▸" : "▾"}</span>
       {collapsed && hiddenChildCount > 0 && (
-        <span className="tabular-nums text-[10px] text-neutral-300">{hiddenChildCount}</span>
+        <span className="tabular-nums text-[10px] text-neutral-700 dark:text-neutral-300">
+          {hiddenChildCount}
+        </span>
       )}
     </button>
   );
@@ -127,7 +138,8 @@ function InlineRename({
   return (
     <input
       ref={inputRef}
-      className="w-full rounded border border-neutral-600 bg-neutral-950 px-1 py-0.5 text-sm text-neutral-100 outline-none focus:border-emerald-400"
+      aria-label="Rename node"
+      className="w-full rounded border border-neutral-300 bg-white px-1 py-0.5 text-sm text-neutral-900 outline-none focus:border-emerald-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100 dark:focus:border-emerald-400"
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onBlur={commit}

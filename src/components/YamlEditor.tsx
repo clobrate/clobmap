@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { yaml } from "@codemirror/lang-yaml";
@@ -36,19 +36,34 @@ function findIdLine(text: string, id: string): number {
   return text.slice(0, match.index).split("\n").length;
 }
 
+function buildBaseTheme(fontSize: number) {
+  return EditorView.theme({
+    "&": { height: "100%", fontSize: `${fontSize}px` },
+    ".cm-scroller": {
+      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    },
+  });
+}
+
 export function YamlEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const themeCompartmentRef = useRef(new Compartment());
+  const fontCompartmentRef = useRef(new Compartment());
   const setYamlText = useDocumentStore((s) => s.setYamlText);
 
   const yamlText = useDocumentStore((s) => s.yamlText);
   const viewMode = useUIStore((s) => s.viewMode);
   const selectedNodeId = useUIStore((s) => s.selectedNodeId);
+  const resolvedTheme = useUIStore((s) => s.resolvedTheme);
+  const fontSize = useUIStore((s) => s.fontSize);
 
   // Mount the editor once.
   useEffect(() => {
     if (!containerRef.current) return;
     const initial = useDocumentStore.getState().yamlText;
+    const initialTheme = useUIStore.getState().resolvedTheme;
+    const initialFont = useUIStore.getState().fontSize;
 
     const onChange = EditorView.updateListener.of((u) => {
       if (u.docChanged) {
@@ -66,12 +81,9 @@ export function YamlEditor() {
         yaml(),
         yamlLinter,
         lintGutter(),
-        oneDark,
+        themeCompartmentRef.current.of(initialTheme === "dark" ? [oneDark] : []),
         EditorView.lineWrapping,
-        EditorView.theme({
-          "&": { height: "100%", fontSize: "14px" },
-          ".cm-scroller": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" },
-        }),
+        fontCompartmentRef.current.of(buildBaseTheme(initialFont)),
         onChange,
       ],
     });
@@ -83,6 +95,24 @@ export function YamlEditor() {
       viewRef.current = null;
     };
   }, [setYamlText]);
+
+  // Switch CodeMirror theme when the app theme changes.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: themeCompartmentRef.current.reconfigure(resolvedTheme === "dark" ? [oneDark] : []),
+    });
+  }, [resolvedTheme]);
+
+  // Reapply font size on change.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: fontCompartmentRef.current.reconfigure(buildBaseTheme(fontSize)),
+    });
+  }, [fontSize]);
 
   // Mirror external yamlText changes (e.g. from mind-map edits) into the editor.
   useEffect(() => {
