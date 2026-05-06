@@ -28,7 +28,20 @@ There are exactly two outbound calls:
 1. **Cloudflare Pages** serves the web build at https://clobmap.com. Standard HTTP request logs (IP, user-agent, path) are kept by Cloudflare per their [privacy policy](https://www.cloudflare.com/privacypolicy/). We do not run any analytics on top of those logs.
 2. **GitHub Releases** is queried by the **desktop app** to check for updates: once 30s after launch, then every 24 hours. The request includes the current app version (so the server can tell us about anything newer) and standard HTTP metadata. GitHub's privacy policy applies.
 
-That's it. No other domains are contacted. No analytics. No telemetry. No crash reporting (yet — when we add it later, it will be **opt-in** and excluded from this list will be updated).
+That's it for the always-on path. No other domains are contacted. No analytics. No telemetry.
+
+### Optional, opt-in: crash reporting
+
+If your build was packaged with a Sentry DSN (off by default for self-hosted builds, off by default for the official build until we turn it on) **and** you flip **Send crash reports** on in `⚙ → Settings`, crashes are sent to Sentry. Before any event leaves your machine, it goes through a pure scrubbing pass (`src/lib/telemetry.ts → scrubEvent`) which:
+
+- Replaces local home-directory paths with `<HOME>` in messages, exception values, and stack-frame filenames.
+- Strips query strings, request bodies, cookies, and headers from any captured request.
+- Drops every breadcrumb (clicks, console calls, navigation history). The breadcrumb integration is also disabled at SDK init.
+- Drops Sentry's user identifier, server name, and device hostname.
+- Never sends `yamlText`, `documentContents`, or `fileContents` if any of those names appear in event metadata.
+- Truncates strings over 500 chars in the event's message and `extra` fields, in case anything user-pasted ended up there.
+
+The scrubber is unit-tested (`src/lib/__tests__/telemetry.test.ts`). You can run those tests yourself to verify what does and doesn't make it through.
 
 ## What clobmap does **not** do
 
