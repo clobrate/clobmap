@@ -4,6 +4,28 @@ How to cut a desktop release that delivers via the in-app auto-updater.
 
 The auto-updater (Phase 9) verifies a signed `latest.json` against an embedded public key. The signing private key never lives in the repo — it lives only in CI secrets and (optionally) on a backup machine.
 
+## TL;DR — Cutting a release once everything is set up
+
+```bash
+npm run version:bump -- 0.2.0
+git commit -am "Release v0.2.0"
+git tag v0.2.0
+git push origin main --tags
+```
+
+That's it. The Release workflow (`.github/workflows/release.yml`) takes over:
+
+1. Creates a draft GitHub release.
+2. Matrix-builds on macOS (arm + intel), Windows, and Linux.
+3. Code-signs and notarizes the macOS bundles.
+4. Signs every platform's updater bundle.
+5. Uploads installers + signatures + `latest.json` to the draft.
+6. **Promotes the draft to published** only if every matrix job succeeded.
+
+If any platform fails, the release stays a draft and you can retry the failed job from the GitHub Actions UI.
+
+Read on for the one-time setup (signing keys, secrets) and the manual fallback flow if you need to release without CI.
+
 ## One-time setup
 
 Done once, by whoever holds release authority.
@@ -75,17 +97,17 @@ Tauri expects `latest.json` to look like:
 
 GitHub Releases serves any uploaded artifact at a stable URL; `latest.json` is just another artifact.
 
-## Cutting a release
+## Cutting a release manually (fallback)
 
-This is what you do per release. Phase 11 will automate steps 4–8 with GitHub Actions; until then they're manual.
+When CI is unavailable, you can still release by hand. Mostly the steps below are the inverse of what `.github/workflows/release.yml` automates.
 
-### 1. Bump the version in three places (must match)
+### 1. Bump the version (single command, all three files)
 
+```bash
+npm run version:bump -- 0.2.0
 ```
-package.json           "version": "0.2.0"
-src-tauri/Cargo.toml   version = "0.2.0"
-src-tauri/tauri.conf.json   "version": "0.2.0"
-```
+
+This atomically updates `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Refuses to downgrade.
 
 ### 2. Sanity-check locally
 
@@ -320,8 +342,42 @@ When ready, the cleanest path is **Azure Trusted Signing** — no USB token, ~$1
 
 AppImage is unsigned by convention. The `.deb` package can be GPG-signed if we ever publish via apt; for direct downloads it isn't necessary.
 
+## CI workflows
+
+`.github/workflows/ci.yml` — runs on every PR and push to `main`. Lint, typecheck, full test suite (with coverage gate), and a web build smoke-test. Fast (~3 minutes).
+
+`.github/workflows/release.yml` — runs on every `v*` tag push (or via "Run workflow" with a tag input). Three jobs:
+
+1. **draft** — creates a draft GitHub Release with auto-generated notes from PRs/commits since the last tag.
+2. **build** — matrix across macOS arm + macOS intel + Windows + Linux. Each runner uses `tauri-apps/tauri-action` to build, sign, notarize (macOS), and upload artifacts to the draft. The action also assembles `latest.json` automatically (`includeUpdaterJson: true`).
+3. **publish** — promotes the draft to a published release only if every matrix job succeeded. A failure leaves the draft in place so you can rerun the failing job.
+
+### Required GitHub secrets
+
+| Secret                               | Notes                                                                                        |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `TAURI_SIGNING_PRIVATE_KEY`          | Full contents of `~/clobmap-updater.key`. Used by every platform to sign the updater bundle. |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Empty if you didn't set one.                                                                 |
+| `APPLE_SIGNING_IDENTITY`             | `Developer ID Application: Your Name (TEAMID12)`                                             |
+| `APPLE_CERTIFICATE`                  | base64-encoded `.p12` export of the Developer ID cert + key                                  |
+| `APPLE_CERTIFICATE_PASSWORD`         | password used during the `.p12` export                                                       |
+| `APPLE_ID`                           | your Apple Developer email                                                                   |
+| `APPLE_PASSWORD`                     | the app-specific password                                                                    |
+| `APPLE_TEAM_ID`                      | 10-char Team ID                                                                              |
+
+Windows/Linux have no signing secrets today. When you add Windows code-signing (see below), the workflow already wires `TAURI_SIGNING_PRIVATE_KEY` for the updater; add the Windows cert/secrets at that point.
+
+### Verifying CI
+
+After merging this workflow, push any commit to `main`. The CI badge in the README turns green. Then push a throwaway test tag (`vX-test`) to verify the release workflow without affecting users:
+
+```bash
+git tag v0.0.0-test && git push origin v0.0.0-test
+# Watch GitHub Actions; once green, delete the test release:
+gh release delete v0.0.0-test --cleanup-tag --yes
+```
+
 ## Deferred to later phases
 
 - **Update channels (stable / beta).** Point the beta endpoint at a different `latest.json` artifact. Add when there's something to ship as beta.
-- **Automated CI release pipeline.** Phase 11 turns the manual signing/notarization steps into a GitHub Actions matrix triggered by a tag.
 - **Windows code-signing.** See above.
