@@ -1,12 +1,13 @@
 /**
- * Wires the OS-driven "open file" path:
- *   • On launch, asks Rust for any argv path (user double-clicked a file).
- *   • While running, listens for "clobmap://open-files" events. These fire
- *     from the single-instance plugin (Linux/Windows) and from
- *     RunEvent::Opened (macOS) when Finder asks the running app to open
- *     one or more files.
+ * Two surfaces:
+ *   • `getPendingOpenPath()` — synchronous-feeling read of any argv path
+ *     (the user double-clicked a .clobmap.yaml file at cold launch). Used by
+ *     the App's bootstrap to decide whether argv beats draft / last-file.
+ *   • `listenForOpenFiles()` — runtime listener for "clobmap://open-files"
+ *     events from the single-instance plugin (Linux/Windows) and macOS
+ *     RunEvent::Opened. Returns the unlisten handle.
  *
- * The web build skips both.
+ * The web build is a no-op for both.
  */
 import { isTauri } from "./env";
 import { openFromPath } from "./fileActions";
@@ -26,23 +27,23 @@ function normalizeFileUrl(value: string): string {
   return value;
 }
 
-export async function bootstrapOpenFromOs(): Promise<() => void> {
-  if (!isTauri()) return () => {};
-
-  const { invoke } = await import("@tauri-apps/api/core");
-  const { listen } = await import("@tauri-apps/api/event");
-
-  // 1. Initial argv (cold launch with file path).
+export async function getPendingOpenPath(): Promise<string | null> {
+  if (!isTauri()) return null;
   try {
+    const { invoke } = await import("@tauri-apps/api/core");
     const initial = await invoke<string | null>("pending_open_path");
     if (typeof initial === "string" && initial.length > 0) {
-      await openFromPath(normalizeFileUrl(initial));
+      return normalizeFileUrl(initial);
     }
   } catch {
     /* non-fatal */
   }
+  return null;
+}
 
-  // 2. Forwarded files from the OS (warm launch / single-instance forward).
+export async function listenForOpenFiles(): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
   const unlisten = await listen<unknown>("clobmap://open-files", (event) => {
     const payload = event.payload;
     const paths: string[] = Array.isArray(payload)
@@ -53,6 +54,5 @@ export async function bootstrapOpenFromOs(): Promise<() => void> {
     if (paths.length === 0) return;
     void openFromPath(paths[0]!);
   });
-
   return unlisten;
 }

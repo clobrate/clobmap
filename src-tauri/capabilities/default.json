@@ -28,6 +28,7 @@
     "process:default",
     "process:allow-restart",
     "log:default",
+    "window-state:default",
     {
       "identifier": "shell:allow-open",
       "allow": [{ "url": "https://github.com/**" }, { "url": "https://clobmap.com/**" }]

@@ -61,6 +61,7 @@ pub fn run() {
     #[cfg(desktop)]
     {
         builder = builder
+            .plugin(tauri_plugin_window_state::Builder::new().build())
             .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
                 // Forward incoming argv to the already-running instance so the
                 // user can "open" a second .clobmap.yaml without launching a

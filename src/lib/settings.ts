@@ -134,6 +134,33 @@ export async function saveSplitRatioPref(value: number): Promise<void> {
   localStorage.setItem(WEB_KEY_SPLIT_RATIO, String(clamped));
 }
 
+/**
+ * Last-open file path. Desktop only — on web there's no stable file path
+ * across sessions (FSA handles aren't serializable). Used to auto-reopen on
+ * cold launch when no argv path or unsaved draft is present.
+ */
+const KEY_LAST_FILE = "last-open-file";
+
+export async function loadLastOpenFile(): Promise<string | null> {
+  if (!isTauri()) return null;
+  const { LazyStore } = await import("@tauri-apps/plugin-store");
+  const store = new LazyStore(STORE_FILE);
+  const path = await store.get<string>(KEY_LAST_FILE);
+  return typeof path === "string" && path.length > 0 ? path : null;
+}
+
+export async function saveLastOpenFile(path: string | null): Promise<void> {
+  if (!isTauri()) return;
+  const { LazyStore } = await import("@tauri-apps/plugin-store");
+  const store = new LazyStore(STORE_FILE);
+  if (path) {
+    await store.set(KEY_LAST_FILE, path);
+  } else {
+    await store.delete(KEY_LAST_FILE);
+  }
+  await store.save();
+}
+
 export async function saveTelemetryPref(value: boolean): Promise<void> {
   if (isTauri()) {
     const { LazyStore } = await import("@tauri-apps/plugin-store");

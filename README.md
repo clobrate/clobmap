@@ -6,7 +6,7 @@ A minimalistic, cross-platform mind-mapping app where the **YAML view and the mi
 
 Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web, and (later) iOS / Android.
 
-> **Status:** Phase 12 / 15 — observability landed. React error boundary with recovery + GitHub-issue prefill, rotating local logs (desktop, ~10 MB cap, "Open log folder" in ⚙), opt-in Sentry crash reports (off by default, hidden when no DSN). v0.1.0 is published — install from https://github.com/clobrate/clobmap/releases/latest. Live at https://clobmap.com.
+> **Status:** Phase 12 / 15 — observability landed. React error boundary with recovery + GitHub-issue prefill, rotating local logs (desktop, ~10 MB cap, "Open log folder" in ⚙), opt-in Sentry crash reports (off by default, hidden when no DSN). Window-state persistence + last-file restore on relaunch (desktop). v0.1.0 is published — install from https://github.com/clobrate/clobmap/releases/latest. Live at https://clobmap.com.
 
 ---
 

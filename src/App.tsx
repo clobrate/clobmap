@@ -9,17 +9,16 @@ import { useDocumentStore } from "./store/document";
 import { useUIStore } from "./store/ui";
 import { useDebouncedParse } from "./store/useDebouncedParse";
 import { parseLiveYaml } from "./model";
-import { openFile, saveFile, saveFileAs } from "./lib/fileActions";
+import { openFile, openFromPath, saveFile, saveFileAs } from "./lib/fileActions";
 import { storage } from "./lib/storage";
-import { loadSettings } from "./lib/settings";
+import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isTauri } from "./lib/env";
 import { clearDraft, loadDraft, saveDraft } from "./lib/draft";
 import { applyTheme, resolveTheme, watchSystemTheme } from "./lib/theme";
 import { checkForUpdate, shouldRunScheduledCheck } from "./lib/updater";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { SplitPanes } from "./components/SplitPanes";
-import { saveSplitRatioPref } from "./lib/settings";
-import { bootstrapOpenFromOs } from "./lib/openFromOs";
+import { getPendingOpenPath, listenForOpenFiles } from "./lib/openFromOs";
 import { disableTelemetry, enableTelemetry } from "./lib/telemetry";
 
 const DEFAULT_YAML = `title: clobmap
@@ -77,14 +76,53 @@ function App() {
   const autoSave = useUIStore((s) => s.autoSave);
   useDebouncedParse(150);
 
-  // Seed initial document on mount. If a draft exists from a previous session,
-  // restore it as the starting state; otherwise use the welcome sample.
+  // Coordinated cold-launch document load. Order of preference:
+  //   1. argv path (user double-clicked a .clobmap.yaml file at launch)
+  //   2. unsaved draft from a previous session
+  //   3. the file that was open last time (desktop only)
+  //   4. the welcome sample
   useEffect(() => {
-    const draft = loadDraft();
-    const initialText = draft ?? DEFAULT_YAML;
-    const result = parseLiveYaml(initialText);
-    if (result.ok) reset(initialText, result.value.tree, result.value.doc);
-    else reset(initialText, null);
+    let cancelled = false;
+    (async () => {
+      // 1. argv (Tauri-only).
+      const argvPath = await getPendingOpenPath();
+      if (cancelled) return;
+      if (argvPath) {
+        await openFromPath(argvPath);
+        return;
+      }
+
+      // 2. localStorage draft (any platform).
+      const draft = loadDraft();
+      if (cancelled) return;
+      if (draft) {
+        const result = parseLiveYaml(draft);
+        if (result.ok) reset(draft, result.value.tree, result.value.doc);
+        else reset(draft, null);
+        return;
+      }
+
+      // 3. last-open file (desktop-only).
+      const lastPath = await loadLastOpenFile();
+      if (cancelled) return;
+      if (lastPath) {
+        try {
+          await openFromPath(lastPath);
+          return;
+        } catch {
+          /* fall through to default seed */
+        }
+      }
+
+      // 4. welcome sample.
+      const result = parseLiveYaml(DEFAULT_YAML);
+      if (cancelled) return;
+      if (result.ok) reset(DEFAULT_YAML, result.value.tree, result.value.doc);
+      else reset(DEFAULT_YAML, null);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [reset]);
 
   // Persist a draft of the in-progress YAML so closing the tab never loses work.
@@ -245,10 +283,11 @@ function App() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
-  // OS-driven file opens: argv on launch + RunEvent::Opened during runtime.
+  // Runtime open-file events (single-instance forward + macOS Finder open).
+  // Cold-launch argv is handled by the bootstrap effect above.
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    void bootstrapOpenFromOs().then((stop) => {
+    void listenForOpenFiles().then((stop) => {
       unlisten = stop;
     });
     return () => {
