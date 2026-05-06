@@ -123,15 +123,29 @@ function InlineRename({
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
 
   useEffect(() => {
-    // Defer focus to the next animation frame so it lands AFTER React Flow's
-    // setNodes effect resettles the canvas DOM. Without this, browsers
-    // (notably the web build) blur the input before paint and the user has
-    // to click the node to start editing.
-    const raf = requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    });
-    return () => cancelAnimationFrame(raf);
+    // Defensive multi-frame focus: when a brand-new node is created via Tab,
+    // the input mounts inside a React Flow wrapper that's still settling
+    // (measurement, position transform, internal focus juggling). A single
+    // focus() call can fire before the input is eligible or get blown away
+    // immediately after. Re-asserting focus across several frames covers all
+    // of that without depending on a single timing assumption. Cap at 6
+    // frames (~100ms) so we don't fight the user if they intentionally tab
+    // away. Stops asserting once focus is on the input.
+    let frame = 0;
+    const tryFocus = () => {
+      const el = inputRef.current;
+      if (!el) return;
+      if (document.activeElement !== el) {
+        el.focus();
+        el.select();
+      }
+      frame++;
+      if (frame < 6 && document.activeElement !== el) {
+        requestAnimationFrame(tryFocus);
+      }
+    };
+    tryFocus();
+    requestAnimationFrame(tryFocus);
   }, []);
 
   const commit = () => {
