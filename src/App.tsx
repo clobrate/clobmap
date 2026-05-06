@@ -22,23 +22,26 @@ import { saveSplitRatioPref } from "./lib/settings";
 import { bootstrapOpenFromOs } from "./lib/openFromOs";
 import { disableTelemetry, enableTelemetry } from "./lib/telemetry";
 
-const DEFAULT_YAML = `title: Welcome to clobmap
+const DEFAULT_YAML = `title: clobmap
 version: 1
 root:
   id: n1
-  text: Mind map
+  text: Welcome
   children:
     - id: n2
-      text: Edit me — this is YAML
+      text: Edit either pane
       children: []
     - id: n3
-      text: Toggle the Mind-map button to see this rendered
+      text: Shortcuts
       children:
         - id: n4
-          text: Tab indent works
+          text: Tab — child
           children: []
         - id: n5
-          text: Cmd/Ctrl+Z undoes
+          text: Enter — sibling
+          children: []
+        - id: n6
+          text: F2 — rename
           children: []
 `;
 

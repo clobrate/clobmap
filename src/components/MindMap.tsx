@@ -321,6 +321,17 @@ function MindMapInner() {
         <Controls position="bottom-right" showInteractive={false} />
         <MiniMap pannable zoomable className="!bg-neutral-50 dark:!bg-neutral-900" />
       </ReactFlow>
+      {parsedDoc.root.children.length === 0 && (
+        <div className="pointer-events-none absolute bottom-6 left-0 right-0 flex justify-center">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Click the node, then press{" "}
+            <kbd className="rounded border border-neutral-300 bg-neutral-100 px-1 py-px font-mono text-[11px] dark:border-neutral-700 dark:bg-neutral-800">
+              Tab
+            </kbd>{" "}
+            to add a child.
+          </p>
+        </div>
+      )}
       {contextMenu && findById(parsedDoc, contextMenu.nodeId) && (
         <ContextMenu
           nodeId={contextMenu.nodeId}
