@@ -123,8 +123,15 @@ function InlineRename({
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
 
   useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
+    // Defer focus to the next animation frame so it lands AFTER React Flow's
+    // setNodes effect resettles the canvas DOM. Without this, browsers
+    // (notably the web build) blur the input before paint and the user has
+    // to click the node to start editing.
+    const raf = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   const commit = () => {
