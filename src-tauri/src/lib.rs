@@ -1,7 +1,10 @@
 use std::env;
 
 #[cfg(desktop)]
-use tauri::{Emitter, RunEvent};
+use tauri::Emitter;
+
+#[cfg(target_os = "macos")]
+use tauri::RunEvent;
 
 /// Returns the first non-flag argv value if it looks like a file path.
 /// Used by the frontend to detect "user double-clicked a .clobmap.yaml file".
@@ -47,15 +50,17 @@ pub fn run() {
         .build(context)
         .expect("error while building tauri application");
 
-    #[cfg(desktop)]
+    // RunEvent::Opened only exists on macOS; on other desktops there's nothing
+    // to handle at runtime, and on mobile we just need to call .run().
+    #[cfg(target_os = "macos")]
     app.run(|handle, event| {
         if let RunEvent::Opened { urls } = event {
-            // macOS: Finder asks the running app to open one or more files.
+            // Finder asks the running app to open one or more files.
             let paths: Vec<String> = urls.iter().map(|u| u.to_string()).collect();
             let _ = handle.emit("clobmap://open-files", paths);
         }
     });
 
-    #[cfg(not(desktop))]
+    #[cfg(not(target_os = "macos"))]
     app.run(|_, _| {});
 }
