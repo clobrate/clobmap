@@ -54,7 +54,7 @@ export interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  viewMode: "split",
+  viewMode: "mindmap",
   splitOrientation: "horizontal",
   splitRatio: 0.5,
   autoSave: false,
