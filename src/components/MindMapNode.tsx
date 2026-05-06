@@ -4,6 +4,7 @@ import type { Node } from "@xyflow/react";
 import type { MindNodeData } from "../lib/layout";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
+import { useLongPress } from "../lib/useLongPress";
 import { updateNode, updateText } from "../model";
 
 type Props = NodeProps<Node<MindNodeData>>;
@@ -13,9 +14,16 @@ export function MindMapNode({ id, data, selected }: Props) {
 
   const editingNodeId = useUIStore((s) => s.editingNodeId);
   const setEditing = useUIStore((s) => s.setEditing);
+  const setSelected = useUIStore((s) => s.setSelected);
+  const openContextMenu = useUIStore((s) => s.openContextMenu);
   const clipboard = useUIStore((s) => s.clipboard);
   const isEditing = editingNodeId === id;
   const isClipped = clipboard?.nodeId === id;
+
+  const longPress = useLongPress((x, y) => {
+    setSelected(id);
+    openContextMenu(id, x, y);
+  });
 
   const baseClass = isRoot
     ? "rounded-lg border bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition dark:text-emerald-100"
@@ -36,12 +44,19 @@ export function MindMapNode({ id, data, selected }: Props) {
   return (
     <div
       className={`${baseClass} ${borderClass} ${dimClass}`}
-      style={style}
+      style={{
+        ...style,
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        touchAction: "manipulation",
+      }}
       title={note}
       role="treeitem"
       aria-level={data.depth + 1}
       aria-selected={selected}
       aria-expanded={hasChildren ? !collapsed : undefined}
+      {...longPress}
     >
       {!isRoot && (
         <Handle
