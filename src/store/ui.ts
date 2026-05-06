@@ -24,6 +24,7 @@ export interface UIState {
   themePreference: ThemePreference;
   resolvedTheme: ResolvedTheme;
   fontSize: number;
+  telemetryEnabled: boolean;
 
   selectedNodeId: string | null;
   editingNodeId: string | null;
@@ -41,6 +42,7 @@ export interface UIState {
   setThemePreference: (t: ThemePreference) => void;
   setResolvedTheme: (t: ResolvedTheme) => void;
   setFontSize: (px: number) => void;
+  setTelemetryEnabled: (on: boolean) => void;
 
   setSelected: (id: string | null) => void;
   setEditing: (id: string | null) => void;
@@ -59,6 +61,7 @@ export const useUIStore = create<UIState>((set) => ({
   themePreference: "system",
   resolvedTheme: "dark",
   fontSize: 14,
+  telemetryEnabled: false,
 
   selectedNodeId: null,
   editingNodeId: null,
@@ -84,6 +87,7 @@ export const useUIStore = create<UIState>((set) => ({
   setThemePreference: (t) => set({ themePreference: t }),
   setResolvedTheme: (t) => set({ resolvedTheme: t }),
   setFontSize: (px) => set({ fontSize: Math.max(10, Math.min(24, Math.round(px))) }),
+  setTelemetryEnabled: (on) => set({ telemetryEnabled: on }),
 
   setSelected: (id) => set({ selectedNodeId: id }),
   setEditing: (id) => set({ editingNodeId: id }),

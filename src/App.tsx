@@ -20,6 +20,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { SplitPanes } from "./components/SplitPanes";
 import { saveSplitRatioPref } from "./lib/settings";
 import { bootstrapOpenFromOs } from "./lib/openFromOs";
+import { disableTelemetry, enableTelemetry } from "./lib/telemetry";
 
 const DEFAULT_YAML = `title: Welcome to clobmap
 version: 1
@@ -61,6 +62,8 @@ function App() {
   const setThemePreference = useUIStore((s) => s.setThemePreference);
   const setResolvedTheme = useUIStore((s) => s.setResolvedTheme);
   const setFontSize = useUIStore((s) => s.setFontSize);
+  const setTelemetryEnabled = useUIStore((s) => s.setTelemetryEnabled);
+  const telemetryEnabled = useUIStore((s) => s.telemetryEnabled);
   const themePreference = useUIStore((s) => s.themePreference);
   const resolvedTheme = useUIStore((s) => s.resolvedTheme);
   const liveAnnouncement = useUIStore((s) => s.liveAnnouncement);
@@ -101,6 +104,7 @@ function App() {
       setSplitRatio(s.splitRatio);
       setThemePreference(s.themePreference);
       setFontSize(s.fontSize);
+      setTelemetryEnabled(s.telemetryEnabled);
       const resolved = resolveTheme(s.themePreference);
       setResolvedTheme(resolved);
       applyTheme(resolved);
@@ -111,8 +115,15 @@ function App() {
     setSplitRatio,
     setThemePreference,
     setFontSize,
+    setTelemetryEnabled,
     setResolvedTheme,
   ]);
+
+  // Init/teardown the Sentry SDK whenever the telemetry pref flips.
+  useEffect(() => {
+    if (telemetryEnabled) void enableTelemetry();
+    else void disableTelemetry();
+  }, [telemetryEnabled]);
 
   // Re-resolve and apply theme whenever preference changes.
   useEffect(() => {

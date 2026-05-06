@@ -377,7 +377,25 @@ git tag v0.0.0-test && git push origin v0.0.0-test
 gh release delete v0.0.0-test --cleanup-tag --yes
 ```
 
+## Optional: Sentry crash reports
+
+The frontend ships an opt-in Sentry integration (Phase 12). It does nothing — and is never loaded — unless **both** of these are true:
+
+1. The build has a `VITE_SENTRY_DSN` environment variable at build time.
+2. The user toggles **Send crash reports** on in the ⚙ menu.
+
+To enable Sentry for your build:
+
+1. Sign up at https://sentry.io (free tier covers indie projects). Create a project of type **React**.
+2. Copy the project's DSN (looks like `https://abc...@oNNN.ingest.sentry.io/123`).
+3. Add the DSN as `VITE_SENTRY_DSN` in:
+   - **Cloudflare Pages** project → Settings → Environment Variables (so the web build picks it up).
+   - **GitHub Actions** → repo Secrets → `VITE_SENTRY_DSN` (so desktop builds pick it up; the release workflow will need a small env line under `tauri-action` to forward it — easy follow-up).
+
+Without a DSN, the SDK is dynamically imported only when the user opts in; absent a DSN the toggle is hidden entirely and no Sentry code is in the hot path.
+
 ## Deferred to later phases
 
 - **Update channels (stable / beta).** Point the beta endpoint at a different `latest.json` artifact. Add when there's something to ship as beta.
 - **Windows code-signing.** See above.
+- **Rust panic capture in Sentry.** The current integration only catches frontend errors. Adding `sentry-rust` to the Tauri side would surface crashes in the Rust core. Worth doing once the Phase 12 frontend integration has been validated against real crashes.

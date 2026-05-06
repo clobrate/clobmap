@@ -1,7 +1,7 @@
 use std::env;
 
 #[cfg(desktop)]
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 #[cfg(target_os = "macos")]
 use tauri::RunEvent;
@@ -24,6 +24,33 @@ fn pending_open_path() -> Option<String> {
     pending_open_path_inner()
 }
 
+#[cfg(desktop)]
+#[tauri::command]
+fn open_log_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let log_dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    if !log_dir.exists() {
+        std::fs::create_dir_all(&log_dir).map_err(|e| e.to_string())?;
+    }
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    std::process::Command::new(opener)
+        .arg(&log_dir)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+fn open_log_folder() -> Result<(), String> {
+    Err("Not available on this platform".into())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
@@ -42,12 +69,26 @@ pub fn run() {
             }))
             .plugin(tauri_plugin_updater::Builder::new().build())
             .plugin(tauri_plugin_process::init())
-            .plugin(tauri_plugin_shell::init());
+            .plugin(tauri_plugin_shell::init())
+            .plugin(
+                tauri_plugin_log::Builder::new()
+                    .max_file_size(5_000_000) // 5 MB per file, 2 files → ~10 MB max
+                    .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+                    .level(log::LevelFilter::Info)
+                    .targets([
+                        tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                        tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                            file_name: Some("clobmap".into()),
+                        }),
+                        tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                    ])
+                    .build(),
+            );
     }
 
     let context = tauri::generate_context!();
     let app = builder
-        .invoke_handler(tauri::generate_handler![ping, pending_open_path])
+        .invoke_handler(tauri::generate_handler![ping, pending_open_path, open_log_folder])
         .build(context)
         .expect("error while building tauri application");
 

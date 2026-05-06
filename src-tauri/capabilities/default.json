@@ -27,6 +27,7 @@
     "updater:default",
     "process:default",
     "process:allow-restart",
+    "log:default",
     {
       "identifier": "shell:allow-open",
       "allow": [{ "url": "https://github.com/**" }, { "url": "https://clobmap.com/**" }]

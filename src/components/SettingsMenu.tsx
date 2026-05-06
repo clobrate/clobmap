@@ -4,13 +4,16 @@ import {
   saveAutoSavePref,
   saveFontSizePref,
   saveSplitOrientationPref,
+  saveTelemetryPref,
   saveThemePref,
 } from "../lib/settings";
 import { isTauri } from "../lib/env";
 import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
 import { openExternal } from "../lib/openExternal";
+import { isTelemetryAvailable } from "../lib/telemetry";
 
 const PRIVACY_URL = "https://github.com/clobrate/clobmap/blob/main/PRIVACY.md";
+const ISSUE_URL = "https://github.com/clobrate/clobmap/issues/new?labels=bug";
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "System" },
@@ -30,6 +33,9 @@ export function SettingsMenu() {
   const setThemePreference = useUIStore((s) => s.setThemePreference);
   const fontSize = useUIStore((s) => s.fontSize);
   const setFontSize = useUIStore((s) => s.setFontSize);
+  const telemetryEnabled = useUIStore((s) => s.telemetryEnabled);
+  const setTelemetryEnabled = useUIStore((s) => s.setTelemetryEnabled);
+  const telemetryAvailable = isTelemetryAvailable();
   const setAvailableUpdate = useUIStore((s) => s.setAvailableUpdate);
 
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "none">("idle");
@@ -168,19 +174,45 @@ export function SettingsMenu() {
               </button>
             </>
           )}
+          {telemetryAvailable && (
+            <>
+              <Divider />
+              <Toggle
+                label="Send crash reports"
+                sub="Anonymous; only fires on real errors. Never sends document contents."
+                checked={telemetryEnabled}
+                onChange={(v) => {
+                  setTelemetryEnabled(v);
+                  void saveTelemetryPref(v);
+                }}
+              />
+            </>
+          )}
           <Divider />
-          <button
-            type="button"
-            role="menuitem"
+          <ExternalItem
+            label="Privacy"
             onClick={() => {
               setOpen(false);
               void openExternal(PRIVACY_URL);
             }}
-            className="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          >
-            <span>Privacy</span>
-            <span className="text-xs text-neutral-500">↗</span>
-          </button>
+          />
+          <ExternalItem
+            label="Report an issue"
+            onClick={() => {
+              setOpen(false);
+              void openExternal(ISSUE_URL);
+            }}
+          />
+          {isTauri() && (
+            <ActionItem
+              label="Open log folder"
+              onClick={async () => {
+                setOpen(false);
+                const { invoke } = await import("@tauri-apps/api/core");
+                await invoke("open_log_folder");
+              }}
+            />
+          )}
         </div>
       )}
     </div>
@@ -189,6 +221,33 @@ export function SettingsMenu() {
 
 function Divider() {
   return <div className="my-1 border-t border-neutral-200 dark:border-neutral-800" />;
+}
+
+function ExternalItem({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+    >
+      <span>{label}</span>
+      <span className="text-xs text-neutral-500">↗</span>
+    </button>
+  );
+}
+
+function ActionItem({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+    >
+      <span>{label}</span>
+    </button>
+  );
 }
 
 function Toggle({

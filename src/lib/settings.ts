@@ -7,11 +7,13 @@ const KEY_SPLIT_ORIENTATION = "split-orientation";
 const KEY_SPLIT_RATIO = "split-ratio";
 const KEY_THEME = "theme";
 const KEY_FONT_SIZE = "font-size";
+const KEY_TELEMETRY = "telemetry";
 const WEB_KEY_AUTO_SAVE = "clobmap-auto-save";
 const WEB_KEY_SPLIT_ORIENTATION = "clobmap-split-orientation";
 const WEB_KEY_SPLIT_RATIO = "clobmap-split-ratio";
 const WEB_KEY_THEME = "clobmap-theme";
 const WEB_KEY_FONT_SIZE = "clobmap-font-size";
+const WEB_KEY_TELEMETRY = "clobmap-telemetry";
 
 export interface PersistedSettings {
   autoSave: boolean;
@@ -19,6 +21,7 @@ export interface PersistedSettings {
   splitRatio: number;
   themePreference: ThemePreference;
   fontSize: number;
+  telemetryEnabled: boolean;
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -27,6 +30,7 @@ const DEFAULTS: PersistedSettings = {
   splitRatio: 0.5,
   themePreference: "system",
   fontSize: 14,
+  telemetryEnabled: false,
 };
 
 function clampRatio(n: unknown): number {
@@ -51,12 +55,13 @@ export async function loadSettings(): Promise<PersistedSettings> {
   if (isTauri()) {
     const { LazyStore } = await import("@tauri-apps/plugin-store");
     const store = new LazyStore(STORE_FILE);
-    const [autoSave, split, splitRatio, theme, font] = await Promise.all([
+    const [autoSave, split, splitRatio, theme, font, telemetry] = await Promise.all([
       store.get<boolean>(KEY_AUTO_SAVE),
       store.get<unknown>(KEY_SPLIT_ORIENTATION),
       store.get<unknown>(KEY_SPLIT_RATIO),
       store.get<unknown>(KEY_THEME),
       store.get<unknown>(KEY_FONT_SIZE),
+      store.get<boolean>(KEY_TELEMETRY),
     ]);
     return {
       autoSave: typeof autoSave === "boolean" ? autoSave : DEFAULTS.autoSave,
@@ -64,6 +69,7 @@ export async function loadSettings(): Promise<PersistedSettings> {
       splitRatio: clampRatio(splitRatio),
       themePreference: isThemePreference(theme) ? theme : DEFAULTS.themePreference,
       fontSize: clampFont(font),
+      telemetryEnabled: typeof telemetry === "boolean" ? telemetry : DEFAULTS.telemetryEnabled,
     };
   }
   const rawRatio = localStorage.getItem(WEB_KEY_SPLIT_RATIO);
@@ -79,6 +85,7 @@ export async function loadSettings(): Promise<PersistedSettings> {
       return isThemePreference(v) ? v : DEFAULTS.themePreference;
     })(),
     fontSize: clampFont(Number(localStorage.getItem(WEB_KEY_FONT_SIZE))),
+    telemetryEnabled: localStorage.getItem(WEB_KEY_TELEMETRY) === "true",
   };
 }
 
@@ -125,6 +132,17 @@ export async function saveSplitRatioPref(value: number): Promise<void> {
     return;
   }
   localStorage.setItem(WEB_KEY_SPLIT_RATIO, String(clamped));
+}
+
+export async function saveTelemetryPref(value: boolean): Promise<void> {
+  if (isTauri()) {
+    const { LazyStore } = await import("@tauri-apps/plugin-store");
+    const store = new LazyStore(STORE_FILE);
+    await store.set(KEY_TELEMETRY, value);
+    await store.save();
+    return;
+  }
+  localStorage.setItem(WEB_KEY_TELEMETRY, String(value));
 }
 
 export async function saveFontSizePref(value: number): Promise<void> {
