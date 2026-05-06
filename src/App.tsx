@@ -301,6 +301,17 @@ function App() {
           <FileMenu />
         </div>
         <div className="flex items-center gap-2">
+          {!isTauri() && (
+            <a
+              href="https://github.com/clobrate/clobmap/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
+              title="Download clobmap for desktop"
+            >
+              Download
+            </a>
+          )}
           <ViewToggle />
           <SettingsMenu />
         </div>
