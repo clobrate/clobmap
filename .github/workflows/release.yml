@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+env:
+  # Run JavaScript actions (checkout, setup-node, tauri-action wrappers) on
+  # Node 24 instead of the default Node 20 that's being removed in Sept 2026.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   draft:
     name: Create draft release
