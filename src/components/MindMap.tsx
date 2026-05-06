@@ -81,6 +81,25 @@ function MindMapInner() {
     [reactFlow],
   );
 
+  // Pan (without changing zoom) so a freshly-created node lands inside the
+  // visible viewport. Wait one frame for the layout effect above to push the
+  // new node into React Flow and for it to measure dimensions.
+  const revealNode = useCallback(
+    (nodeId: string) => {
+      requestAnimationFrame(() => {
+        const z = reactFlow.getZoom();
+        reactFlow.fitView({
+          nodes: [{ id: nodeId }],
+          duration: 250,
+          padding: 0.4,
+          minZoom: z,
+          maxZoom: z,
+        });
+      });
+    },
+    [reactFlow],
+  );
+
   const onNodeClick: NodeMouseHandler<Node<MindNodeData>> = useCallback(
     (_e, node) => {
       setSelected(node.id);
@@ -196,6 +215,7 @@ function MindMapInner() {
           applyTreeChange(result.doc);
           setSelected(result.newId);
           setEditing(result.newId);
+          revealNode(result.newId);
           return;
         }
         case "Enter": {
@@ -207,6 +227,7 @@ function MindMapInner() {
             applyTreeChange(result.doc);
             setSelected(result.newId);
             setEditing(result.newId);
+            revealNode(result.newId);
           } catch (err) {
             if (!(err instanceof OpError)) throw err;
           }
@@ -276,6 +297,7 @@ function MindMapInner() {
     editingId,
     redo,
     reactFlow,
+    revealNode,
     selectedId,
     setEditing,
     setSelected,
@@ -366,6 +388,7 @@ function MindMapInner() {
     applyTreeChange(result.doc);
     setSelected(result.newId);
     setEditing(result.newId);
+    revealNode(result.newId);
     closeContextMenu();
   }
 
@@ -378,6 +401,7 @@ function MindMapInner() {
       applyTreeChange(result.doc);
       setSelected(result.newId);
       setEditing(result.newId);
+      revealNode(result.newId);
     } catch (err) {
       if (!(err instanceof OpError)) throw err;
     }
@@ -414,6 +438,7 @@ function MindMapInner() {
       applyTreeChange(result.doc);
       setSelected(result.newId);
       setEditing(result.newId);
+      revealNode(result.newId);
     } catch (err) {
       if (!(err instanceof OpError)) throw err;
     }
