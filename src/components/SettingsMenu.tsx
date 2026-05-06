@@ -8,6 +8,9 @@ import {
 } from "../lib/settings";
 import { isTauri } from "../lib/env";
 import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
+import { openExternal } from "../lib/openExternal";
+
+const PRIVACY_URL = "https://github.com/clobrate/clobmap/blob/main/PRIVACY.md";
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "System" },
@@ -165,6 +168,19 @@ export function SettingsMenu() {
               </button>
             </>
           )}
+          <Divider />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              void openExternal(PRIVACY_URL);
+            }}
+            className="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            <span>Privacy</span>
+            <span className="text-xs text-neutral-500">↗</span>
+          </button>
         </div>
       )}
     </div>

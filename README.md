@@ -265,6 +265,14 @@ Implementation plan in [`implementation-plan.md`](./implementation-plan.md). One
 
 ---
 
+## Privacy
+
+clobmap is local-first: your mind maps stay on your disk (or in your browser), nothing is sent to a server we run. The only network calls clobmap makes are loading the web app from `clobmap.com` (Cloudflare logs apply) and the desktop app's update check against GitHub Releases. Full notice in [`PRIVACY.md`](./PRIVACY.md), also linked from the in-app ⚙ menu.
+
+## License
+
+GPL-3.0 — see [`LICENSE`](./LICENSE).
+
 ## Contributing / dev notes
 
 - Don't commit secrets, build artifacts, or `node_modules` — `.gitignore` covers the standard set.
