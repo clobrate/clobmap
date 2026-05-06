@@ -58,15 +58,20 @@ Tauri expects `latest.json` to look like:
   "notes": "## What's new\n- ...",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "<base64 of clobmap.app.tar.gz.sig>",
+      "signature": "<base64 of clobmap.app.tar.gz.sig from the aarch64 build>",
       "url": "https://github.com/clobrate/clobmap/releases/download/v0.2.0/clobmap_0.2.0_aarch64.app.tar.gz"
     },
-    "darwin-x86_64": { "signature": "...", "url": "..." },
+    "darwin-x86_64": {
+      "signature": "<base64 of clobmap.app.tar.gz.sig from the x86_64 build>",
+      "url": "https://github.com/clobrate/clobmap/releases/download/v0.2.0/clobmap_0.2.0_x64.app.tar.gz"
+    },
     "windows-x86_64": { "signature": "...", "url": "..." },
     "linux-x86_64": { "signature": "...", "url": "..." }
   }
 }
 ```
+
+**Important:** the two macOS `.app.tar.gz` files have the same name in their respective build directories. When you upload to GitHub Releases, rename one (e.g. add `_aarch64` / `_x64` suffix) so they don't collide.
 
 GitHub Releases serves any uploaded artifact at a stable URL; `latest.json` is just another artifact.
 
@@ -101,7 +106,15 @@ git push origin main --tags
 
 ### 4. Build signed installers (one platform at a time, on each platform)
 
-On each of macOS / Windows / Linux:
+On macOS — build **both** architectures:
+
+```bash
+TAURI_SIGNING_PRIVATE_KEY="$(cat ~/clobmap-updater.key)" \
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD="<your passphrase>" \
+  npm run tauri:build:mac:both
+```
+
+On Windows / Linux:
 
 ```bash
 TAURI_SIGNING_PRIVATE_KEY="$(cat ~/clobmap-updater.key)" \
@@ -109,7 +122,7 @@ TAURI_SIGNING_PRIVATE_KEY="$(cat ~/clobmap-updater.key)" \
   npm run tauri build
 ```
 
-Outputs land in `src-tauri/target/release/bundle/<format>/` along with their `.sig` files.
+Outputs land in `src-tauri/target/<target-triple-or-release>/bundle/<format>/` along with their `.sig` files.
 
 ### 5. Assemble `latest.json`
 
@@ -118,12 +131,24 @@ Pick one signature line per platform (they're emitted next to the bundle as `<bu
 ### 6. Create the GitHub Release
 
 ```bash
+# Stage macOS updater bundles with arch-suffixed names so both can live in the
+# same release without colliding.
+cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/clobmap.app.tar.gz \
+   ./clobmap_aarch64.app.tar.gz
+cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/clobmap.app.tar.gz.sig \
+   ./clobmap_aarch64.app.tar.gz.sig
+cp src-tauri/target/x86_64-apple-darwin/release/bundle/macos/clobmap.app.tar.gz \
+   ./clobmap_x64.app.tar.gz
+cp src-tauri/target/x86_64-apple-darwin/release/bundle/macos/clobmap.app.tar.gz.sig \
+   ./clobmap_x64.app.tar.gz.sig
+
 gh release create v0.2.0 \
   --title "v0.2.0" \
   --notes-file CHANGELOG-v0.2.0.md \
-  src-tauri/target/release/bundle/dmg/clobmap_*.dmg \
-  src-tauri/target/release/bundle/macos/clobmap.app.tar.gz \
-  src-tauri/target/release/bundle/macos/clobmap.app.tar.gz.sig \
+  src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/clobmap_*_aarch64.dmg \
+  src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/clobmap_*_x64.dmg \
+  ./clobmap_aarch64.app.tar.gz ./clobmap_aarch64.app.tar.gz.sig \
+  ./clobmap_x64.app.tar.gz ./clobmap_x64.app.tar.gz.sig \
   src-tauri/target/release/bundle/msi/clobmap_*_x64_en-US.msi \
   src-tauri/target/release/bundle/nsis/clobmap_*_x64-setup.exe \
   src-tauri/target/release/bundle/appimage/clobmap_*.AppImage \
@@ -194,19 +219,43 @@ export APPLE_TEAM_ID="TEAMID12"
 
 Reload (`source ~/.zshrc`) before building.
 
-### Build a signed + notarized `.dmg`
+### Add the Intel target once
+
+`tauri build` defaults to your host architecture. To ship to Intel Macs as well, install the cross-compile target once:
 
 ```bash
-npm run tauri build
+rustup target add x86_64-apple-darwin
 ```
 
-When the env vars above are set, Tauri:
+(~50 MB download. Apple Silicon target `aarch64-apple-darwin` was installed automatically when you set Rust up.)
+
+### Build signed + notarized `.dmg` for both architectures
+
+```bash
+# Apple Silicon (M1+)
+npm run tauri:build:mac:arm
+
+# Intel
+npm run tauri:build:mac:intel
+
+# Or both back-to-back
+npm run tauri:build:mac:both
+```
+
+Outputs:
+
+| Architecture  | DMG                                                                                  | Updater bundle                     |
+| ------------- | ------------------------------------------------------------------------------------ | ---------------------------------- |
+| Apple Silicon | `src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/clobmap_<ver>_aarch64.dmg` | `…/macos/clobmap.app.tar.gz(.sig)` |
+| Intel         | `src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/clobmap_<ver>_x64.dmg`      | `…/macos/clobmap.app.tar.gz(.sig)` |
+
+When the env vars above are set, Tauri does each of these for **each** architecture:
 
 1. Code-signs the `.app` with your Developer ID + hardened runtime.
 2. Submits the bundle to Apple's notarization service via `notarytool`.
 3. Staples the notarization ticket to the `.dmg`.
 
-Total time: ~5–10 minutes including Apple's notarization wait.
+Per-arch wall-clock time: ~5–10 minutes. Plan ~15 min total for both.
 
 ### Verify locally
 
