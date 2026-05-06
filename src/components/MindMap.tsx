@@ -413,6 +413,7 @@ function MindMapInner() {
       const result = duplicateNode(tree, nodeId, ids);
       applyTreeChange(result.doc);
       setSelected(result.newId);
+      setEditing(result.newId);
     } catch (err) {
       if (!(err instanceof OpError)) throw err;
     }
