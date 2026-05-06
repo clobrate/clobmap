@@ -18,6 +18,8 @@ export function ViewToggle() {
     >
       {tabs.map(({ value, label }) => {
         const active = viewMode === value;
+        // Split view is desktop-only — too cramped on phone screens.
+        const mobileHidden = value === "split" ? "hidden sm:inline-flex" : "";
         return (
           <button
             key={value}
@@ -26,9 +28,10 @@ export function ViewToggle() {
             type="button"
             onClick={() => setViewMode(value)}
             className={
-              active
+              (active
                 ? "rounded bg-white px-2.5 py-1 text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-50"
-                : "rounded px-2.5 py-1 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200"
+                : "rounded px-2.5 py-1 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200") +
+              (mobileHidden ? ` ${mobileHidden}` : "")
             }
           >
             {label}

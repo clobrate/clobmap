@@ -341,7 +341,11 @@ function MindMapInner() {
       >
         <Background gap={16} color={resolvedTheme === "dark" ? "#262626" : "#e5e5e5"} />
         <Controls position="bottom-right" showInteractive={false} />
-        <MiniMap pannable zoomable className="!bg-neutral-50 dark:!bg-neutral-900" />
+        <MiniMap
+          pannable
+          zoomable
+          className="!hidden bg-neutral-50 sm:!block dark:!bg-neutral-900"
+        />
       </ReactFlow>
       {parsedDoc.root.children.length === 0 && (
         <div className="pointer-events-none absolute bottom-6 left-0 right-0 flex justify-center">

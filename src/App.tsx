@@ -344,13 +344,21 @@ function App() {
   }, [currentFilePath]);
 
   return (
-    <main className="flex h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <main
+      className="flex h-[100dvh] flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
+    >
       {availableUpdate && (
         <UpdateBanner update={availableUpdate} onDismiss={() => setAvailableUpdate(null)} />
       )}
       <header className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-2">
-          <h1 className="text-sm font-medium tracking-tight">clobmap</h1>
+          <h1 className="hidden text-sm font-medium tracking-tight sm:block">clobmap</h1>
           <FileMenu />
         </div>
         <div className="flex items-center gap-2">
@@ -359,7 +367,7 @@ function App() {
               href="https://github.com/clobrate/clobmap/releases/latest"
               target="_blank"
               rel="noreferrer"
-              className="rounded border border-neutral-300 px-2.5 py-1 text-xs text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+              className="hidden rounded border border-neutral-300 px-2.5 py-1 text-xs text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 sm:inline-flex dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
               title="Install clobmap as a desktop app"
             >
               Install
