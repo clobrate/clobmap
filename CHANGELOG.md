@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-07
+
 ### Added
 - **iOS app** (Phase 13). Boots in iPhone simulator and on physical
   devices. Long-press a node opens the context menu. Soft keyboard auto-pops
@@ -109,6 +111,7 @@ Initial public release. Highlights:
 
 GPL-3.0 — see [LICENSE](./LICENSE).
 
-[Unreleased]: https://github.com/clobrate/clobmap/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/clobrate/clobmap/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/clobrate/clobmap/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/clobrate/clobmap/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/clobrate/clobmap/releases/tag/v0.1.0
