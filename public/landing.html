@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>clobmap — mind maps that are also YAML</title>
+    <meta
+      name="description"
+      content="A minimalistic mind-mapping app where the YAML view and the mind-map view are equally first-class. Edit either; the other follows."
+    />
+    <link rel="icon" type="image/svg+xml" href="/clobmap.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:title" content="clobmap — mind maps that are also YAML" />
+    <meta
+      property="og:description"
+      content="Edit a mind map as YAML or as a tree. Edits in either view propagate to the other. Local-first. Free and open source."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://clobmap.com/" />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-soft: #fafafa;
+        --bg-deep: #f4f4f5;
+        --fg: #0a0a0a;
+        --fg-muted: #525252;
+        --fg-faint: #a3a3a3;
+        --accent: #10b981;
+        --accent-soft: #d1fae5;
+        --border: #e5e5e5;
+        --border-strong: #d4d4d4;
+        --code-bg: #f4f4f5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0a0a0a;
+          --bg-soft: #111113;
+          --bg-deep: #18181b;
+          --fg: #fafafa;
+          --fg-muted: #a1a1aa;
+          --fg-faint: #525252;
+          --accent: #34d399;
+          --accent-soft: #064e3b;
+          --border: #27272a;
+          --border-strong: #3f3f46;
+          --code-bg: #18181b;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+      }
+      .wrap {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      header.site {
+        padding: 24px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      header.site .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      header.site .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        font-size: 17px;
+        text-decoration: none;
+      }
+      header.site .brand img {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+      }
+      header.site nav {
+        display: flex;
+        gap: 22px;
+        font-size: 14px;
+        color: var(--fg-muted);
+      }
+      header.site nav a {
+        text-decoration: none;
+      }
+      header.site nav a:hover {
+        color: var(--fg);
+      }
+
+      section.hero {
+        padding: 64px 0 48px;
+      }
+      section.hero h1 {
+        font-size: clamp(32px, 6vw, 52px);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        margin: 0 0 20px;
+        font-weight: 700;
+      }
+      section.hero h1 .accent {
+        color: var(--accent);
+      }
+      section.hero p.lede {
+        font-size: 19px;
+        color: var(--fg-muted);
+        max-width: 640px;
+        margin: 0 0 32px;
+      }
+      .ctas {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 20px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: transform 80ms ease, background 80ms ease;
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #052e1c;
+      }
+      .btn-primary:hover {
+        background: #059669;
+      }
+      @media (prefers-color-scheme: dark) {
+        .btn-primary:hover {
+          background: #10b981;
+        }
+      }
+      .btn-secondary {
+        border-color: var(--border-strong);
+        color: var(--fg);
+      }
+      .btn-secondary:hover {
+        background: var(--bg-soft);
+      }
+      .quiet {
+        font-size: 13px;
+        color: var(--fg-faint);
+      }
+
+      section.demo {
+        padding: 24px 0 64px;
+      }
+      .visual {
+        background: var(--bg-soft);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      @media (max-width: 720px) {
+        .visual {
+          grid-template-columns: 1fr;
+        }
+      }
+      .pane {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .pane .pane-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--fg-faint);
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .pane pre {
+        margin: 0;
+        padding: 14px;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--fg);
+        background: var(--code-bg);
+        overflow-x: auto;
+      }
+      .pane svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      section.features {
+        padding: 64px 0;
+        border-top: 1px solid var(--border);
+      }
+      section.features h2 {
+        font-size: 24px;
+        margin: 0 0 32px;
+        letter-spacing: -0.01em;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 22px;
+      }
+      @media (max-width: 720px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .feat {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 22px;
+      }
+      .feat h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      .feat p {
+        margin: 0;
+        color: var(--fg-muted);
+        font-size: 14px;
+      }
+
+      section.download {
+        padding: 64px 0;
+        border-top: 1px solid var(--border);
+      }
+      section.download h2 {
+        font-size: 24px;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+      }
+      section.download p.sub {
+        color: var(--fg-muted);
+        margin: 0 0 28px;
+      }
+      .dl {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+      @media (max-width: 720px) {
+        .dl {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .dl a {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        text-decoration: none;
+        background: var(--bg-soft);
+      }
+      .dl a:hover {
+        border-color: var(--border-strong);
+      }
+      .dl a .platform {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .dl a .detail {
+        font-size: 12px;
+        color: var(--fg-muted);
+      }
+
+      footer.site {
+        padding: 36px 0 60px;
+        border-top: 1px solid var(--border);
+        color: var(--fg-muted);
+        font-size: 13px;
+      }
+      footer.site .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      footer.site nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+      }
+      footer.site a {
+        text-decoration: none;
+      }
+      footer.site a:hover {
+        color: var(--fg);
+      }
+
+      kbd {
+        display: inline-block;
+        padding: 1px 6px;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.5;
+        border: 1px solid var(--border-strong);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        background: var(--bg);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site">
+      <div class="wrap row">
+        <a class="brand" href="/">
+          <img src="/clobmap.svg" alt="" />
+          <span>clobmap</span>
+        </a>
+        <nav>
+          <a href="/app">App</a>
+          <a href="https://github.com/clobrate/clobmap">GitHub</a>
+          <a href="https://github.com/clobrate/clobmap/blob/main/PRIVACY.md">Privacy</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="wrap">
+          <h1>
+            Mind maps that are <span class="accent">also YAML</span>.
+          </h1>
+          <p class="lede">
+            Edit a mind map as a tree of branches, or as plain YAML — whichever
+            view fits the moment. Changes in either propagate to the other.
+            Local-first, free, and open source.
+          </p>
+          <div class="ctas">
+            <a class="btn btn-primary" href="/app">Open in browser →</a>
+            <a class="btn btn-secondary" href="#download">Download for desktop</a>
+          </div>
+          <div class="quiet">Free. No account. Your files stay on your disk.</div>
+        </div>
+      </section>
+
+      <section class="demo">
+        <div class="wrap">
+          <div class="visual">
+            <div class="pane">
+              <div class="pane-title">YAML</div>
+              <pre>title: Wedding planning
+root:
+  text: Our wedding
+  children:
+    - text: Venue
+      children:
+        - text: Ceremony
+        - text: Reception
+    - text: Guests
+      children:
+        - text: Family
+        - text: Friends
+    - text: Vendors
+      children:
+        - text: Catering
+        - text: Photographer</pre>
+            </div>
+            <div class="pane">
+              <div class="pane-title">Mind-map</div>
+              <svg viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg">
+                <!-- edges -->
+                <g fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-width="1.2">
+                  <path d="M70,140 C110,140 110,60 150,60" />
+                  <path d="M70,140 C110,140 110,140 150,140" />
+                  <path d="M70,140 C110,140 110,220 150,220" />
+                  <path d="M230,60 C260,60 260,30 290,30" />
+                  <path d="M230,60 C260,60 260,90 290,90" />
+                  <path d="M230,140 C260,140 260,120 290,120" />
+                  <path d="M230,140 C260,140 260,160 290,160" />
+                  <path d="M230,220 C260,220 260,200 290,200" />
+                  <path d="M230,220 C260,220 260,250 290,250" />
+                </g>
+                <!-- root -->
+                <g>
+                  <rect x="14" y="124" width="56" height="32" rx="6"
+                    fill="#10b981" fill-opacity="0.12"
+                    stroke="#10b981" stroke-opacity="0.6" stroke-width="1.2"/>
+                  <text x="42" y="144" text-anchor="middle" font-size="11"
+                    font-family="-apple-system, system-ui, sans-serif"
+                    fill="#10b981" font-weight="600">Wedding</text>
+                </g>
+                <!-- depth-1 -->
+                <g font-family="-apple-system, system-ui, sans-serif" font-size="10">
+                  <rect x="150" y="44" width="80" height="32" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="190" y="64" text-anchor="middle" fill="currentColor">Venue</text>
+
+                  <rect x="150" y="124" width="80" height="32" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="190" y="144" text-anchor="middle" fill="currentColor">Guests</text>
+
+                  <rect x="150" y="204" width="80" height="32" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="190" y="224" text-anchor="middle" fill="currentColor">Vendors</text>
+                </g>
+                <!-- depth-2 -->
+                <g font-family="-apple-system, system-ui, sans-serif" font-size="9.5">
+                  <rect x="290" y="14" width="100" height="28" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="340" y="32" text-anchor="middle" fill="currentColor">Ceremony</text>
+
+                  <rect x="290" y="76" width="100" height="28" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="340" y="94" text-anchor="middle" fill="currentColor">Reception</text>
+
+                  <rect x="290" y="106" width="100" height="28" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="340" y="124" text-anchor="middle" fill="currentColor">Family</text>
+
+                  <rect x="290" y="146" width="100" height="28" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="340" y="164" text-anchor="middle" fill="currentColor">Friends</text>
+
+                  <rect x="290" y="186" width="100" height="28" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="340" y="204" text-anchor="middle" fill="currentColor">Catering</text>
+
+                  <rect x="290" y="236" width="100" height="28" rx="5"
+                    fill="currentColor" fill-opacity="0.04"
+                    stroke="currentColor" stroke-opacity="0.25"/>
+                  <text x="340" y="254" text-anchor="middle" fill="currentColor">Photographer</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="features">
+        <div class="wrap">
+          <h2>Why clobmap?</h2>
+          <div class="grid">
+            <div class="feat">
+              <h3>YAML and tree are the same thing</h3>
+              <p>
+                Most mind-map tools save in some opaque binary format. clobmap's
+                file <em>is</em> a human-readable YAML outline. Open it in vim,
+                diff it in git, paste it into a chat, share it as a string.
+              </p>
+            </div>
+            <div class="feat">
+              <h3>Comments survive structural edits</h3>
+              <p>
+                Add, move, or delete nodes from the canvas — the YAML keeps
+                your comments, your spacing, and your field order. AST-level
+                surgery, not a re-serialize.
+              </p>
+            </div>
+            <div class="feat">
+              <h3>Keyboard-first</h3>
+              <p>
+                <kbd>Tab</kbd> adds a child, <kbd>Enter</kbd> a sibling,
+                <kbd>F2</kbd> renames, arrow keys navigate, <kbd>Cmd+Z</kbd>
+                undoes. Ten-finger usable; mouse optional.
+              </p>
+            </div>
+            <div class="feat">
+              <h3>Local-first</h3>
+              <p>
+                Your maps live on your disk. No accounts, no cloud sync, no
+                telemetry by default. Crash reports are opt-in and the privacy
+                scrubbing is unit-tested.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="download" id="download">
+        <div class="wrap">
+          <h2>Get clobmap</h2>
+          <p class="sub">
+            Use it in your browser, or install a native app for your platform.
+            All builds are signed where the platform allows.
+          </p>
+          <div class="dl">
+            <a href="/app">
+              <span class="platform">Browser</span>
+              <span class="detail">No install · works offline after first load</span>
+            </a>
+            <a href="https://github.com/clobrate/clobmap/releases/latest">
+              <span class="platform">macOS</span>
+              <span class="detail">Apple Silicon &amp; Intel · signed &amp; notarized</span>
+            </a>
+            <a href="https://github.com/clobrate/clobmap/releases/latest">
+              <span class="platform">Windows</span>
+              <span class="detail">x64 installer · unsigned</span>
+            </a>
+            <a href="https://github.com/clobrate/clobmap/releases/latest">
+              <span class="platform">Linux</span>
+              <span class="detail">.AppImage and .deb</span>
+            </a>
+          </div>
+          <p class="quiet" style="margin-top: 18px">
+            iOS app available — TestFlight setup is in progress. Build it
+            yourself today: see
+            <a href="https://github.com/clobrate/clobmap/blob/main/RELEASING.md">RELEASING.md</a>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site">
+      <div class="wrap row">
+        <div>© 2026 clobmap contributors · GPL-3.0</div>
+        <nav>
+          <a href="/app">App</a>
+          <a href="https://github.com/clobrate/clobmap">GitHub</a>
+          <a href="https://github.com/clobrate/clobmap/blob/main/PRIVACY.md">Privacy</a>
+          <a href="https://github.com/clobrate/clobmap/issues">Issues</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
