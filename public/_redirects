@@ -1,3 +1,6 @@
-/                /landing.html       200
-/app             /index.html         200
-/*               /index.html         200
+# /          -> dist-web/index.html      (the landing page)
+# /app       -> dist-web/app/index.html   (the SPA editor)
+# /app/*     -> dist-web/app/index.html   (SPA fallback for any deep links)
+# Everything else -> static asset lookup, then 404.
+/app          /app/index.html       200
+/app/*        /app/index.html       200
