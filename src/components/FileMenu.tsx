@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useDocumentStore } from "../store/document";
 import {
   newFile,
+  newTab,
   openFile as openFileAction,
   openRecent,
   saveFile,
   saveFileAs,
 } from "../lib/fileActions";
+import { isMobile } from "../lib/env";
 import { getRecentFiles } from "../lib/recentFiles";
 
 const cmdKey = typeof navigator !== "undefined" && /mac/i.test(navigator.platform) ? "⌘" : "Ctrl";
@@ -53,6 +55,16 @@ export function FileMenu() {
               void newFile();
             }}
           />
+          {!isMobile() && (
+            <Item
+              label="New tab"
+              shortcut={`${cmdKey}+T`}
+              onClick={() => {
+                setOpen(false);
+                void newTab();
+              }}
+            />
+          )}
           <Item
             label="Open…"
             shortcut={`${cmdKey}+O`}

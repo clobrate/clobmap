@@ -9,7 +9,17 @@ import { useDocumentStore } from "./store/document";
 import { useUIStore } from "./store/ui";
 import { useDebouncedParse } from "./store/useDebouncedParse";
 import { parseLiveYaml } from "./model";
-import { newFile, openFile, openFromPath, saveFile, saveFileAs } from "./lib/fileActions";
+import {
+  closeTabAction,
+  newFile,
+  newTab,
+  openFile,
+  openFromPath,
+  saveFile,
+  saveFileAs,
+} from "./lib/fileActions";
+import { useTabsStore } from "./store/tabs";
+import { TabStrip } from "./components/TabStrip";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -119,7 +129,12 @@ function App() {
       if (cancelled) return;
       if (result.ok) reset(DEFAULT_YAML, result.value.tree, result.value.doc);
       else reset(DEFAULT_YAML, null);
-    })();
+    })().finally(() => {
+      // Materialize the bootstrapped document as tab 0 so subsequent file
+      // actions can spawn additional tabs. init() is a no-op if openFromPath
+      // already populated the tabs store.
+      if (!cancelled) useTabsStore.getState().init();
+    });
     return () => {
       cancelled = true;
     };
@@ -211,6 +226,19 @@ function App() {
         e.preventDefault();
         e.stopPropagation();
         void newFile();
+        return;
+      }
+      if (!e.shiftKey && !e.altKey && key === "t") {
+        e.preventDefault();
+        e.stopPropagation();
+        void newTab();
+        return;
+      }
+      if (!e.shiftKey && !e.altKey && key === "w") {
+        e.preventDefault();
+        e.stopPropagation();
+        const active = useTabsStore.getState().activeTabId;
+        if (active) void closeTabAction(active);
         return;
       }
       if (!e.shiftKey && !e.altKey && key === "o") {
@@ -386,6 +414,7 @@ function App() {
           <SettingsMenu />
         </div>
       </header>
+      {!isMobile() && <TabStrip />}
       <div className="flex min-h-0 flex-1">
         {viewMode === "yaml" && (
           <div className="flex-1">
