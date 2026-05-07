@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ReactFlowProvider } from "@xyflow/react";
 import { YamlEditor } from "./components/YamlEditor";
 import { MindMap } from "./components/MindMap";
 import { StatusBar } from "./components/StatusBar";
@@ -511,4 +512,15 @@ async function handleExternalChange(path: string) {
   }
 }
 
-export default App;
+// Wrap the whole app in ReactFlowProvider so export actions (PNG / SVG /
+// PDF) can call useReactFlow() from FileMenu without having to live
+// inside the MindMap subtree.
+function AppWithProviders() {
+  return (
+    <ReactFlowProvider>
+      <App />
+    </ReactFlowProvider>
+  );
+}
+
+export default AppWithProviders;

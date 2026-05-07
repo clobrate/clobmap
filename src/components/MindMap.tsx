@@ -4,7 +4,6 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
-  ReactFlowProvider,
   applyNodeChanges,
   useReactFlow,
   type Edge,
@@ -35,11 +34,10 @@ import { navigateIntoChildren, navigateSibling, navigateToParent } from "../lib/
 const nodeTypes = { mind: MindMapNode };
 
 export function MindMap() {
-  return (
-    <ReactFlowProvider>
-      <MindMapInner />
-    </ReactFlowProvider>
-  );
+  // ReactFlowProvider is lifted to App so export actions (PNG/SVG/PDF)
+  // can call useReactFlow() from FileMenu, which lives outside this
+  // component. The MindMap canvas itself only needs the inner.
+  return <MindMapInner />;
 }
 
 function MindMapInner() {

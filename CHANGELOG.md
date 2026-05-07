@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Export menu** in File: PNG (raster, retina), SVG (vector), PDF
+  (single page sized to the map's aspect ratio), and Markdown
+  outline. Image exports render the entire map regardless of the
+  current viewport — a brief fitView is used to force all nodes
+  into the DOM, then the image is captured at 2048 px wide via
+  `html-to-image`. PDF wraps the same PNG in a one-page jsPDF.
+  Both heavy deps (jspdf, html-to-image) are lazy-loaded so they
+  don't ship in the main bundle.
+- **Landing page** at `clobmap.com/`. Static one-pager (no JS) with
+  tagline, dual-view illustration, four feature cards, and download
+  links. The SPA editor moved to `clobmap.com/app/`.
+
 ## [0.2.0] - 2026-05-07
 
 ### Added
