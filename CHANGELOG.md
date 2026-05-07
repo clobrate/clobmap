@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-05-08
+
+First stable release. Semver commitment to backwards compatibility on the
+.clobmap.yaml file format and the desktop / web / iOS keyboard surface.
+
+iOS App Store distribution is explicitly deferred to v1.1; the side-load
+.ipa pipeline shipped in 0.2.0 stays as the iOS install path until then.
+
 ### Added
 - **Export menu** in File: PNG (raster, retina), SVG (vector), PDF
   (single page sized to the map's aspect ratio), and Markdown
@@ -18,6 +26,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Landing page** at `clobmap.com/`. Static one-pager (no JS) with
   tagline, dual-view illustration, four feature cards, and download
   links. The SPA editor moved to `clobmap.com/app/`.
+
+### Fixed
+- `fs:allow-write-file` capability granted so binary export
+  (PNG / PDF / SVG) actually lands on disk. Same `path: "**"` scope
+  as the existing `fs:allow-write-text-file` rule — user-driven save
+  via plugin-dialog so the path can't be pre-declared.
 
 ## [0.2.0] - 2026-05-07
 
@@ -124,7 +138,8 @@ Initial public release. Highlights:
 
 GPL-3.0 — see [LICENSE](./LICENSE).
 
-[Unreleased]: https://github.com/clobrate/clobmap/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/clobrate/clobmap/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/clobrate/clobmap/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/clobrate/clobmap/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/clobrate/clobmap/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/clobrate/clobmap/releases/tag/v0.1.0
