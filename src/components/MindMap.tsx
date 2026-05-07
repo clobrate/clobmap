@@ -124,6 +124,24 @@ function MindMapInner() {
     [reactFlow],
   );
 
+  // Lighter-touch variant for arrow-key navigation: shorter duration so
+  // rapid keypresses feel snappy, and lower padding so we move only as
+  // much as needed instead of yanking the viewport around when the
+  // target was already mostly visible.
+  const revealForNav = useCallback(
+    (nodeId: string) => {
+      const z = reactFlow.getZoom();
+      reactFlow.fitView({
+        nodes: [{ id: nodeId }],
+        duration: 150,
+        padding: 0.15,
+        minZoom: z,
+        maxZoom: z,
+      });
+    },
+    [reactFlow],
+  );
+
   const onNodeClick: NodeMouseHandler<Node<MindNodeData>> = useCallback(
     (_e, node) => {
       setSelected(node.id);
@@ -286,6 +304,7 @@ function MindMapInner() {
           if (target) {
             e.preventDefault();
             setSelected(target.id);
+            revealForNav(target.id);
             announce(`${target.text}, ${target.aria}`);
           }
           return;
@@ -295,6 +314,7 @@ function MindMapInner() {
           if (target) {
             e.preventDefault();
             setSelected(target.id);
+            revealForNav(target.id);
             announce(`${target.text}, ${target.aria}`);
           }
           return;
@@ -304,6 +324,7 @@ function MindMapInner() {
           if (target) {
             e.preventDefault();
             setSelected(target.id);
+            revealForNav(target.id);
             announce(`${target.text}, ${target.aria}`);
           }
           return;
@@ -322,6 +343,7 @@ function MindMapInner() {
     redo,
     reactFlow,
     revealNode,
+    revealForNav,
     selectedId,
     setEditing,
     setSelected,
