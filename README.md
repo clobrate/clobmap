@@ -196,7 +196,11 @@ clobmap/
 │   ├── App.tsx
 │   └── main.tsx
 ├── src-tauri/                # Rust backend (Tauri commands, plugins)
-├── design.md                 # Architecture and product spec
+├── docs/getting-started.md   # End-user 5-minute tour
+├── design.md                 # Architecture and product spec (early)
+├── ARCHITECTURE.md           # How the codebase fits together (current)
+├── CONTRIBUTING.md           # PR workflow + repo conventions
+├── CHANGELOG.md              # Per-release user-facing notes
 ├── implementation-plan.md    # Phased plan with exit criteria
 ├── brainstorming.md          # Early decision notes (Flutter vs Tauri, etc.)
 └── README.md                 # You are here

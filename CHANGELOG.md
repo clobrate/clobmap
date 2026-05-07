@@ -34,6 +34,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the same reason. Persistent edit access via security-scoped bookmarks
   is on the roadmap.
 
+### Documentation
+- Phase 14c: `CONTRIBUTING.md`, `ARCHITECTURE.md`, and
+  `docs/getting-started.md` added. README's project-layout section
+  links them.
+
 ### Performance
 - Phase 14b: replaced Dagre with an O(N) tidy-tree layout — clobmap only
   ever renders trees, so a general-purpose graph layout was overkill.
