@@ -12,7 +12,7 @@ import { parseLiveYaml } from "./model";
 import { openFile, openFromPath, saveFile, saveFileAs } from "./lib/fileActions";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
-import { isTauri } from "./lib/env";
+import { isMobile, isTauri } from "./lib/env";
 import { clearDraft, loadDraft, saveDraft } from "./lib/draft";
 import { applyTheme, resolveTheme, watchSystemTheme } from "./lib/theme";
 import { checkForUpdate, shouldRunScheduledCheck } from "./lib/updater";
@@ -183,7 +183,10 @@ function App() {
   }, [themePreference, setResolvedTheme]);
 
   // Auto-save: debounced disk write when YAML is valid and the doc has a path.
+  // Disabled on mobile — iOS UIDocumentPicker URLs aren't writable outside
+  // their original picker scope, so silent writes always fail.
   useEffect(() => {
+    if (isMobile()) return;
     if (!autoSave || !currentFilePath || parseError || !isDirty) return;
     const handle = setTimeout(() => {
       void saveFile();

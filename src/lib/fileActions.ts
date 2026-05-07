@@ -2,7 +2,7 @@ import { useDocumentStore } from "../store/document";
 import { parseLiveYaml } from "../model";
 import { storage } from "./storage";
 import { addRecentFile, removeRecentFile } from "./recentFiles";
-import { isTauri } from "./env";
+import { isMobile, isTauri } from "./env";
 import { saveLastOpenFile } from "./settings";
 
 async function tauriConfirm(
@@ -72,6 +72,13 @@ export async function openFile(): Promise<void> {
 export async function saveFile(): Promise<void> {
   const state = useDocumentStore.getState();
   if (!state.currentFilePath) {
+    return saveFileAs();
+  }
+  // iOS hands us a security-scoped URL that's only valid during the picker
+  // dialog's lifetime — silent writes to the same URL later return
+  // "Operation not permitted". Until we wire up bookmark-based persistent
+  // scopes (needs native Swift), iOS Save always re-picks the destination.
+  if (isMobile()) {
     return saveFileAs();
   }
   try {
