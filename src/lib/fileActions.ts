@@ -41,6 +41,27 @@ async function confirmDiscard(): Promise<boolean> {
   });
 }
 
+const NEW_FILE_SEED = `title: Untitled
+version: 1
+root:
+  id: n1
+  text: Untitled
+  children: []
+`;
+
+export async function newFile(): Promise<void> {
+  if (!(await confirmDiscard())) return;
+  const result = parseLiveYaml(NEW_FILE_SEED);
+  const store = useDocumentStore.getState();
+  if (result.ok) {
+    store.reset(NEW_FILE_SEED, result.value.tree, result.value.doc);
+  } else {
+    // Hard-coded seed should never fail to parse, but degrade safely.
+    store.reset(NEW_FILE_SEED, null, null);
+  }
+  await saveLastOpenFile(null);
+}
+
 export async function openFromPath(path: string): Promise<void> {
   try {
     const contents = await storage.read(path);

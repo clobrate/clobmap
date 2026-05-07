@@ -9,7 +9,7 @@ import { useDocumentStore } from "./store/document";
 import { useUIStore } from "./store/ui";
 import { useDebouncedParse } from "./store/useDebouncedParse";
 import { parseLiveYaml } from "./model";
-import { openFile, openFromPath, saveFile, saveFileAs } from "./lib/fileActions";
+import { newFile, openFile, openFromPath, saveFile, saveFileAs } from "./lib/fileActions";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -207,6 +207,12 @@ function App() {
         return;
       }
       const key = e.key.toLowerCase();
+      if (!e.shiftKey && !e.altKey && key === "n") {
+        e.preventDefault();
+        e.stopPropagation();
+        void newFile();
+        return;
+      }
       if (!e.shiftKey && !e.altKey && key === "o") {
         e.preventDefault();
         e.stopPropagation();
