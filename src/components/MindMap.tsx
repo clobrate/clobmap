@@ -105,41 +105,39 @@ function MindMapInner() {
     [reactFlow],
   );
 
-  // Pan (without changing zoom) so a freshly-created node lands inside the
-  // visible viewport. Wait one frame for the layout effect above to push the
-  // new node into React Flow and for it to measure dimensions.
-  const revealNode = useCallback(
-    (nodeId: string) => {
-      requestAnimationFrame(() => {
-        const z = reactFlow.getZoom();
-        reactFlow.fitView({
-          nodes: [{ id: nodeId }],
-          duration: 250,
-          padding: 0.4,
-          minZoom: z,
-          maxZoom: z,
-        });
+  // Pure-pan to a node's center at the user's current zoom. fitView's
+  // minZoom/maxZoom clamp doesn't reliably preserve zoom — it derives a
+  // target zoom from the bounding box and the clamp can be ignored.
+  // setCenter takes an explicit zoom and only pans, which is what we want.
+  const panToNode = useCallback(
+    (nodeId: string, durationMs: number) => {
+      const node = reactFlow.getNode(nodeId);
+      if (!node) return;
+      const w = node.measured?.width ?? 180;
+      const h = node.measured?.height ?? 44;
+      reactFlow.setCenter(node.position.x + w / 2, node.position.y + h / 2, {
+        duration: durationMs,
+        zoom: reactFlow.getZoom(),
       });
     },
     [reactFlow],
   );
 
-  // Lighter-touch variant for arrow-key navigation: shorter duration so
-  // rapid keypresses feel snappy, and lower padding so we move only as
-  // much as needed instead of yanking the viewport around when the
-  // target was already mostly visible.
-  const revealForNav = useCallback(
+  // For freshly-created nodes: wait one frame for the layout-mirror
+  // effect to push the new node into React Flow before we try to read
+  // it back via reactFlow.getNode(id).
+  const revealNode = useCallback(
     (nodeId: string) => {
-      const z = reactFlow.getZoom();
-      reactFlow.fitView({
-        nodes: [{ id: nodeId }],
-        duration: 150,
-        padding: 0.15,
-        minZoom: z,
-        maxZoom: z,
-      });
+      requestAnimationFrame(() => panToNode(nodeId, 250));
     },
-    [reactFlow],
+    [panToNode],
+  );
+
+  // For arrow-key navigation: nodes already exist, no rAF needed; shorter
+  // duration so rapid keypresses chain smoothly instead of stuttering.
+  const revealForNav = useCallback(
+    (nodeId: string) => panToNode(nodeId, 150),
+    [panToNode],
   );
 
   const onNodeClick: NodeMouseHandler<Node<MindNodeData>> = useCallback(
