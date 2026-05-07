@@ -34,8 +34,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the same reason. Persistent edit access via security-scoped bookmarks
   is on the roadmap.
 
+### Performance
+- Phase 14b: replaced Dagre with an O(N) tidy-tree layout — clobmap only
+  ever renders trees, so a general-purpose graph layout was overkill.
+  **5000-node layout: 1150 ms → 1.2 ms (~960x).** Single edit cycle
+  (mutate + AST apply + re-serialize) at 26 ms, well under the <50 ms
+  exit criterion.
+- React Flow `onlyRenderVisibleElements` enabled — DOM node count stays
+  bounded by viewport regardless of document size.
+- Split the React Flow sync effect: selection changes no longer rebuild
+  the entire node array (matters at 1k+ nodes).
+- Dropped `@dagrejs/dagre` dependency.
+- Added `scripts/gen-large-doc.mjs` (test-data generator) and an opt-in
+  `PERF=1` Vitest run for repeatable model-layer timings.
+
 ### Security
-- Phase 14a audit pass: `npm audit` 0 vulnerabilities (351 deps),
   `cargo audit` 0 vulnerabilities (572 deps; 17 unmaintained-warnings,
   all transitive Tauri/wry GTK3 bindings on Linux). Tauri capabilities
   reviewed — `fs:allow-*` wildcards justified by user-driven file

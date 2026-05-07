@@ -78,10 +78,25 @@ function MindMapInner() {
   }, []);
 
   // Keep React Flow's internal node positions in sync with layout positions.
+  // Selection changes are handled in a separate effect below so we don't
+  // rebuild the entire node array on every arrow keypress (matters at 1k+
+  // nodes, where the rebuild itself is the slow path).
   useEffect(() => {
-    reactFlow.setNodes(layout.nodes.map((n) => ({ ...n, selected: n.id === selectedId })));
+    reactFlow.setNodes(layout.nodes);
     reactFlow.setEdges(layout.edges);
-  }, [layout.nodes, layout.edges, selectedId, reactFlow]);
+  }, [layout.nodes, layout.edges, reactFlow]);
+
+  // Patch only the selected flag when selection changes — leaves all the
+  // expensive position/data fields untouched.
+  useEffect(() => {
+    reactFlow.setNodes((current) =>
+      current.map((n) =>
+        n.selected === (n.id === selectedId)
+          ? n
+          : { ...n, selected: n.id === selectedId },
+      ),
+    );
+  }, [selectedId, reactFlow]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<Node<MindNodeData>>[]) => {
@@ -352,6 +367,7 @@ function MindMapInner() {
         minZoom={0.1}
         maxZoom={2}
         nodesConnectable={false}
+        onlyRenderVisibleElements
         proOptions={{ hideAttribution: true }}
         colorMode={resolvedTheme}
       >
