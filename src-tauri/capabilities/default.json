@@ -20,6 +20,10 @@
       "allow": [{ "path": "**" }]
     },
     {
+      "identifier": "fs:allow-write-file",
+      "allow": [{ "path": "**" }]
+    },
+    {
       "identifier": "fs:allow-watch",
       "allow": [{ "path": "**" }]
     },
