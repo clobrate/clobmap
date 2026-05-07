@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Background,
   Controls,
@@ -67,6 +67,15 @@ function MindMapInner() {
   );
 
   const reactFlow = useReactFlow<Node<MindNodeData>, Edge>();
+
+  // iOS-specific keyboard primer: a hidden input we focus synchronously
+  // inside a tap handler so iOS counts it as a user-gesture-initiated focus
+  // and shows the soft keyboard. When InlineRename mounts a moment later,
+  // iOS keeps the keyboard up while focus transfers to the real input.
+  const keyboardPrimerRef = useRef<HTMLInputElement>(null);
+  const primeKeyboard = useCallback(() => {
+    keyboardPrimerRef.current?.focus();
+  }, []);
 
   // Keep React Flow's internal node positions in sync with layout positions.
   useEffect(() => {
@@ -319,6 +328,13 @@ function MindMapInner() {
       aria-label="Mind map canvas"
       tabIndex={0}
     >
+      <input
+        ref={keyboardPrimerRef}
+        aria-hidden="true"
+        tabIndex={-1}
+        readOnly
+        className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
+      />
       <ReactFlow
         defaultNodes={[]}
         defaultEdges={[]}
@@ -341,7 +357,11 @@ function MindMapInner() {
       >
         <Background gap={16} color={resolvedTheme === "dark" ? "#262626" : "#e5e5e5"} />
         <Controls position="bottom-right" showInteractive={false} />
-        <MiniMap pannable zoomable className="!bg-neutral-50 dark:!bg-neutral-900" />
+        <MiniMap
+          pannable
+          zoomable
+          className="!hidden bg-neutral-50 sm:!block dark:!bg-neutral-900"
+        />
       </ReactFlow>
       {parsedDoc.root.children.length === 0 && (
         <div className="pointer-events-none absolute bottom-6 left-0 right-0 flex justify-center">
@@ -367,6 +387,7 @@ function MindMapInner() {
           onDelete={() => handleDelete(contextMenu.nodeId)}
           onToggleCollapse={() => handleToggleCollapse(contextMenu.nodeId)}
           onRename={() => {
+            primeKeyboard();
             setEditing(contextMenu.nodeId);
             closeContextMenu();
           }}
@@ -381,6 +402,7 @@ function MindMapInner() {
   );
 
   function handleAddChild(nodeId: string) {
+    primeKeyboard();
     const tree = useDocumentStore.getState().parsedDoc;
     if (!tree) return;
     const ids = idGeneratorForDocument(tree);
@@ -393,6 +415,7 @@ function MindMapInner() {
   }
 
   function handleAddSibling(nodeId: string) {
+    primeKeyboard();
     const tree = useDocumentStore.getState().parsedDoc;
     if (!tree || nodeId === tree.root.id) return;
     try {
@@ -430,6 +453,7 @@ function MindMapInner() {
   }
 
   function handleDuplicate(nodeId: string) {
+    primeKeyboard();
     const tree = useDocumentStore.getState().parsedDoc;
     if (!tree || nodeId === tree.root.id) return;
     try {

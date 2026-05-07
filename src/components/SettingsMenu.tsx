@@ -7,7 +7,7 @@ import {
   saveTelemetryPref,
   saveThemePref,
 } from "../lib/settings";
-import { isTauri } from "../lib/env";
+import { isMobile, isTauri } from "../lib/env";
 import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
 import { openExternal } from "../lib/openExternal";
 import { isTelemetryAvailable } from "../lib/telemetry";
@@ -86,16 +86,20 @@ export function SettingsMenu() {
           role="menu"
           className="absolute right-0 z-50 mt-1 min-w-[280px] rounded-md border border-neutral-200 bg-white py-1 text-sm text-neutral-900 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
         >
-          <Toggle
-            label="Auto-save"
-            sub="Save on the fly when YAML is valid"
-            checked={autoSave}
-            onChange={(v) => {
-              setAutoSave(v);
-              void saveAutoSavePref(v);
-            }}
-          />
-          <Divider />
+          {!isMobile() && (
+            <>
+              <Toggle
+                label="Auto-save"
+                sub="Save on the fly when YAML is valid"
+                checked={autoSave}
+                onChange={(v) => {
+                  setAutoSave(v);
+                  void saveAutoSavePref(v);
+                }}
+              />
+              <Divider />
+            </>
+          )}
           <div className="px-3 py-1.5">
             <div className="text-neutral-600 dark:text-neutral-400">Theme</div>
             <div className="mt-1 flex gap-1">

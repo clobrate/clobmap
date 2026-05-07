@@ -86,6 +86,9 @@ The app starts with a sample mind map. Use the **YAML / Split / Mind-map** toggl
 | Action                               | Shortcut               |
 | ------------------------------------ | ---------------------- |
 | Cycle view (YAML → Split → Mind-map) | `Cmd/Ctrl + /`         |
+| New file                             | `Cmd/Ctrl + N`         |
+| New tab (desktop)                    | `Cmd/Ctrl + T`         |
+| Close tab (desktop)                  | `Cmd/Ctrl + W`         |
 | Open file…                           | `Cmd/Ctrl + O`         |
 | Save                                 | `Cmd/Ctrl + S`         |
 | Save As…                             | `Cmd/Ctrl + Shift + S` |

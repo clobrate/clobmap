@@ -42,6 +42,23 @@ export interface DocumentState {
   markSavedAt: (path: string) => void;
 }
 
+/**
+ * Plain-object snapshot of the per-document fields. Used by the tabs store
+ * to swap entire documents in/out without rebuilding parse trees.
+ */
+export type DocumentSnapshot = Pick<
+  DocumentState,
+  | "yamlText"
+  | "parsedDoc"
+  | "yamlDoc"
+  | "parseError"
+  | "originalText"
+  | "isDirty"
+  | "currentFilePath"
+  | "undoStack"
+  | "redoStack"
+>;
+
 function reSerialize(
   yamlDoc: Document | null,
   tree: MindDocument,
@@ -151,3 +168,34 @@ export const useDocumentStore = create<DocumentState>((set) => ({
       isDirty: false,
     })),
 }));
+
+/** Snapshot the current document for storage in a tab. */
+export function snapshotDocument(): DocumentSnapshot {
+  const s = useDocumentStore.getState();
+  return {
+    yamlText: s.yamlText,
+    parsedDoc: s.parsedDoc,
+    yamlDoc: s.yamlDoc,
+    parseError: s.parseError,
+    originalText: s.originalText,
+    isDirty: s.isDirty,
+    currentFilePath: s.currentFilePath,
+    undoStack: s.undoStack,
+    redoStack: s.redoStack,
+  };
+}
+
+/** Replace the live document with a previously-captured snapshot. */
+export function loadDocumentSnapshot(snap: DocumentSnapshot): void {
+  useDocumentStore.setState({
+    yamlText: snap.yamlText,
+    parsedDoc: snap.parsedDoc,
+    yamlDoc: snap.yamlDoc,
+    parseError: snap.parseError,
+    originalText: snap.originalText,
+    isDirty: snap.isDirty,
+    currentFilePath: snap.currentFilePath,
+    undoStack: snap.undoStack,
+    redoStack: snap.redoStack,
+  });
+}

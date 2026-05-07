@@ -9,10 +9,20 @@ import { useDocumentStore } from "./store/document";
 import { useUIStore } from "./store/ui";
 import { useDebouncedParse } from "./store/useDebouncedParse";
 import { parseLiveYaml } from "./model";
-import { openFile, openFromPath, saveFile, saveFileAs } from "./lib/fileActions";
+import {
+  closeTabAction,
+  newFile,
+  newTab,
+  openFile,
+  openFromPath,
+  saveFile,
+  saveFileAs,
+} from "./lib/fileActions";
+import { useTabsStore } from "./store/tabs";
+import { TabStrip } from "./components/TabStrip";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
-import { isTauri } from "./lib/env";
+import { isMobile, isTauri } from "./lib/env";
 import { clearDraft, loadDraft, saveDraft } from "./lib/draft";
 import { applyTheme, resolveTheme, watchSystemTheme } from "./lib/theme";
 import { checkForUpdate, shouldRunScheduledCheck } from "./lib/updater";
@@ -119,7 +129,12 @@ function App() {
       if (cancelled) return;
       if (result.ok) reset(DEFAULT_YAML, result.value.tree, result.value.doc);
       else reset(DEFAULT_YAML, null);
-    })();
+    })().finally(() => {
+      // Materialize the bootstrapped document as tab 0 so subsequent file
+      // actions can spawn additional tabs. init() is a no-op if openFromPath
+      // already populated the tabs store.
+      if (!cancelled) useTabsStore.getState().init();
+    });
     return () => {
       cancelled = true;
     };
@@ -183,7 +198,10 @@ function App() {
   }, [themePreference, setResolvedTheme]);
 
   // Auto-save: debounced disk write when YAML is valid and the doc has a path.
+  // Disabled on mobile — iOS UIDocumentPicker URLs aren't writable outside
+  // their original picker scope, so silent writes always fail.
   useEffect(() => {
+    if (isMobile()) return;
     if (!autoSave || !currentFilePath || parseError || !isDirty) return;
     const handle = setTimeout(() => {
       void saveFile();
@@ -204,6 +222,25 @@ function App() {
         return;
       }
       const key = e.key.toLowerCase();
+      if (!e.shiftKey && !e.altKey && key === "n") {
+        e.preventDefault();
+        e.stopPropagation();
+        void newFile();
+        return;
+      }
+      if (!e.shiftKey && !e.altKey && key === "t") {
+        e.preventDefault();
+        e.stopPropagation();
+        void newTab();
+        return;
+      }
+      if (!e.shiftKey && !e.altKey && key === "w") {
+        e.preventDefault();
+        e.stopPropagation();
+        const active = useTabsStore.getState().activeTabId;
+        if (active) void closeTabAction(active);
+        return;
+      }
       if (!e.shiftKey && !e.altKey && key === "o") {
         e.preventDefault();
         e.stopPropagation();
@@ -344,13 +381,21 @@ function App() {
   }, [currentFilePath]);
 
   return (
-    <main className="flex h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <main
+      className="flex h-[100dvh] flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
+    >
       {availableUpdate && (
         <UpdateBanner update={availableUpdate} onDismiss={() => setAvailableUpdate(null)} />
       )}
       <header className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-2">
-          <h1 className="text-sm font-medium tracking-tight">clobmap</h1>
+          <h1 className="hidden text-sm font-medium tracking-tight sm:block">clobmap</h1>
           <FileMenu />
         </div>
         <div className="flex items-center gap-2">
@@ -359,7 +404,7 @@ function App() {
               href="https://github.com/clobrate/clobmap/releases/latest"
               target="_blank"
               rel="noreferrer"
-              className="rounded border border-neutral-300 px-2.5 py-1 text-xs text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+              className="hidden rounded border border-neutral-300 px-2.5 py-1 text-xs text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 sm:inline-flex dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
               title="Install clobmap as a desktop app"
             >
               Install
@@ -369,6 +414,7 @@ function App() {
           <SettingsMenu />
         </div>
       </header>
+      {!isMobile() && <TabStrip />}
       <div className="flex min-h-0 flex-1">
         {viewMode === "yaml" && (
           <div className="flex-1">
