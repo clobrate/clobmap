@@ -20,6 +20,7 @@ import {
 } from "./lib/fileActions";
 import { useTabsStore } from "./store/tabs";
 import { TabStrip } from "./components/TabStrip";
+import { WelcomeBanner } from "./components/WelcomeBanner";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -31,26 +32,54 @@ import { SplitPanes } from "./components/SplitPanes";
 import { getPendingOpenPath, listenForOpenFiles } from "./lib/openFromOs";
 import { disableTelemetry, enableTelemetry } from "./lib/telemetry";
 
-const DEFAULT_YAML = `title: clobmap
+// First-paint seed. Picked to read as an obvious "big thing broken into
+// smaller things" to anyone — including users who don't know the term
+// "mind map". Don't make this abstract; concrete examples teach the idea
+// without anyone having to define it.
+const DEFAULT_YAML = `title: Wedding planning
 version: 1
 root:
   id: n1
-  text: Welcome
+  text: Our wedding
   children:
     - id: n2
-      text: Edit either pane
-      children: []
-    - id: n3
-      text: Shortcuts
+      text: Venue
       children:
+        - id: n3
+          text: Ceremony
+          children: []
         - id: n4
-          text: Tab — child
+          text: Reception
           children: []
-        - id: n5
-          text: Enter — sibling
-          children: []
+    - id: n5
+      text: Guests
+      children:
         - id: n6
-          text: F2 — rename
+          text: Family
+          children: []
+        - id: n7
+          text: Friends
+          children: []
+    - id: n8
+      text: Vendors
+      children:
+        - id: n9
+          text: Catering
+          children: []
+        - id: n10
+          text: Photographer
+          children: []
+        - id: n11
+          text: Florist
+          children: []
+    - id: n12
+      text: Schedule
+      children:
+        - id: n13
+          text: Save the date
+          children: []
+        - id: n14
+          text: Send invites
           children: []
 `;
 
@@ -415,6 +444,7 @@ function App() {
         </div>
       </header>
       {!isMobile() && <TabStrip />}
+      <WelcomeBanner />
       <div className="flex min-h-0 flex-1">
         {viewMode === "yaml" && (
           <div className="flex-1">
