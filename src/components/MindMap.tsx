@@ -78,10 +78,25 @@ function MindMapInner() {
   }, []);
 
   // Keep React Flow's internal node positions in sync with layout positions.
+  // Selection changes are handled in a separate effect below so we don't
+  // rebuild the entire node array on every arrow keypress (matters at 1k+
+  // nodes, where the rebuild itself is the slow path).
   useEffect(() => {
-    reactFlow.setNodes(layout.nodes.map((n) => ({ ...n, selected: n.id === selectedId })));
+    reactFlow.setNodes(layout.nodes);
     reactFlow.setEdges(layout.edges);
-  }, [layout.nodes, layout.edges, selectedId, reactFlow]);
+  }, [layout.nodes, layout.edges, reactFlow]);
+
+  // Patch only the selected flag when selection changes — leaves all the
+  // expensive position/data fields untouched.
+  useEffect(() => {
+    reactFlow.setNodes((current) =>
+      current.map((n) =>
+        n.selected === (n.id === selectedId)
+          ? n
+          : { ...n, selected: n.id === selectedId },
+      ),
+    );
+  }, [selectedId, reactFlow]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<Node<MindNodeData>>[]) => {
@@ -90,23 +105,39 @@ function MindMapInner() {
     [reactFlow],
   );
 
-  // Pan (without changing zoom) so a freshly-created node lands inside the
-  // visible viewport. Wait one frame for the layout effect above to push the
-  // new node into React Flow and for it to measure dimensions.
-  const revealNode = useCallback(
-    (nodeId: string) => {
-      requestAnimationFrame(() => {
-        const z = reactFlow.getZoom();
-        reactFlow.fitView({
-          nodes: [{ id: nodeId }],
-          duration: 250,
-          padding: 0.4,
-          minZoom: z,
-          maxZoom: z,
-        });
+  // Pure-pan to a node's center at the user's current zoom. fitView's
+  // minZoom/maxZoom clamp doesn't reliably preserve zoom — it derives a
+  // target zoom from the bounding box and the clamp can be ignored.
+  // setCenter takes an explicit zoom and only pans, which is what we want.
+  const panToNode = useCallback(
+    (nodeId: string, durationMs: number) => {
+      const node = reactFlow.getNode(nodeId);
+      if (!node) return;
+      const w = node.measured?.width ?? 180;
+      const h = node.measured?.height ?? 44;
+      reactFlow.setCenter(node.position.x + w / 2, node.position.y + h / 2, {
+        duration: durationMs,
+        zoom: reactFlow.getZoom(),
       });
     },
     [reactFlow],
+  );
+
+  // For freshly-created nodes: wait one frame for the layout-mirror
+  // effect to push the new node into React Flow before we try to read
+  // it back via reactFlow.getNode(id).
+  const revealNode = useCallback(
+    (nodeId: string) => {
+      requestAnimationFrame(() => panToNode(nodeId, 250));
+    },
+    [panToNode],
+  );
+
+  // For arrow-key navigation: nodes already exist, no rAF needed; shorter
+  // duration so rapid keypresses chain smoothly instead of stuttering.
+  const revealForNav = useCallback(
+    (nodeId: string) => panToNode(nodeId, 150),
+    [panToNode],
   );
 
   const onNodeClick: NodeMouseHandler<Node<MindNodeData>> = useCallback(
@@ -271,6 +302,7 @@ function MindMapInner() {
           if (target) {
             e.preventDefault();
             setSelected(target.id);
+            revealForNav(target.id);
             announce(`${target.text}, ${target.aria}`);
           }
           return;
@@ -280,6 +312,7 @@ function MindMapInner() {
           if (target) {
             e.preventDefault();
             setSelected(target.id);
+            revealForNav(target.id);
             announce(`${target.text}, ${target.aria}`);
           }
           return;
@@ -289,6 +322,7 @@ function MindMapInner() {
           if (target) {
             e.preventDefault();
             setSelected(target.id);
+            revealForNav(target.id);
             announce(`${target.text}, ${target.aria}`);
           }
           return;
@@ -307,6 +341,7 @@ function MindMapInner() {
     redo,
     reactFlow,
     revealNode,
+    revealForNav,
     selectedId,
     setEditing,
     setSelected,
@@ -352,6 +387,7 @@ function MindMapInner() {
         minZoom={0.1}
         maxZoom={2}
         nodesConnectable={false}
+        onlyRenderVisibleElements
         proOptions={{ hideAttribution: true }}
         colorMode={resolvedTheme}
       >
