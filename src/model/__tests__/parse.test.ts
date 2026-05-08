@@ -223,6 +223,88 @@ root:
     expect(r.value.root.text).toContain("line two");
   });
 
+  it("accepts top-level layoutMode", () => {
+    const r = parseYaml(`
+title: T
+layoutMode: manual
+root:
+  id: n1
+  text: Root
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.layoutMode).toBe("manual");
+  });
+
+  it("rejects invalid layoutMode values gracefully (treats as absent)", () => {
+    const r = parseYaml(`
+title: T
+layoutMode: garbage
+root:
+  id: n1
+  text: Root
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.layoutMode).toBeUndefined();
+  });
+
+  it("accepts per-node position with finite x/y numbers", () => {
+    const r = parseYaml(`
+title: T
+layoutMode: manual
+root:
+  id: n1
+  text: Root
+  position:
+    x: 100
+    y: 200
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.root.position).toEqual({ x: 100, y: 200 });
+  });
+
+  it("ignores position when x or y is missing / non-numeric", () => {
+    const r = parseYaml(`
+title: T
+root:
+  id: n1
+  text: Root
+  position:
+    x: 100
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.root.position).toBeUndefined();
+  });
+
+  it("round-trips layoutMode + position through serialize", () => {
+    const original = parseYaml(`
+title: T
+layoutMode: manual
+root:
+  id: n1
+  text: Root
+  position:
+    x: 100
+    y: 200
+  children: []
+`);
+    expect(original.ok).toBe(true);
+    if (!original.ok) return;
+    const reserialized = serializeYaml(original.value);
+    const reparsed = parseYaml(reserialized);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.layoutMode).toBe("manual");
+    expect(reparsed.value.root.position).toEqual({ x: 100, y: 200 });
+  });
+
   it("round-trips maxWidth / maxHeight through serialize", () => {
     const original = parseYaml(`
 title: T

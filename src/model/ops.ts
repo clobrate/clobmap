@@ -138,7 +138,17 @@ export function updateNode(
   doc: MindDocument,
   id: string,
   patch: Partial<
-    Pick<MindNode, "text" | "note" | "color" | "collapsed" | "maxWidth" | "maxHeight" | "notes">
+    Pick<
+      MindNode,
+      | "text"
+      | "note"
+      | "color"
+      | "collapsed"
+      | "maxWidth"
+      | "maxHeight"
+      | "notes"
+      | "position"
+    >
   >,
 ): MindDocument {
   let updated = false;
@@ -170,6 +180,10 @@ export function updateNode(
     if ("notes" in patch) {
       if (patch.notes === undefined || patch.notes === "") delete next.notes;
       else next.notes = patch.notes;
+    }
+    if ("position" in patch) {
+      if (patch.position === undefined) delete next.position;
+      else next.position = { x: patch.position.x, y: patch.position.y };
     }
     return next;
   });
@@ -267,4 +281,82 @@ export function emptyDocument(title = "Untitled", ids?: IdGenerator): MindDocume
     version: SCHEMA_VERSION,
     root: { id, text: title, children: [] },
   };
+}
+
+/**
+ * Walk the tree and apply a transform to each node. Returns a new tree
+ * (input is not mutated). Used by the layout-mode switch helpers below.
+ */
+function mapAllNodes(node: MindNode, fn: (n: MindNode) => MindNode): MindNode {
+  const next = fn(node);
+  if (next.children.length === 0) return next;
+  const children = next.children.map((c) => mapAllNodes(c, fn));
+  // Avoid creating a new array if nothing actually changed.
+  let same = children.length === next.children.length;
+  if (same) {
+    for (let i = 0; i < children.length; i += 1) {
+      if (children[i] !== next.children[i]) {
+        same = false;
+        break;
+      }
+    }
+  }
+  return same ? next : { ...next, children };
+}
+
+/**
+ * Set the document's layoutMode. Used by the Auto/Manual toggle in
+ * Settings. Switching to "auto" strips every node's `position` field
+ * (positions are meaningless in auto mode and would just bloat the YAML).
+ * Switching to "manual" leaves any existing positions in place; the
+ * caller decides whether to seed positions from the auto-layout output.
+ */
+export function setLayoutMode(doc: MindDocument, mode: "auto" | "manual"): MindDocument {
+  // Absent layoutMode is canonically "auto" — short-circuit so the
+  // common "default doc, no edits yet" case doesn't churn the YAML.
+  const current = doc.layoutMode ?? "auto";
+  if (mode === current) return doc;
+  if (mode === "auto") {
+    return {
+      ...doc,
+      layoutMode: undefined,
+      root: mapAllNodes(doc.root, stripPosition),
+    };
+  }
+  return { ...doc, layoutMode: "manual" };
+}
+
+/**
+ * Bulk-set positions for a list of (id, position) pairs. Used by the
+ * Auto → Manual transition: we capture the auto-layout's coordinates
+ * and write them back so the visual state is preserved.
+ */
+export function setPositions(
+  doc: MindDocument,
+  positions: Map<string, { x: number; y: number }>,
+): MindDocument {
+  return {
+    ...doc,
+    root: mapAllNodes(doc.root, (n) => {
+      const p = positions.get(n.id);
+      if (!p) return n;
+      return { ...n, position: { x: p.x, y: p.y } };
+    }),
+  };
+}
+
+/**
+ * Strip every node's `position` while staying in manual mode. Used by
+ * the "Reset positions" button — fall back to the auto-layout look but
+ * keep the user in manual mode so they can keep dragging.
+ */
+export function clearAllPositions(doc: MindDocument): MindDocument {
+  return { ...doc, root: mapAllNodes(doc.root, stripPosition) };
+}
+
+function stripPosition(n: MindNode): MindNode {
+  if (n.position === undefined) return n;
+  const { position: _drop, ...rest } = n;
+  void _drop;
+  return rest;
 }

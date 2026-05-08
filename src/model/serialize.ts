@@ -12,6 +12,9 @@ function nodeToPlain(node: MindNode): Record<string, unknown> {
   if (node.maxWidth !== undefined) out.maxWidth = node.maxWidth;
   if (node.maxHeight !== undefined) out.maxHeight = node.maxHeight;
   if (node.notes !== undefined) out.notes = node.notes;
+  if (node.position !== undefined) {
+    out.position = { x: node.position.x, y: node.position.y };
+  }
   out.children = node.children.map(nodeToPlain);
   return out;
 }
@@ -19,6 +22,7 @@ function nodeToPlain(node: MindNode): Record<string, unknown> {
 function documentToPlain(doc: MindDocument): Record<string, unknown> {
   const out: Record<string, unknown> = { title: doc.title };
   if (doc.version !== undefined) out.version = doc.version;
+  if (doc.layoutMode !== undefined) out.layoutMode = doc.layoutMode;
   out.root = nodeToPlain(doc.root);
   return out;
 }

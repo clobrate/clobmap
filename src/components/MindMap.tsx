@@ -175,6 +175,8 @@ function MindMapInner() {
     (_e, node) => {
       const tree = useDocumentStore.getState().parsedDoc;
       if (!tree) return;
+      // Drop on another node always reparents — same gesture in both
+      // layout modes.
       const intersecting = reactFlow.getIntersectingNodes(node).filter((n) => n.id !== node.id);
       const target = intersecting[0];
       if (target) {
@@ -185,7 +187,18 @@ function MindMapInner() {
           if (!(err instanceof OpError)) throw err;
         }
       }
-      // Snap back to laid-out position
+      // Drop on empty space:
+      //   - Auto layout: snap back to the algorithm's position.
+      //   - Manual layout: persist the drop point as the node's new
+      //     `position` field.
+      if (tree.layoutMode === "manual") {
+        applyTreeChange(
+          updateNode(tree, node.id, {
+            position: { x: node.position.x, y: node.position.y },
+          }),
+        );
+        return;
+      }
       reactFlow.setNodes(layout.nodes.map((n) => ({ ...n, selected: n.id === selectedId })));
     },
     [applyTreeChange, layout.nodes, selectedId, reactFlow],

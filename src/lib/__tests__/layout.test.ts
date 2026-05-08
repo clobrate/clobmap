@@ -109,6 +109,61 @@ describe("layoutMindMap", () => {
     expect(root?.data.maxHeight).toBe(300);
   });
 
+  describe("manual layout mode", () => {
+    function manualDoc(): MindDocument {
+      return {
+        title: "T",
+        layoutMode: "manual",
+        root: {
+          id: "n1",
+          text: "Root",
+          position: { x: 100, y: 100 },
+          children: [
+            {
+              id: "n2",
+              text: "Has position",
+              position: { x: 400, y: 200 },
+              children: [],
+            },
+            { id: "n3", text: "No position", children: [] },
+          ],
+        },
+      };
+    }
+
+    it("honors stored positions verbatim", () => {
+      const { nodes } = layoutMindMap(manualDoc());
+      const root = nodes.find((n) => n.id === "n1");
+      const positioned = nodes.find((n) => n.id === "n2");
+      expect(root?.position).toEqual({ x: 100, y: 100 });
+      expect(positioned?.position).toEqual({ x: 400, y: 200 });
+    });
+
+    it("falls back to a parent-relative offset for new nodes without position", () => {
+      const { nodes } = layoutMindMap(manualDoc());
+      const orphan = nodes.find((n) => n.id === "n3");
+      // Should land somewhere to the right of, and below, its parent (n1).
+      const root = nodes.find((n) => n.id === "n1");
+      expect(orphan).toBeDefined();
+      expect(root).toBeDefined();
+      if (!orphan || !root) return;
+      expect(orphan.position.x).toBeGreaterThan(root.position.x);
+      expect(orphan.position.y).toBeGreaterThan(root.position.y);
+    });
+
+    it("doesn't run the tidy-tree algorithm in manual mode", () => {
+      // Tidy-tree would place root at MARGIN_X = 24. Manual mode honors
+      // the stored x: 100 instead.
+      const { nodes } = layoutMindMap(manualDoc());
+      expect(nodes.find((n) => n.id === "n1")?.position.x).toBe(100);
+    });
+
+    it("still emits one edge per parent-child pair", () => {
+      const { edges } = layoutMindMap(manualDoc());
+      expect(edges).toHaveLength(2);
+    });
+  });
+
   describe("hasNotes flag", () => {
     function withNotes(notes: string | undefined): MindDocument {
       return {

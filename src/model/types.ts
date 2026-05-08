@@ -17,12 +17,26 @@ export interface MindNode {
    * by `src/lib/notes.ts`.
    */
   notes?: string;
+  /**
+   * Manual position in canvas coordinates. Only meaningful when the
+   * document's `layoutMode` is "manual"; ignored (and stripped on save)
+   * in auto mode.
+   */
+  position?: { x: number; y: number };
 }
+
+export type LayoutMode = "auto" | "manual";
 
 export interface MindDocument {
   title: string;
   root: MindNode;
   version?: number;
+  /**
+   * "auto" runs the tidy-tree algorithm on every parse (default).
+   * "manual" honors per-node `position` fields verbatim, falling back
+   * to a small offset from the parent for newly-added nodes.
+   */
+  layoutMode?: LayoutMode;
 }
 
 export type Result<T, E = ParseError> = { ok: true; value: T } | { ok: false; error: E };

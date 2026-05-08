@@ -7,7 +7,10 @@ import {
   duplicateNode,
   emptyDocument,
   findById,
+  clearAllPositions,
   moveNode,
+  setLayoutMode,
+  setPositions,
   OpError,
   updateNode,
   updateText,
@@ -331,5 +334,84 @@ describe("emptyDocument", () => {
     const ids = createIdGenerator(5);
     const doc = emptyDocument("hi", ids);
     expect(doc.root.id).toBe("n6");
+  });
+});
+
+describe("setLayoutMode", () => {
+  it("switches to manual without altering positions", () => {
+    const seed = fixture();
+    seed.root.children[0]!.position = { x: 100, y: 50 };
+    const next = setLayoutMode(seed, "manual");
+    expect(next.layoutMode).toBe("manual");
+    // Existing position preserved
+    expect(next.root.children[0]?.position).toEqual({ x: 100, y: 50 });
+  });
+
+  it("switches to auto and strips every node's position", () => {
+    const seed = fixture();
+    seed.layoutMode = "manual";
+    seed.root.position = { x: 0, y: 0 };
+    seed.root.children[0]!.position = { x: 100, y: 50 };
+    seed.root.children[1]!.position = { x: 200, y: 50 };
+    const next = setLayoutMode(seed, "auto");
+    expect(next.layoutMode).toBeUndefined();
+    expect(next.root.position).toBeUndefined();
+    expect(next.root.children[0]?.position).toBeUndefined();
+    expect(next.root.children[1]?.position).toBeUndefined();
+  });
+
+  it("is a no-op when the mode is already what's asked for", () => {
+    const seed = fixture();
+    expect(setLayoutMode(seed, "auto")).toBe(seed);
+    seed.layoutMode = "manual";
+    expect(setLayoutMode(seed, "manual")).toBe(seed);
+  });
+
+  it("does not mutate the input tree", () => {
+    const seed = fixture();
+    seed.layoutMode = "manual";
+    seed.root.position = { x: 1, y: 2 };
+    setLayoutMode(seed, "auto");
+    // Original retains its layoutMode and positions.
+    expect(seed.layoutMode).toBe("manual");
+    expect(seed.root.position).toEqual({ x: 1, y: 2 });
+  });
+});
+
+describe("setPositions", () => {
+  it("applies every (id → position) pair", () => {
+    const positions = new Map([
+      ["n1", { x: 0, y: 0 }],
+      ["n3", { x: 250, y: 80 }],
+    ]);
+    const next = setPositions(fixture(), positions);
+    expect(next.root.position).toEqual({ x: 0, y: 0 });
+    const a = findById(next, "n3");
+    expect(a?.position).toEqual({ x: 250, y: 80 });
+    // Untouched ids stay without a position.
+    const b = findById(next, "n4");
+    expect(b?.position).toBeUndefined();
+  });
+
+  it("ignores ids that aren't in the tree", () => {
+    const positions = new Map([["nothing-here", { x: 1, y: 2 }]]);
+    const next = setPositions(fixture(), positions);
+    // Tree shape unchanged.
+    expect(next.root.id).toBe("n1");
+    // No new fields anywhere.
+    expect(next.root.position).toBeUndefined();
+  });
+});
+
+describe("clearAllPositions", () => {
+  it("strips position from every node but keeps layoutMode", () => {
+    const seed = fixture();
+    seed.layoutMode = "manual";
+    seed.root.position = { x: 0, y: 0 };
+    seed.root.children[0]!.position = { x: 100, y: 50 };
+    const next = clearAllPositions(seed);
+    expect(next.layoutMode).toBe("manual");
+    expect(next.root.position).toBeUndefined();
+    expect(next.root.children[0]?.position).toBeUndefined();
   });
 });

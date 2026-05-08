@@ -75,7 +75,11 @@ export function layoutMindMap(
 
   const nodes: Node<MindNodeData>[] = [];
   const edges: Edge[] = [];
-  place(doc.root, null, null, 0, MARGIN_Y, defaults, metrics, nodes, edges);
+  if (doc.layoutMode === "manual") {
+    placeManual(doc.root, null, null, 0, defaults, metrics, nodes, edges);
+  } else {
+    place(doc.root, null, null, 0, MARGIN_Y, defaults, metrics, nodes, edges);
+  }
   return { nodes, edges };
 }
 
@@ -112,6 +116,80 @@ function countDescendants(node: MindNode): number {
   let n = node.children.length;
   for (const child of node.children) n += countDescendants(child);
   return n;
+}
+
+/**
+ * Manual-mode placement. Honors each node's stored `position` verbatim;
+ * nodes without one (newly added since the last save, typically) inherit
+ * a small offset from their parent so they're visible and the user can
+ * drag from there. No subtree centering; no row gymnastics — manual
+ * mode is exactly "what's on disk plus a sensible default for new nodes".
+ */
+const NEW_NODE_OFFSET_X = 60;
+const NEW_NODE_OFFSET_Y = 30;
+
+function placeManual(
+  node: MindNode,
+  parentId: string | null,
+  parentPosition: { x: number; y: number; width: number; height: number } | null,
+  depth: number,
+  defaults: LayoutDefaults,
+  metrics: Map<MindNode, NodeMetrics>,
+  outNodes: Node<MindNodeData>[],
+  outEdges: Edge[],
+): void {
+  const m = metrics.get(node);
+  if (!m) return;
+  const collapsed = Boolean(node.collapsed);
+
+  let x: number;
+  let y: number;
+  if (node.position) {
+    x = node.position.x;
+    y = node.position.y;
+  } else if (parentPosition === null) {
+    // Root with no position — start at canvas margin.
+    x = MARGIN_X;
+    y = MARGIN_Y;
+  } else {
+    // New child of an already-placed parent: offset right and down a bit
+    // so it doesn't sit on top of the parent.
+    x = parentPosition.x + parentPosition.width + NEW_NODE_OFFSET_X;
+    y = parentPosition.y + NEW_NODE_OFFSET_Y;
+  }
+
+  outNodes.push({
+    id: node.id,
+    type: "mind",
+    position: { x, y },
+    data: {
+      text: node.text,
+      depth,
+      isRoot: parentId === null,
+      color: node.color,
+      note: node.note,
+      collapsed,
+      hasChildren: node.children.length > 0,
+      hiddenChildCount: collapsed ? m.descendantCount : 0,
+      maxWidth: m.width,
+      maxHeight: m.height,
+      hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
+    },
+  });
+  if (parentId) {
+    outEdges.push({
+      id: `${parentId}->${node.id}`,
+      source: parentId,
+      target: node.id,
+      type: "smoothstep",
+    });
+  }
+  if (collapsed) return;
+
+  const myRect = { x, y, width: m.width, height: m.height };
+  for (const child of node.children) {
+    placeManual(child, node.id, myRect, depth + 1, defaults, metrics, outNodes, outEdges);
+  }
 }
 
 function place(

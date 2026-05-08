@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useUIStore, type ThemePreference } from "../store/ui";
+import { useDocumentStore } from "../store/document";
 import {
   saveAutoSavePref,
   saveFontSizePref,
@@ -11,6 +12,8 @@ import { isMobile, isTauri } from "../lib/env";
 import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
 import { openExternal } from "../lib/openExternal";
 import { isTelemetryAvailable } from "../lib/telemetry";
+import { clearAllPositions, setLayoutMode, setPositions, type LayoutMode } from "../model";
+import { layoutMindMap } from "../lib/layout";
 
 const PRIVACY_URL = "https://github.com/clobrate/clobmap/blob/main/PRIVACY.md";
 const ISSUE_URL = "https://github.com/clobrate/clobmap/issues/new?labels=bug";
@@ -37,6 +40,38 @@ export function SettingsMenu() {
   const setTelemetryEnabled = useUIStore((s) => s.setTelemetryEnabled);
   const telemetryAvailable = isTelemetryAvailable();
   const setAvailableUpdate = useUIStore((s) => s.setAvailableUpdate);
+
+  // Per-document layout mode (auto vs manual). Stored in YAML so it
+  // survives across launches and travels with the file.
+  const parsedDoc = useDocumentStore((s) => s.parsedDoc);
+  const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
+  const layoutMode: LayoutMode = parsedDoc?.layoutMode ?? "auto";
+
+  const onLayoutMode = (next: LayoutMode) => {
+    if (!parsedDoc || layoutMode === next) return;
+    if (next === "manual") {
+      // Seed manual positions from the current auto-layout so the
+      // visual state is preserved at the moment of switching.
+      const { nodes } = layoutMindMap(parsedDoc);
+      const positions = new Map<string, { x: number; y: number }>();
+      for (const n of nodes) positions.set(n.id, { x: n.position.x, y: n.position.y });
+      const seeded = setPositions(parsedDoc, positions);
+      applyTreeChange(setLayoutMode(seeded, "manual"));
+    } else {
+      applyTreeChange(setLayoutMode(parsedDoc, "auto"));
+    }
+  };
+
+  const onResetPositions = () => {
+    if (!parsedDoc) return;
+    const { nodes } = layoutMindMap({ ...parsedDoc, layoutMode: "auto" });
+    const positions = new Map<string, { x: number; y: number }>();
+    for (const n of nodes) positions.set(n.id, { x: n.position.x, y: n.position.y });
+    // Clear, then re-seed from auto so the user sees a clean tidy-tree
+    // immediately while staying in manual mode.
+    const cleared = clearAllPositions(parsedDoc);
+    applyTreeChange(setPositions(cleared, positions));
+  };
 
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "none">("idle");
 
@@ -97,6 +132,41 @@ export function SettingsMenu() {
                   void saveAutoSavePref(v);
                 }}
               />
+              <Divider />
+            </>
+          )}
+          {parsedDoc && (
+            <>
+              <div className="px-3 py-1.5">
+                <div className="text-neutral-600 dark:text-neutral-400">
+                  Layout
+                  <span className="ml-1 text-[10px] uppercase tracking-wider text-neutral-500">
+                    this document
+                  </span>
+                </div>
+                <div className="mt-1 flex gap-1">
+                  <SegButton
+                    active={layoutMode === "auto"}
+                    onClick={() => onLayoutMode("auto")}
+                    label="Auto"
+                  />
+                  <SegButton
+                    active={layoutMode === "manual"}
+                    onClick={() => onLayoutMode("manual")}
+                    label="Manual"
+                  />
+                </div>
+                {layoutMode === "manual" && (
+                  <button
+                    type="button"
+                    onClick={onResetPositions}
+                    className="mt-2 w-full rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    title="Snap every node back to the auto-layout position. You stay in Manual mode."
+                  >
+                    Reset positions
+                  </button>
+                )}
+              </div>
               <Divider />
             </>
           )}

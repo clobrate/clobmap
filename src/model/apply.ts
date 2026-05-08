@@ -16,6 +16,11 @@ export function applyTreeToDocument(doc: Document, after: MindDocument): void {
   } else if (top.has("version")) {
     top.delete("version");
   }
+  if (after.layoutMode !== undefined) {
+    setScalarValue(top, "layoutMode", after.layoutMode);
+  } else if (top.has("layoutMode")) {
+    top.delete("layoutMode");
+  }
 
   const index = buildIdIndex(doc);
   const rootMap = ensureRootMap(doc);
@@ -66,7 +71,20 @@ function syncNode(target: YAMLMap, source: MindNode, index: Map<string, YAMLMap>
   setOrDelete(target, "maxWidth", source.maxWidth);
   setOrDelete(target, "maxHeight", source.maxHeight);
   setOrDelete(target, "notes", source.notes);
+  syncPosition(target, source.position);
   syncChildren(target, source.children, index);
+}
+
+function syncPosition(map: YAMLMap, position: MindNode["position"]): void {
+  if (position === undefined) {
+    if (map.has("position")) map.delete("position");
+    return;
+  }
+  // Build a fresh sub-map so coordinates round-trip cleanly.
+  const next = new YAMLMap();
+  next.set("x", new Scalar(position.x));
+  next.set("y", new Scalar(position.y));
+  map.set("position", next);
 }
 
 function setScalarValue(map: YAMLMap, key: string, value: unknown): void {
@@ -112,6 +130,12 @@ function syncOrCreate(source: MindNode, index: Map<string, YAMLMap>): YAMLMap {
     if (source.maxWidth !== undefined) map.set("maxWidth", new Scalar(source.maxWidth));
     if (source.maxHeight !== undefined) map.set("maxHeight", new Scalar(source.maxHeight));
     if (source.notes !== undefined) map.set("notes", new Scalar(source.notes));
+    if (source.position !== undefined) {
+      const pos = new YAMLMap();
+      pos.set("x", new Scalar(source.position.x));
+      pos.set("y", new Scalar(source.position.y));
+      map.set("position", pos);
+    }
     map.set("children", new YAMLSeq());
     index.set(source.id, map);
   }
