@@ -162,6 +162,61 @@ describe("updateNode", () => {
   it("rejects unknown id", () => {
     expect(() => updateNode(fixture(), "missing", { text: "x" })).toThrow(OpError);
   });
+
+  it("sets and clears maxWidth / maxHeight", () => {
+    let doc = updateNode(fixture(), "n3", { maxWidth: 320, maxHeight: 180 });
+    let n = findById(doc, "n3");
+    expect(n?.maxWidth).toBe(320);
+    expect(n?.maxHeight).toBe(180);
+
+    // Explicit undefined removes the field entirely.
+    doc = updateNode(doc, "n3", { maxWidth: undefined, maxHeight: undefined });
+    n = findById(doc, "n3");
+    expect(n?.maxWidth).toBeUndefined();
+    expect(n?.maxHeight).toBeUndefined();
+  });
+
+  it("treats non-positive maxWidth / maxHeight as a clear request", () => {
+    let doc = updateNode(fixture(), "n3", { maxWidth: 320, maxHeight: 180 });
+    doc = updateNode(doc, "n3", { maxWidth: 0, maxHeight: -50 });
+    const n = findById(doc, "n3");
+    expect(n?.maxWidth).toBeUndefined();
+    expect(n?.maxHeight).toBeUndefined();
+  });
+
+  it("sets and clears notes", () => {
+    let doc = updateNode(fixture(), "n3", { notes: "Some longer Markdown text" });
+    let n = findById(doc, "n3");
+    expect(n?.notes).toBe("Some longer Markdown text");
+
+    // Empty string clears the field.
+    doc = updateNode(doc, "n3", { notes: "" });
+    n = findById(doc, "n3");
+    expect(n?.notes).toBeUndefined();
+  });
+
+  it("treats undefined notes as clear", () => {
+    let doc = updateNode(fixture(), "n3", { notes: "x" });
+    doc = updateNode(doc, "n3", { notes: undefined });
+    expect(findById(doc, "n3")?.notes).toBeUndefined();
+  });
+
+  it("only clears keys actually present in the patch (omitted keys are preserved)", () => {
+    let doc = updateNode(fixture(), "n3", {
+      note: "hover",
+      color: "#abc",
+      maxWidth: 200,
+      notes: "long",
+    });
+    // Patch with only `text` shouldn't touch the others.
+    doc = updateNode(doc, "n3", { text: "renamed" });
+    const n = findById(doc, "n3");
+    expect(n?.text).toBe("renamed");
+    expect(n?.note).toBe("hover");
+    expect(n?.color).toBe("#abc");
+    expect(n?.maxWidth).toBe(200);
+    expect(n?.notes).toBe("long");
+  });
 });
 
 describe("moveNode", () => {

@@ -81,4 +81,15 @@ describe("notes — suggestedSidecarFilename", () => {
     expect(suggestedSidecarFilename("/tmp/doc.yaml", "n1", "x")).toContain("doc");
     expect(suggestedSidecarFilename("/tmp/doc.yml", "n1", "x")).toContain("doc");
   });
+
+  it("starts with './.' so the file is hidden on macOS / Linux", () => {
+    const f = suggestedSidecarFilename("/tmp/d.clobmap.yaml", "n1", "x");
+    expect(f).toMatch(/^\.\/\./);
+  });
+
+  it("escapes the segment separator so different node texts can't collide", () => {
+    const a = suggestedSidecarFilename("/tmp/d.clobmap.yaml", "n1", "alpha_beta");
+    const b = suggestedSidecarFilename("/tmp/d.clobmap.yaml", "n2", "gamma");
+    expect(a).not.toBe(b);
+  });
 });

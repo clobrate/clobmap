@@ -15,6 +15,7 @@ describe("useUIStore", () => {
       telemetryEnabled: false,
       selectedNodeId: null,
       editingNodeId: null,
+      notesEditorNodeId: null,
       contextMenu: null,
       clipboard: null,
       liveAnnouncement: "",
@@ -116,6 +117,25 @@ describe("useUIStore", () => {
       useUIStore.getState().setSelected("n1");
       useUIStore.getState().setSelected(null);
       expect(useUIStore.getState().selectedNodeId).toBeNull();
+    });
+  });
+
+  describe("notes editor", () => {
+    it("openNotesEditor sets the node id", () => {
+      useUIStore.getState().openNotesEditor("n5");
+      expect(useUIStore.getState().notesEditorNodeId).toBe("n5");
+    });
+
+    it("openNotesEditor closes any open context menu", () => {
+      useUIStore.getState().openContextMenu("n5", 10, 20);
+      useUIStore.getState().openNotesEditor("n5");
+      expect(useUIStore.getState().contextMenu).toBeNull();
+    });
+
+    it("closeNotesEditor clears the node id", () => {
+      useUIStore.getState().openNotesEditor("n5");
+      useUIStore.getState().closeNotesEditor();
+      expect(useUIStore.getState().notesEditorNodeId).toBeNull();
     });
   });
 

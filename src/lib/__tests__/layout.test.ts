@@ -108,4 +108,28 @@ describe("layoutMindMap", () => {
     expect(root?.data.maxWidth).toBe(400);
     expect(root?.data.maxHeight).toBe(300);
   });
+
+  describe("hasNotes flag", () => {
+    function withNotes(notes: string | undefined): MindDocument {
+      return {
+        title: "T",
+        root: { id: "n1", text: "Root", notes, children: [] },
+      };
+    }
+
+    it("is true when notes is a non-empty string", () => {
+      const { nodes } = layoutMindMap(withNotes("Some notes content"));
+      expect(nodes[0]?.data.hasNotes).toBe(true);
+    });
+
+    it("is false when notes is undefined", () => {
+      const { nodes } = layoutMindMap(withNotes(undefined));
+      expect(nodes[0]?.data.hasNotes).toBe(false);
+    });
+
+    it("is false when notes is an all-whitespace string", () => {
+      const { nodes } = layoutMindMap(withNotes("   \n\t  "));
+      expect(nodes[0]?.data.hasNotes).toBe(false);
+    });
+  });
 });

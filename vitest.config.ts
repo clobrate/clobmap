@@ -28,6 +28,12 @@ export default defineConfig({
         // require mocking the entire IPC surface area. Validated via manual
         // smoke tests instead.
         "src/lib/fileActions.ts",
+        // notes.ts mixes pure helpers (isPathReference,
+        // suggestedSidecarFilename — exercised by notes.test.ts) with
+        // Tauri-IO (resolveNotesPath / loadNotes / saveNotes need plugin-fs
+        // mocks). Excluded from the file-level percentage; manual-testing-
+        // guide.md covers the IO portion.
+        "src/lib/notes.ts",
         // Platform / IO wrappers — small, mostly delegating, not worth
         // mocking for line count.
         "src/lib/storage/**",
