@@ -15,7 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
-import { layoutMindMap, type MindNodeData } from "../lib/layout";
+import { layoutMindMap, materializeManualPositions, type MindNodeData } from "../lib/layout";
 import { MindMapNode } from "./MindMapNode";
 import { ContextMenu } from "./ContextMenu";
 import {
@@ -27,11 +27,15 @@ import {
   idGeneratorForDocument,
   moveNode,
   OpError,
+  setLayoutMode,
   updateNode,
 } from "../model";
 import { navigateIntoChildren, navigateSibling, navigateToParent } from "../lib/navigation";
 
+import { MindEdge } from "./MindEdge";
+
 const nodeTypes = { mind: MindMapNode };
+const edgeTypes = { smoothstep: MindEdge };
 
 export function MindMap() {
   // ReactFlowProvider is lifted to App so export actions (PNG/SVG/PDF)
@@ -51,6 +55,8 @@ function MindMapInner() {
   const setSelected = useUIStore((s) => s.setSelected);
   const editingId = useUIStore((s) => s.editingNodeId);
   const setEditing = useUIStore((s) => s.setEditing);
+  const openNotesEditor = useUIStore((s) => s.openNotesEditor);
+  const notesEditorNodeId = useUIStore((s) => s.notesEditorNodeId);
   const contextMenu = useUIStore((s) => s.contextMenu);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
@@ -173,6 +179,8 @@ function MindMapInner() {
     (_e, node) => {
       const tree = useDocumentStore.getState().parsedDoc;
       if (!tree) return;
+      // Drop on another node always reparents — same gesture in both
+      // layout modes.
       const intersecting = reactFlow.getIntersectingNodes(node).filter((n) => n.id !== node.id);
       const target = intersecting[0];
       if (target) {
@@ -183,16 +191,49 @@ function MindMapInner() {
           if (!(err instanceof OpError)) throw err;
         }
       }
-      // Snap back to laid-out position
-      reactFlow.setNodes(layout.nodes.map((n) => ({ ...n, selected: n.id === selectedId })));
+      // Drop on empty space:
+      //   - Manual layout: persist the drop point as the node's new
+      //     `position` field.
+      //   - Auto layout: the user is asking for manual — first drag is
+      //     the canonical "I want to position things myself" gesture.
+      //     Snapshot every node's current auto-layout position so the
+      //     rest of the tree stays put, override the dragged node's
+      //     position with the drop point, switch to manual mode in a
+      //     single tree change.
+      if (tree.layoutMode === "manual") {
+        applyTreeChange(
+          updateNode(tree, node.id, {
+            position: { x: node.position.x, y: node.position.y },
+          }),
+        );
+        return;
+      }
+      // Materialize manual positions: prefer this drop point for the
+      // dragged node; prefer last-known stored positions for everyone
+      // else (so a previous Manual session is restored); fall back to
+      // the auto-layout's positions for nodes that have neither (e.g.,
+      // children added since the last manual session).
+      const overrides = new Map<string, { x: number; y: number }>();
+      overrides.set(node.id, { x: node.position.x, y: node.position.y });
+      const seeded = materializeManualPositions(tree, overrides);
+      applyTreeChange(setLayoutMode(seeded, "manual"));
     },
-    [applyTreeChange, layout.nodes, selectedId, reactFlow],
+    [applyTreeChange, reactFlow],
   );
 
   // Global keyboard handler for the canvas
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Don't compete with active text inputs: inline rename, notes popup,
+      // or anything else that owns keyboard focus (e.g. CodeMirror in YAML
+      // view). Short-circuit if any of those are present.
       if (editingId !== null) return;
+      if (notesEditorNodeId !== null) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      }
       const tree = useDocumentStore.getState().parsedDoc;
       if (!tree) return;
 
@@ -276,6 +317,16 @@ function MindMapInner() {
           setEditing(selectedId);
           return;
         }
+        case "n":
+        case "N": {
+          // Open the long-form Markdown notes popup for the selected node.
+          // Only fires for the bare key — Cmd/Ctrl+N is the global "new
+          // file" shortcut handled in App.tsx.
+          if (e.metaKey || e.ctrlKey || e.altKey) return;
+          e.preventDefault();
+          openNotesEditor(selectedId);
+          return;
+        }
         case "Delete":
         case "Backspace": {
           if (selectedId === tree.root.id) return;
@@ -336,6 +387,7 @@ function MindMapInner() {
     applyTreeChange,
     closeContextMenu,
     editingId,
+    notesEditorNodeId,
     redo,
     reactFlow,
     revealNode,
@@ -343,6 +395,7 @@ function MindMapInner() {
     selectedId,
     setEditing,
     setSelected,
+    openNotesEditor,
     undo,
   ]);
 
@@ -372,6 +425,7 @@ function MindMapInner() {
         defaultNodes={[]}
         defaultEdges={[]}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
@@ -427,6 +481,10 @@ function MindMapInner() {
           }}
           onDuplicate={() => handleDuplicate(contextMenu.nodeId)}
           onEditNote={(note) => handleEditNote(contextMenu.nodeId, note)}
+          onEditNotes={() => {
+            openNotesEditor(contextMenu.nodeId);
+            closeContextMenu();
+          }}
           onSetColor={(color) => handleSetColor(contextMenu.nodeId, color)}
           onCut={() => handleCut(contextMenu.nodeId)}
           onPaste={() => handlePaste(contextMenu.nodeId)}

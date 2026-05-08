@@ -16,6 +16,11 @@ export function applyTreeToDocument(doc: Document, after: MindDocument): void {
   } else if (top.has("version")) {
     top.delete("version");
   }
+  if (after.layoutMode !== undefined) {
+    setScalarValue(top, "layoutMode", after.layoutMode);
+  } else if (top.has("layoutMode")) {
+    top.delete("layoutMode");
+  }
 
   const index = buildIdIndex(doc);
   const rootMap = ensureRootMap(doc);
@@ -63,7 +68,25 @@ function syncNode(target: YAMLMap, source: MindNode, index: Map<string, YAMLMap>
   setOrDelete(target, "note", source.note);
   setOrDelete(target, "color", source.color);
   setOrDelete(target, "collapsed", source.collapsed);
+  setOrDelete(target, "maxWidth", source.maxWidth);
+  setOrDelete(target, "maxHeight", source.maxHeight);
+  setOrDelete(target, "notes", source.notes);
+  setOrDelete(target, "edgeFrom", source.edgeFrom);
+  setOrDelete(target, "edgeTo", source.edgeTo);
+  syncPosition(target, source.position);
   syncChildren(target, source.children, index);
+}
+
+function syncPosition(map: YAMLMap, position: MindNode["position"]): void {
+  if (position === undefined) {
+    if (map.has("position")) map.delete("position");
+    return;
+  }
+  // Build a fresh sub-map so coordinates round-trip cleanly.
+  const next = new YAMLMap();
+  next.set("x", new Scalar(position.x));
+  next.set("y", new Scalar(position.y));
+  map.set("position", next);
 }
 
 function setScalarValue(map: YAMLMap, key: string, value: unknown): void {
@@ -105,6 +128,21 @@ function syncOrCreate(source: MindNode, index: Map<string, YAMLMap>): YAMLMap {
     if (source.color !== undefined) map.set("color", new Scalar(source.color));
     if (source.collapsed !== undefined) {
       map.set("collapsed", new Scalar(source.collapsed));
+    }
+    if (source.maxWidth !== undefined) map.set("maxWidth", new Scalar(source.maxWidth));
+    if (source.maxHeight !== undefined) map.set("maxHeight", new Scalar(source.maxHeight));
+    if (source.notes !== undefined) map.set("notes", new Scalar(source.notes));
+    if (source.position !== undefined) {
+      const pos = new YAMLMap();
+      pos.set("x", new Scalar(source.position.x));
+      pos.set("y", new Scalar(source.position.y));
+      map.set("position", pos);
+    }
+    if (source.edgeFrom !== undefined) {
+      map.set("edgeFrom", new Scalar(source.edgeFrom));
+    }
+    if (source.edgeTo !== undefined) {
+      map.set("edgeTo", new Scalar(source.edgeTo));
     }
     map.set("children", new YAMLSeq());
     index.set(source.id, map);

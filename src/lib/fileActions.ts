@@ -48,6 +48,7 @@ async function confirmDiscard(): Promise<boolean> {
 
 const NEW_FILE_SEED = `title: Untitled
 version: 1
+layoutMode: manual
 root:
   id: n1
   text: Untitled

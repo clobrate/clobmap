@@ -22,6 +22,7 @@ import {
 import { useTabsStore } from "./store/tabs";
 import { TabStrip } from "./components/TabStrip";
 import { WelcomeBanner } from "./components/WelcomeBanner";
+import { NotesPopup } from "./components/NotesPopup";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -37,50 +38,99 @@ import { disableTelemetry, enableTelemetry } from "./lib/telemetry";
 // smaller things" to anyone — including users who don't know the term
 // "mind map". Don't make this abstract; concrete examples teach the idea
 // without anyone having to define it.
+//
+// Manual layout with explicit positions baked in: dragging a node any-
+// where is the canonical clobmap interaction, and we want first-paint
+// to demonstrate that. Positions are picked to mimic what the auto-
+// layout would produce for a balanced LR tree, with tighter row
+// spacing (~80 px) since these labels are short.
 const DEFAULT_YAML = `title: Wedding planning
 version: 1
+layoutMode: manual
 root:
   id: n1
   text: Our wedding
+  position:
+    x: 24
+    y: 420
   children:
     - id: n2
       text: Venue
+      position:
+        x: 380
+        y: 80
       children:
         - id: n3
           text: Ceremony
+          position:
+            x: 720
+            y: 40
           children: []
         - id: n4
           text: Reception
+          position:
+            x: 720
+            y: 120
           children: []
     - id: n5
       text: Guests
+      position:
+        x: 380
+        y: 280
       children:
         - id: n6
           text: Family
+          position:
+            x: 720
+            y: 240
           children: []
         - id: n7
           text: Friends
+          position:
+            x: 720
+            y: 320
           children: []
     - id: n8
       text: Vendors
+      position:
+        x: 380
+        y: 520
       children:
         - id: n9
           text: Catering
+          position:
+            x: 720
+            y: 440
           children: []
         - id: n10
           text: Photographer
+          position:
+            x: 720
+            y: 520
           children: []
         - id: n11
           text: Florist
+          position:
+            x: 720
+            y: 600
           children: []
     - id: n12
       text: Schedule
+      position:
+        x: 380
+        y: 760
       children:
         - id: n13
           text: Save the date
+          position:
+            x: 720
+            y: 720
           children: []
         - id: n14
           text: Send invites
+          position:
+            x: 720
+            y: 800
           children: []
 `;
 
@@ -242,6 +292,9 @@ function App() {
   // App-wide keyboard shortcuts (capture phase to beat CodeMirror).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Don't compete with the notes popup or any text input that owns
+      // focus — Cmd+T inside the notes editor shouldn't open a new tab.
+      if (useUIStore.getState().notesEditorNodeId !== null) return;
       const cmd = e.metaKey || e.ctrlKey;
       if (!cmd) return;
 
@@ -469,6 +522,7 @@ function App() {
         )}
       </div>
       <StatusBar />
+      <NotesPopup />
       <div
         role="status"
         aria-live="polite"

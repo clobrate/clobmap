@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Document } from "yaml";
-import { useDocumentStore } from "../document";
+import { loadDocumentSnapshot, snapshotDocument, useDocumentStore } from "../document";
 import {
   addChild,
   createIdGenerator,
@@ -177,6 +177,55 @@ root:
       const before = useDocumentStore.getState();
       useDocumentStore.getState().redo();
       expect(useDocumentStore.getState()).toBe(before);
+    });
+  });
+
+  describe("markSavedAt", () => {
+    it("sets currentFilePath, captures yamlText as the new baseline, and clears dirty", () => {
+      const live = freshLiveDoc();
+      useDocumentStore.getState().reset(SAMPLE_YAML, live.tree, live.doc);
+      useDocumentStore.getState().setYamlText(`${SAMPLE_YAML}\n# edit\n`);
+      expect(useDocumentStore.getState().isDirty).toBe(true);
+
+      useDocumentStore.getState().markSavedAt("/tmp/foo.clobmap.yaml");
+      const s = useDocumentStore.getState();
+      expect(s.currentFilePath).toBe("/tmp/foo.clobmap.yaml");
+      expect(s.isDirty).toBe(false);
+      expect(s.originalText).toBe(`${SAMPLE_YAML}\n# edit\n`);
+    });
+  });
+
+  describe("applyTreeChange (degraded — no live AST)", () => {
+    it("falls back to plain serialization when yamlDoc is null", () => {
+      const live = freshLiveDoc();
+      // Simulate a state where parse failed (yamlDoc cleared but parsedDoc retained):
+      useDocumentStore.getState().reset(SAMPLE_YAML, live.tree, null);
+      const next = addChild(live.tree, "n1", "Degraded", createIdGenerator(99)).doc;
+      useDocumentStore.getState().applyTreeChange(next);
+
+      const s = useDocumentStore.getState();
+      // Without an AST we go through serializeYaml (plain), which should still
+      // produce a valid string that contains the new node text.
+      expect(s.yamlText).toContain("Degraded");
+      expect(s.yamlDoc).toBeNull();
+      expect(s.parsedDoc?.root.children.some((c) => c.text === "Degraded")).toBe(true);
+    });
+  });
+
+  describe("snapshot / load round-trip", () => {
+    it("snapshotDocument captures the live state; loadDocumentSnapshot restores it", () => {
+      const live = freshLiveDoc();
+      useDocumentStore.getState().reset(SAMPLE_YAML, live.tree, live.doc, "/tmp/a.yaml");
+      const snap = snapshotDocument();
+      expect(snap.currentFilePath).toBe("/tmp/a.yaml");
+
+      // Replace with another doc.
+      useDocumentStore.getState().reset("title: Other\nroot: { id: r, text: R, children: [] }\n", null, null, "/tmp/b.yaml");
+
+      // Now restore the snapshot — currentFilePath should swing back.
+      loadDocumentSnapshot(snap);
+      expect(useDocumentStore.getState().currentFilePath).toBe("/tmp/a.yaml");
+      expect(useDocumentStore.getState().yamlText).toBe(SAMPLE_YAML);
     });
   });
 });

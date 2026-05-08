@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Node } from "@xyflow/react";
-import type { MindNodeData } from "../lib/layout";
+import { handleId, type MindNodeData } from "../lib/layout";
+import type { HandleSide } from "../model";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
 import { useLongPress } from "../lib/useLongPress";
@@ -10,12 +11,26 @@ import { updateNode, updateText } from "../model";
 type Props = NodeProps<Node<MindNodeData>>;
 
 export function MindMapNode({ id, data, selected }: Props) {
-  const { text, isRoot, color, note, hasChildren, collapsed, hiddenChildCount } = data;
+  const {
+    text,
+    isRoot,
+    color,
+    note,
+    hasChildren,
+    collapsed,
+    hiddenChildCount,
+    maxWidth,
+    maxHeight,
+    hasNotes,
+    outgoingSides,
+    incomingSide,
+  } = data;
 
   const editingNodeId = useUIStore((s) => s.editingNodeId);
   const setEditing = useUIStore((s) => s.setEditing);
   const setSelected = useUIStore((s) => s.setSelected);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
+  const openNotesEditor = useUIStore((s) => s.openNotesEditor);
   const clipboard = useUIStore((s) => s.clipboard);
   const isEditing = editingNodeId === id;
   const isClipped = clipboard?.nodeId === id;
@@ -39,13 +54,20 @@ export function MindMapNode({ id, data, selected }: Props) {
 
   const dimClass = isClipped ? "opacity-40 outline-dashed outline-1 outline-amber-400/60" : "";
 
-  const style = color && !selected ? { borderColor: color } : undefined;
+  const colorBorderStyle = color && !selected ? { borderColor: color } : undefined;
 
   return (
     <div
       className={`${baseClass} ${borderClass} ${dimClass}`}
       style={{
-        ...style,
+        ...colorBorderStyle,
+        // Cap node visual size to its resolved max dimensions; the layout
+        // pre-reserves the slot at the same numbers so visuals match math.
+        maxWidth: `${maxWidth}px`,
+        maxHeight: `${maxHeight}px`,
+        // Long single-line text wraps; the rendered node grows up to maxHeight
+        // and overflows with a scrollbar past that.
+        overflow: "auto",
         WebkitTouchCallout: "none",
         WebkitUserSelect: "none",
         userSelect: "none",
@@ -58,31 +80,127 @@ export function MindMapNode({ id, data, selected }: Props) {
       aria-expanded={hasChildren ? !collapsed : undefined}
       {...longPress}
     >
-      {!isRoot && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="!h-2 !w-2 !border-0 !bg-neutral-500"
-        />
-      )}
+      {!isRoot && <HandleSet role="target" activeSides={[incomingSide]} />}
       {isEditing ? (
-        <InlineRename initialText={text} nodeId={id} onClose={() => setEditing(null)} />
+        <InlineRename
+          initialText={text}
+          nodeId={id}
+          onClose={() => setEditing(null)}
+          maxHeight={maxHeight}
+        />
       ) : (
-        <div className="flex max-w-[200px] items-center gap-1.5">
-          <span className="truncate">{text}</span>
+        <div className="flex items-start gap-1.5">
+          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
+          <NoteIndicator
+            hasNotes={hasNotes}
+            onActivate={() => {
+              setSelected(id);
+              openNotesEditor(id);
+            }}
+          />
           {hasChildren && (
             <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
           )}
         </div>
       )}
-      {hasChildren && (
-        <Handle
-          type="source"
-          position={Position.Right}
-          className="!h-2 !w-2 !border-0 !bg-neutral-500"
-        />
-      )}
+      {hasChildren && <HandleSet role="source" activeSides={outgoingSides} />}
     </div>
+  );
+}
+
+const SIDES: HandleSide[] = ["top", "right", "bottom", "left"];
+const POSITION_BY_SIDE: Record<HandleSide, Position> = {
+  top: Position.Top,
+  right: Position.Right,
+  bottom: Position.Bottom,
+  left: Position.Left,
+};
+
+/**
+ * React Flow needs a Handle at every position the user might route an
+ * edge through, because handle ids are matched at edge time. We render
+ * all four sides; the ones in `activeSides` are visible solid dots,
+ * the others are invisible-but-present so React Flow can re-route an
+ * edge to a different side at any moment without a remount.
+ *
+ * For the source role, multiple sides can be active simultaneously
+ * (one per child whose `edgeFrom` value picks that side). For the
+ * target role there's always exactly one active side (each node has
+ * one parent → one incoming edge).
+ */
+function HandleSet({
+  role,
+  activeSides,
+}: {
+  role: "source" | "target";
+  activeSides: HandleSide[];
+}) {
+  const active = new Set(activeSides);
+  return (
+    <>
+      {SIDES.map((side) => {
+        const isActive = active.has(side);
+        return (
+          <Handle
+            key={side}
+            id={handleId(role, side)}
+            type={role}
+            position={POSITION_BY_SIDE[side]}
+            className={
+              isActive
+                ? "!h-2 !w-2 !border-0 !bg-neutral-500"
+                : "!h-2 !w-2 !border-0 !bg-transparent !pointer-events-none !opacity-0"
+            }
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function NoteIndicator({
+  hasNotes,
+  onActivate,
+}: {
+  hasNotes: boolean;
+  onActivate: () => void;
+}) {
+  // Always-visible affordance. Muted neutral palette so it sits with the
+  // chevron rather than competing for attention. When the node has notes
+  // we step up the contrast a notch so it reads as "has content";
+  // otherwise it's a faint hint that the action exists. Click opens the
+  // notes popup — same as pressing `N` on the selected node.
+  const stateClass = hasNotes
+    ? "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/60 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-neutral-700/60"
+    : "text-neutral-300 hover:text-neutral-700 hover:bg-neutral-200/60 dark:text-neutral-700 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/60";
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onActivate();
+      }}
+      className={`shrink-0 rounded p-0.5 ${stateClass}`}
+      title={hasNotes ? "Open notes (N)" : "Add notes (N)"}
+      aria-label={hasNotes ? "Open notes" : "Add notes"}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="10"
+        height="10"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="3" y="2.5" width="10" height="11" rx="1.5" />
+        <path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" />
+      </svg>
+    </button>
   );
 }
 
@@ -128,13 +246,15 @@ function InlineRename({
   initialText,
   nodeId,
   onClose,
+  maxHeight,
 }: {
   initialText: string;
   nodeId: string;
   onClose: () => void;
+  maxHeight: number;
 }) {
   const [value, setValue] = useState(initialText);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
 
   useEffect(() => {
@@ -163,6 +283,14 @@ function InlineRename({
     requestAnimationFrame(tryFocus);
   }, []);
 
+  // Auto-grow the textarea height to fit its content (capped at maxHeight).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  }, [value, maxHeight]);
+
   const commit = () => {
     const tree = useDocumentStore.getState().parsedDoc;
     if (tree && value !== initialText) {
@@ -172,16 +300,19 @@ function InlineRename({
   };
 
   return (
-    <input
+    <textarea
       ref={inputRef}
       aria-label="Rename node"
-      className="w-full rounded border border-neutral-300 bg-white px-1 py-0.5 text-sm text-neutral-900 outline-none focus:border-emerald-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100 dark:focus:border-emerald-400"
+      rows={1}
+      className="block w-full resize-none rounded border border-neutral-300 bg-white px-1 py-0.5 text-sm text-neutral-900 outline-none focus:border-emerald-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100 dark:focus:border-emerald-400"
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
         e.stopPropagation();
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.shiftKey) {
+          // Plain Enter commits; Shift+Enter inserts a newline (matches
+          // Slack / Notion / GitHub / Gmail conventions).
           e.preventDefault();
           commit();
         } else if (e.key === "Escape") {

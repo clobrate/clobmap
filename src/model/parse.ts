@@ -1,8 +1,23 @@
 import { parseDocument, type Document } from "yaml";
 import type { MindDocument, MindNode, ParseError, Result } from "./types";
 
-const NODE_FIELDS = ["id", "text", "children", "note", "color", "collapsed"] as const;
-const DOC_FIELDS = ["title", "root", "version"] as const;
+const NODE_FIELDS = [
+  "id",
+  "text",
+  "children",
+  "note",
+  "color",
+  "collapsed",
+  "maxWidth",
+  "maxHeight",
+  "notes",
+  "position",
+  "edgeFrom",
+  "edgeTo",
+] as const;
+
+const HANDLE_SIDES = ["top", "right", "bottom", "left"] as const;
+const DOC_FIELDS = ["title", "root", "version", "layoutMode"] as const;
 
 function makeError(message: string, line = 1, col = 1): ParseError {
   return { message, line, col };
@@ -48,6 +63,32 @@ function validateNode(value: unknown, path: string): Result<MindNode> {
   if (typeof value.note === "string") node.note = value.note;
   if (typeof value.color === "string") node.color = value.color;
   if (typeof value.collapsed === "boolean") node.collapsed = value.collapsed;
+  if (typeof value.maxWidth === "number" && value.maxWidth > 0) {
+    node.maxWidth = value.maxWidth;
+  }
+  if (typeof value.maxHeight === "number" && value.maxHeight > 0) {
+    node.maxHeight = value.maxHeight;
+  }
+  if (typeof value.notes === "string") node.notes = value.notes;
+  if (isPlainObject(value.position)) {
+    const px = value.position.x;
+    const py = value.position.y;
+    if (typeof px === "number" && typeof py === "number" && isFinite(px) && isFinite(py)) {
+      node.position = { x: px, y: py };
+    }
+  }
+  if (
+    typeof value.edgeFrom === "string" &&
+    (HANDLE_SIDES as readonly string[]).includes(value.edgeFrom)
+  ) {
+    node.edgeFrom = value.edgeFrom as MindNode["edgeFrom"];
+  }
+  if (
+    typeof value.edgeTo === "string" &&
+    (HANDLE_SIDES as readonly string[]).includes(value.edgeTo)
+  ) {
+    node.edgeTo = value.edgeTo as MindNode["edgeTo"];
+  }
   return { ok: true, value: node };
 }
 
@@ -74,6 +115,9 @@ function validateDocument(value: unknown): Result<MindDocument> {
     root: rootResult.value,
   };
   if (typeof value.version === "number") doc.version = value.version;
+  if (value.layoutMode === "auto" || value.layoutMode === "manual") {
+    doc.layoutMode = value.layoutMode;
+  }
   return { ok: true, value: doc };
 }
 

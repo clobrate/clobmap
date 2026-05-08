@@ -1,4 +1,11 @@
-export type { MindNode, MindDocument, ParseError, Result } from "./types";
+export type {
+  MindNode,
+  MindDocument,
+  ParseError,
+  Result,
+  LayoutMode,
+  HandleSide,
+} from "./types";
 export { SCHEMA_VERSION } from "./types";
 export type { IdGenerator } from "./ids";
 export { createIdGenerator, idGeneratorForDocument } from "./ids";
@@ -16,6 +23,9 @@ export {
   duplicateNode,
   cloneWithNewIds,
   emptyDocument,
+  setLayoutMode,
+  setPositions,
+  clearAllPositions,
 } from "./ops";
 export { diffTrees, type NodeChange, type TreeDiff } from "./diff";
 export { applyTreeToDocument } from "./apply";
