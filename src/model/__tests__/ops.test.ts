@@ -347,17 +347,23 @@ describe("setLayoutMode", () => {
     expect(next.root.children[0]?.position).toEqual({ x: 100, y: 50 });
   });
 
-  it("switches to auto and strips every node's position", () => {
+  it("switches to auto and strips every node's position + per-edge sides", () => {
     const seed = fixture();
     seed.layoutMode = "manual";
     seed.root.position = { x: 0, y: 0 };
     seed.root.children[0]!.position = { x: 100, y: 50 };
+    seed.root.children[0]!.edgeFrom = "bottom";
+    seed.root.children[0]!.edgeTo = "top";
     seed.root.children[1]!.position = { x: 200, y: 50 };
+    seed.root.children[1]!.edgeFrom = "right";
     const next = setLayoutMode(seed, "auto");
     expect(next.layoutMode).toBeUndefined();
     expect(next.root.position).toBeUndefined();
     expect(next.root.children[0]?.position).toBeUndefined();
+    expect(next.root.children[0]?.edgeFrom).toBeUndefined();
+    expect(next.root.children[0]?.edgeTo).toBeUndefined();
     expect(next.root.children[1]?.position).toBeUndefined();
+    expect(next.root.children[1]?.edgeFrom).toBeUndefined();
   });
 
   it("is a no-op when the mode is already what's asked for", () => {

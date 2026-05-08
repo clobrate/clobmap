@@ -328,10 +328,17 @@ export function setLayoutMode(doc: MindDocument, mode: "auto" | "manual"): MindD
   const current = doc.layoutMode ?? "auto";
   if (mode === current) return doc;
   if (mode === "auto") {
+    // Auto mode is "the algorithm decides everything": position,
+    // outgoing-side per child, incoming-side per child. Strip all
+    // three so a switch back to auto produces the canonical LR
+    // tidy-tree shape with default right→left edges. Without
+    // stripping the edge fields, the user's previous manual-mode
+    // edge routing would persist visually even though the nodes
+    // moved back to algorithmic positions.
     return {
       ...doc,
       layoutMode: undefined,
-      root: mapAllNodes(doc.root, stripPosition),
+      root: mapAllNodes(doc.root, stripManualLayout),
     };
   }
   return { ...doc, layoutMode: "manual" };
@@ -369,5 +376,22 @@ function stripPosition(n: MindNode): MindNode {
   if (n.position === undefined) return n;
   const { position: _drop, ...rest } = n;
   void _drop;
+  return rest;
+}
+
+/**
+ * Strip every field that's only meaningful in manual layout mode:
+ * position (where the node sits) and the per-edge endpoint sides
+ * (edgeFrom on the parent's box, edgeTo on this node's box). Used
+ * when switching to auto mode so the result is a clean tidy-tree.
+ */
+function stripManualLayout(n: MindNode): MindNode {
+  if (n.position === undefined && n.edgeFrom === undefined && n.edgeTo === undefined) {
+    return n;
+  }
+  const { position: _p, edgeFrom: _f, edgeTo: _t, ...rest } = n;
+  void _p;
+  void _f;
+  void _t;
   return rest;
 }
