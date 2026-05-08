@@ -1,10 +1,15 @@
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import { setPositions, type HandleSide, type MindDocument, type MindNode } from "../model";
 
-export const DEFAULT_MAX_WIDTH = 280;
-export const DEFAULT_MAX_HEIGHT = 200;
-const ROW_GAP = 20;
-const COLUMN_GAP = 80;
+// Tightened from 280×200 + 80/20 gaps after user feedback that the
+// auto layout was scattering short-label nodes across very wide canvas
+// areas. The slot caps now match a typical 1-3-word label without
+// wrapping; longer labels still wrap up to maxHeight before scrolling
+// inside the node.
+export const DEFAULT_MAX_WIDTH = 180;
+export const DEFAULT_MAX_HEIGHT = 100;
+const ROW_GAP = 12;
+const COLUMN_GAP = 40;
 const MARGIN_X = 24;
 const MARGIN_Y = 24;
 
