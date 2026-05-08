@@ -12,6 +12,41 @@ import { isMobile, isTauri } from "../lib/env";
 
 type Mode = "edit" | "preview";
 
+// Persisted popup geometry. Stored as plain pixel values; CSS clamps to
+// 20–80% of the viewport so a resized-then-windowsmall scenario stays in
+// bounds without us doing math.
+const STORAGE_WIDTH = "clobmap.notesPopup.width";
+const STORAGE_HEIGHT = "clobmap.notesPopup.height";
+const STORAGE_FONT = "clobmap.notesPopup.fontSize";
+
+const DEFAULT_WIDTH = 720;
+const DEFAULT_HEIGHT = 540;
+const DEFAULT_FONT = 14;
+const MIN_FONT = 10;
+const MAX_FONT = 28;
+
+function readNumberPref(key: string, fallback: number): number {
+  if (typeof localStorage === "undefined") return fallback;
+  try {
+    const v = localStorage.getItem(key);
+    if (!v) return fallback;
+    const n = parseFloat(v);
+    if (!Number.isFinite(n)) return fallback;
+    return n;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeNumberPref(key: string, value: number): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // private mode / quota — non-fatal
+  }
+}
+
 /**
  * Modal Markdown notes editor for the active node. Single-pane: either
  * full edit or full preview, toggled via a button. Double-clicking a
@@ -36,6 +71,25 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
 
   const node = parsedDoc ? findById(parsedDoc, nodeId) : null;
+  // Persisted geometry, restored on open. The user resizes via the
+  // browser's CSS resize handle (drag bottom-right) and a ResizeObserver
+  // writes the new dims back to localStorage — React state isn't the
+  // source of truth for resize, so we don't need a setter.
+  const [popupWidth] = useState<number>(() =>
+    readNumberPref(STORAGE_WIDTH, DEFAULT_WIDTH),
+  );
+  const [popupHeight] = useState<number>(() =>
+    readNumberPref(STORAGE_HEIGHT, DEFAULT_HEIGHT),
+  );
+  const [fontSize, setFontSize] = useState<number>(() => {
+    const stored = readNumberPref(STORAGE_FONT, DEFAULT_FONT);
+    return Math.max(MIN_FONT, Math.min(MAX_FONT, Math.round(stored)));
+  });
+  const bumpFont = useCallback((delta: number) => {
+    setFontSize((s) => Math.max(MIN_FONT, Math.min(MAX_FONT, s + delta)));
+  }, []);
+  const resetFont = useCallback(() => setFontSize(DEFAULT_FONT), []);
+
   const [content, setContent] = useState<string>("");
   /** The last successfully-persisted content. `content !== savedContent`
    * is our dirty signal for auto-save and accidental-close protection. */
@@ -48,6 +102,7 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
   const [renderedHtml, setRenderedHtml] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   // We preserve the textarea's scroll + selection across mode switches so
   // toggling "Preview" → "Edit" via the button drops the user back where
@@ -197,11 +252,32 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
         void onSave();
+        return;
+      }
+      // Cmd/Ctrl + (=, +, -, 0) — popup-scoped font zoom. The same
+      // keystrokes would normally zoom the browser viewport; we override
+      // here so they only zoom the notes text.
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === "=" || e.key === "+") {
+          e.preventDefault();
+          bumpFont(1);
+          return;
+        }
+        if (e.key === "-") {
+          e.preventDefault();
+          bumpFont(-1);
+          return;
+        }
+        if (e.key === "0") {
+          e.preventDefault();
+          resetFont();
+          return;
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [close, isDirty, onSave]);
+  }, [bumpFont, close, isDirty, onSave, resetFont]);
 
   // Focus the textarea on first open of edit mode.
   useEffect(() => {
@@ -210,6 +286,35 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
     if (!el) return;
     el.focus();
   }, [mode]);
+
+  // Persist user-drag-resize. ResizeObserver fires on every dimension
+  // change; we throttle the localStorage write so a smooth drag doesn't
+  // hammer it. The min/max constraints are enforced via CSS so we just
+  // mirror whatever the browser settled on.
+  useEffect(() => {
+    const el = popupRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let saveTimer: number | null = null;
+    const observer = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (!r) return;
+      if (saveTimer !== null) window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(() => {
+        writeNumberPref(STORAGE_WIDTH, Math.round(r.width));
+        writeNumberPref(STORAGE_HEIGHT, Math.round(r.height));
+      }, 200);
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (saveTimer !== null) window.clearTimeout(saveTimer);
+    };
+  }, []);
+
+  // Persist font-size changes synchronously (rare event compared to drag).
+  useEffect(() => {
+    writeNumberPref(STORAGE_FONT, fontSize);
+  }, [fontSize]);
 
   // Snapshot edit state right before we leave edit mode, so we can
   // restore it on the way back without having to re-find anything.
@@ -284,7 +389,22 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
         close();
       }}
     >
-      <div className="flex h-[min(80vh,640px)] w-[min(900px,95vw)] flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+      <div
+        ref={popupRef}
+        style={{
+          width: `${popupWidth}px`,
+          height: `${popupHeight}px`,
+          minWidth: "20vw",
+          minHeight: "20vh",
+          maxWidth: "80vw",
+          maxHeight: "80vh",
+          // resize: both gives the user a drag-handle in the bottom-right
+          // corner. overflow:hidden is required for resize to render.
+          resize: "both",
+          overflow: "hidden",
+        }}
+        className="flex flex-col rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      >
         <header className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-4 py-2 text-sm dark:border-neutral-800">
           <div className="min-w-0 truncate">
             <span className="text-neutral-500">Notes —</span>{" "}
@@ -296,6 +416,12 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <FontSizeControls
+              size={fontSize}
+              onSmaller={() => bumpFont(-1)}
+              onLarger={() => bumpFont(1)}
+              onReset={resetFont}
+            />
             {!readOnly && (
               <ModeToggle
                 mode={mode}
@@ -327,12 +453,13 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
                 value={content}
                 readOnly={readOnly}
                 onChange={(e) => setContent(e.target.value)}
+                style={{ fontSize: `${fontSize}px`, lineHeight: 1.5 }}
                 placeholder={
                   readOnly
                     ? ""
                     : "Markdown notes — supports headings, bold, italic, lists, links, code blocks…"
                 }
-                className="min-h-0 flex-1 resize-none border-0 bg-transparent p-4 font-mono text-sm text-neutral-900 outline-none dark:text-neutral-100"
+                className="min-h-0 flex-1 resize-none border-0 bg-transparent p-4 font-mono text-neutral-900 outline-none dark:text-neutral-100"
               />
               <div className="flex shrink-0 items-center justify-between border-t border-neutral-200 px-4 py-1.5 text-[11px] text-neutral-500 dark:border-neutral-800">
                 <span>
@@ -356,7 +483,8 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
               ref={previewRef}
               onDoubleClick={onPreviewDoubleClick}
               title={readOnly ? undefined : "Double-click to jump back to edit"}
-              className="clobmap-md min-h-0 flex-1 cursor-text overflow-auto p-4 text-sm"
+              style={{ fontSize: `${fontSize}px` }}
+              className="clobmap-md min-h-0 flex-1 cursor-text overflow-auto p-4"
               /* Styles for headings / lists / code / blockquote come from
                  .clobmap-md in src/index.css. micromark output is CommonMark;
                  user HTML is escaped by default. */
@@ -398,6 +526,52 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
           </div>
         </footer>
       </div>
+    </div>
+  );
+}
+
+function FontSizeControls({
+  size,
+  onSmaller,
+  onLarger,
+  onReset,
+}: {
+  size: number;
+  onSmaller: () => void;
+  onLarger: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="inline-flex items-center overflow-hidden rounded border border-neutral-300 dark:border-neutral-600">
+      <button
+        type="button"
+        onClick={onSmaller}
+        disabled={size <= MIN_FONT}
+        title="Decrease text size  (Cmd/Ctrl + −)"
+        className="px-2 py-0.5 text-[11px] text-neutral-700 hover:bg-neutral-100 disabled:opacity-40 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        aria-label="Decrease text size"
+      >
+        A−
+      </button>
+      <button
+        type="button"
+        onClick={onReset}
+        title="Reset text size  (Cmd/Ctrl + 0)"
+        className="border-x border-neutral-300 px-2 py-0.5 font-mono text-[10px] tabular-nums text-neutral-600 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-400 dark:hover:bg-neutral-800"
+        aria-label="Reset text size"
+      >
+        {size}
+      </button>
+      <button
+        type="button"
+        onClick={onLarger}
+        disabled={size >= MAX_FONT}
+        title="Increase text size  (Cmd/Ctrl + =)"
+        className="px-2 py-0.5 text-[11px] text-neutral-700 hover:bg-neutral-100 disabled:opacity-40 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        aria-label="Increase text size"
+      >
+        A+
+      </button>
     </div>
   );
 }
