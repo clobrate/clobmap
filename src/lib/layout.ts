@@ -94,7 +94,9 @@ export function layoutMindMap(
   const nodes: Node<MindNodeData>[] = [];
   const edges: Edge[] = [];
   if (doc.layoutMode === "manual") {
-    placeManual(doc.root, null, null, 0, defaults, metrics, nodes, edges);
+    const rootX = doc.root.position?.x ?? MARGIN_X;
+    const rootY = doc.root.position?.y ?? MARGIN_Y;
+    placeManual(doc.root, null, rootX, rootY, 0, defaults, metrics, nodes, edges);
   } else {
     place(doc.root, null, null, 0, MARGIN_Y, defaults, metrics, nodes, edges);
   }
@@ -224,7 +226,8 @@ const NEW_NODE_OFFSET_Y = 30;
 function placeManual(
   node: MindNode,
   parent: MindNode | null,
-  parentPosition: { x: number; y: number; width: number; height: number } | null,
+  resolvedX: number,
+  resolvedY: number,
   depth: number,
   defaults: LayoutDefaults,
   metrics: Map<MindNode, NodeMetrics>,
@@ -235,29 +238,32 @@ function placeManual(
   if (!m) return;
   const collapsed = Boolean(node.collapsed);
 
-  let x: number;
-  let y: number;
-  if (node.position) {
-    x = node.position.x;
-    y = node.position.y;
-  } else if (parentPosition === null) {
-    // Root with no position — start at canvas margin.
-    x = MARGIN_X;
-    y = MARGIN_Y;
-  } else {
-    // New child of an already-placed parent: offset right and down a bit
-    // so it doesn't sit on top of the parent.
-    x = parentPosition.x + parentPosition.width + NEW_NODE_OFFSET_X;
-    y = parentPosition.y + NEW_NODE_OFFSET_Y;
-  }
-
-  emitNode(outNodes, node, m, x, y, depth, parent === null, collapsed);
+  emitNode(outNodes, node, m, resolvedX, resolvedY, depth, parent === null, collapsed);
   emitEdge(outEdges, node, parent);
   if (collapsed) return;
 
-  const myRect = { x, y, width: m.width, height: m.height };
+  // Resolve each child's position before recursing so that
+  // siblings without a stored position stagger vertically instead of
+  // stacking at the same y. `nextNoPosY` is a running cursor: it
+  // advances past every sibling's vertical extent (whether stored or
+  // freshly placed) so newly-added Tab/Enter children always land below
+  // whatever was last drawn.
+  const noPosX = resolvedX + m.width + NEW_NODE_OFFSET_X;
+  let nextNoPosY = resolvedY + NEW_NODE_OFFSET_Y;
   for (const child of node.children) {
-    placeManual(child, node, myRect, depth + 1, defaults, metrics, outNodes, outEdges);
+    let cx: number;
+    let cy: number;
+    if (child.position) {
+      cx = child.position.x;
+      cy = child.position.y;
+    } else {
+      cx = noPosX;
+      cy = nextNoPosY;
+    }
+    const childMetrics = metrics.get(child);
+    const childHeight = childMetrics?.height ?? 0;
+    nextNoPosY = Math.max(nextNoPosY, cy + childHeight + ROW_GAP);
+    placeManual(child, node, cx, cy, depth + 1, defaults, metrics, outNodes, outEdges);
   }
 }
 

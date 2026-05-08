@@ -167,6 +167,32 @@ describe("layoutMindMap", () => {
       const { edges } = layoutMindMap(manualDoc());
       expect(edges).toHaveLength(2);
     });
+
+    it("staggers multiple no-position siblings vertically (regression: stacked-on-top bug)", () => {
+      const doc: MindDocument = {
+        title: "T",
+        layoutMode: "manual",
+        root: {
+          id: "n1",
+          text: "Root",
+          position: { x: 0, y: 0 },
+          children: [
+            // Three freshly-added Enter siblings, none with a stored
+            // position. Before the fix, all three landed at the same
+            // (x, y) and visually stacked.
+            { id: "n2", text: "A", children: [] },
+            { id: "n3", text: "B", children: [] },
+            { id: "n4", text: "C", children: [] },
+          ],
+        },
+      };
+      const { nodes } = layoutMindMap(doc);
+      const ys = ["n2", "n3", "n4"].map(
+        (id) => nodes.find((n) => n.id === id)?.position.y ?? Number.NaN,
+      );
+      expect(ys[0]).toBeLessThan(ys[1]!);
+      expect(ys[1]!).toBeLessThan(ys[2]!);
+    });
   });
 
   describe("per-edge handle sides", () => {
