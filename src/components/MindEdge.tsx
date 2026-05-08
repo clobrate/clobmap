@@ -63,29 +63,32 @@ export function MindEdge(props: EdgeProps) {
   return (
     <>
       <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} />
-      <EdgeLabelRenderer>
-        <EndpointHandle
-          edgeId={id}
-          role="source"
-          parentId={source}
-          childId={target}
-          x={sourceX}
-          y={sourceY}
-          highlight={Boolean(selected)}
-        />
-        <EndpointHandle
-          edgeId={id}
-          role="target"
-          parentId={source}
-          childId={target}
-          x={targetX}
-          y={targetY}
-          highlight={Boolean(selected)}
-        />
-        {/* labelX/labelY unused right now but kept as anchor for any
-            future mid-edge UI. */}
-        <span data-edge-anchor data-x={labelX} data-y={labelY} className="hidden" />
-      </EdgeLabelRenderer>
+      {/* Endpoint markers exist in the DOM only when the edge is
+          selected. Rendering them unconditionally with opacity:0 still
+          left them clickable in EdgeLabelRenderer's overlay layer,
+          which intercepted clicks meant for the underlying nodes
+          (broke node selection + therefore arrow-key navigation). */}
+      {selected && (
+        <EdgeLabelRenderer>
+          <EndpointHandle
+            edgeId={id}
+            role="source"
+            parentId={source}
+            childId={target}
+            x={sourceX}
+            y={sourceY}
+          />
+          <EndpointHandle
+            edgeId={id}
+            role="target"
+            parentId={source}
+            childId={target}
+            x={targetX}
+            y={targetY}
+          />
+          <span data-edge-anchor data-x={labelX} data-y={labelY} className="hidden" />
+        </EdgeLabelRenderer>
+      )}
     </>
   );
 }
@@ -107,7 +110,6 @@ function EndpointHandle({
   childId,
   x,
   y,
-  highlight,
 }: {
   edgeId: string;
   role: "source" | "target";
@@ -115,7 +117,6 @@ function EndpointHandle({
   childId: string;
   x: number;
   y: number;
-  highlight: boolean;
 }) {
   const reactFlow = useReactFlow();
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
@@ -200,12 +201,10 @@ function EndpointHandle({
         pointerEvents: "all",
       }}
       className={
-        "h-3 w-3 rounded-full border bg-white shadow-sm transition-colors " +
+        "h-3 w-3 rounded-full border-2 shadow-sm transition-colors " +
         (dragging
-          ? "border-emerald-500 bg-emerald-500"
-          : highlight
-            ? "border-emerald-400 hover:bg-emerald-50 dark:bg-neutral-900 dark:hover:bg-emerald-900/40"
-            : "border-neutral-400 opacity-0 hover:opacity-100 hover:border-emerald-500 dark:bg-neutral-900")
+          ? "border-emerald-600 bg-emerald-500"
+          : "border-emerald-500 bg-white hover:bg-emerald-50 dark:bg-neutral-900 dark:hover:bg-emerald-900/40")
       }
       aria-label={role === "source" ? "Reposition parent-side connector" : "Reposition child-side connector"}
     />
