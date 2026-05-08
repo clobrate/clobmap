@@ -37,9 +37,13 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
 
   const node = parsedDoc ? findById(parsedDoc, nodeId) : null;
   const [content, setContent] = useState<string>("");
+  /** The last successfully-persisted content. `content !== savedContent`
+   * is our dirty signal for auto-save and accidental-close protection. */
+  const [savedContent, setSavedContent] = useState<string>("");
   const [loaded, setLoaded] = useState<LoadedNotes | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [autoSavedAt, setAutoSavedAt] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("edit");
   const [renderedHtml, setRenderedHtml] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -51,14 +55,22 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
   const editScrollRef = useRef(0);
   const editSelectionRef = useRef<[number, number]>([0, 0]);
 
-  // Read existing notes (inline value or sidecar file content).
+  // Load existing notes ONCE per mount. The popup is keyed by nodeId at
+  // the wrapper, so opening notes for a different node remounts and
+  // reloads. We deliberately don't depend on node.notes here — auto-save
+  // changes node.notes, and re-running this effect would clobber the
+  // user's in-progress typing with a fresh read.
+  const [hasLoaded, setHasLoaded] = useState(false);
   useEffect(() => {
+    if (hasLoaded) return;
     let cancelled = false;
     void (async () => {
       const result = await loadNotes(node?.notes, currentFilePath);
       if (cancelled) return;
       setLoaded(result);
       setContent(result.content);
+      setSavedContent(result.content);
+      setHasLoaded(true);
       // Read-only notes (sidecar we can't edit on this platform) open
       // straight in preview — there's nothing to type.
       if (result.readOnly) setMode("preview");
@@ -66,7 +78,8 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [node?.notes, currentFilePath]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Lazy-load micromark and re-render preview on every content change. We
   // re-render even while in edit mode so toggling to preview is instant.
@@ -95,43 +108,88 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
   // Browser/iOS limit. Desktop's "limit" is just the auto-extract threshold.
   const isWebOrMobile = !isTauri() || isMobile();
   const overLimit = isWebOrMobile && content.length > NOTES_INLINE_LIMIT;
+  const isDirty = hasLoaded && content !== savedContent;
 
-  const onSave = useCallback(async (): Promise<void> => {
-    if (readOnly || saving || !parsedDoc || !node) return;
-    setError(null);
-    setSaving(true);
-    try {
-      const result = await saveNotes(
-        content,
-        node.notes,
-        currentFilePath,
-        nodeId,
-        node.text,
-      );
-      const next = updateNode(parsedDoc, nodeId, { notes: result.fieldValue });
-      applyTreeChange(next);
-      close();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setSaving(false);
-    }
-  }, [
-    readOnly,
-    saving,
-    parsedDoc,
-    node,
-    content,
-    currentFilePath,
-    nodeId,
-    applyTreeChange,
-    close,
-  ]);
+  /**
+   * Write the current content back to the document store (and to a
+   * sidecar file on desktop, when applicable).
+   *
+   * - When `closeAfter` is true, fires from the explicit Save button or
+   *   Cmd+Enter, and dismisses the popup on success.
+   * - When false, fires from the auto-save debouncer — the popup stays
+   *   open so the user keeps typing.
+   *
+   * Concurrent calls short-circuit via `saving`; the auto-save effect
+   * waits for in-flight writes before scheduling the next one.
+   */
+  const persist = useCallback(
+    async (closeAfter: boolean): Promise<void> => {
+      if (readOnly || saving || !parsedDoc || !node) return;
+      // Snapshot content so we know the exact string we successfully saved
+      // (the textarea may have changed by the time the await resolves).
+      const snapshot = content;
+      setError(null);
+      setSaving(true);
+      try {
+        const result = await saveNotes(
+          snapshot,
+          node.notes,
+          currentFilePath,
+          nodeId,
+          node.text,
+        );
+        const next = updateNode(parsedDoc, nodeId, { notes: result.fieldValue });
+        applyTreeChange(next);
+        setSavedContent(snapshot);
+        setAutoSavedAt(Date.now());
+        if (closeAfter) {
+          close();
+          return;
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!closeAfter) setSaving(false);
+      }
+    },
+    [
+      readOnly,
+      saving,
+      parsedDoc,
+      node,
+      content,
+      currentFilePath,
+      nodeId,
+      applyTreeChange,
+      close,
+    ],
+  );
+
+  // Manual save (Save button + Cmd/Ctrl+Enter): saves and closes.
+  const onSave = useCallback(() => persist(true), [persist]);
+
+  // Auto-save: 1 s after the last edit, write to disk WITHOUT closing.
+  // Skipped when not dirty, when over the inline-only cap, on read-only
+  // notes, or while a save is already in flight.
+  useEffect(() => {
+    if (readOnly || !isDirty || overLimit || saving) return;
+    const handle = window.setTimeout(() => {
+      void persist(false);
+    }, 1000);
+    return () => window.clearTimeout(handle);
+  }, [content, isDirty, overLimit, readOnly, saving, persist]);
 
   // Esc / Cmd+Enter handlers, attached at window level so they fire even
-  // when the textarea isn't focused.
+  // when the textarea isn't focused. Esc only closes if the popup is
+  // clean (saved). Cmd+Enter saves and closes regardless.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (isDirty) {
+          // Refuse to close on Esc if there are unsaved changes — auto-save
+          // will catch up within ~1 s; or use Cmd+Enter to save & close.
+          return;
+        }
         e.preventDefault();
         close();
         return;
@@ -143,7 +201,7 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [close, onSave]);
+  }, [close, isDirty, onSave]);
 
   // Focus the textarea on first open of edit mode.
   useEffect(() => {
@@ -216,8 +274,14 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
       aria-label={`Notes for ${node.text}`}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onMouseDown={(e) => {
-        // Click on the backdrop (not the dialog body) cancels.
-        if (e.target === e.currentTarget) close();
+        // Click on the backdrop (not the dialog body) cancels — but only
+        // if there are no unsaved changes. Auto-save catches up within
+        // ~1 s, so brief lingering on the backdrop is fine. The Cancel
+        // and Save buttons inside the dialog are the explicit-intent
+        // close paths.
+        if (e.target !== e.currentTarget) return;
+        if (isDirty) return;
+        close();
       }}
     >
       <div className="flex h-[min(80vh,640px)] w-[min(900px,95vw)] flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
@@ -303,7 +367,17 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
 
         <footer className="flex shrink-0 items-center justify-between border-t border-neutral-200 px-4 py-2 text-sm dark:border-neutral-800">
           <div className="min-w-0 truncate text-xs">
-            {error && <span className="text-red-600 dark:text-red-400">{error}</span>}
+            {error ? (
+              <span className="text-red-600 dark:text-red-400">{error}</span>
+            ) : saving ? (
+              <span className="text-neutral-500">Saving…</span>
+            ) : isDirty ? (
+              <span className="text-amber-600 dark:text-amber-400">Unsaved changes</span>
+            ) : autoSavedAt ? (
+              <span className="text-emerald-600 dark:text-emerald-400">
+                Saved automatically
+              </span>
+            ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button
