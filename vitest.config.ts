@@ -1,9 +1,16 @@
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
+  // The React plugin compiles JSX/TSX for component tests (.test.tsx).
+  // Pure-logic .test.ts files don't need it but it's a no-op for them.
+  plugins: [react()],
   test: {
+    // Default to node for the pure-logic suite. Component tests opt into
+    // jsdom per file via `// @vitest-environment jsdom`.
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    setupFiles: ["src/test-setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
@@ -14,8 +21,9 @@ export default defineConfig({
       // @testing-library/react setup that's its own project.
       include: ["src/model/**/*.ts", "src/lib/**/*.ts", "src/store/**/*.ts"],
       exclude: [
-        "src/**/*.test.ts",
+        "src/**/*.test.{ts,tsx}",
         "src/**/__tests__/**",
+        "src/test-setup.ts",
         "src/model/**/index.ts",
         // React hooks: need React Testing Library infra (skipped for now)
         "src/lib/useLongPress.ts",

@@ -251,6 +251,121 @@ describe("applyTreeToDocument", () => {
     expect(reparsed.value).toEqual(tree);
   });
 
+  it("adds a layoutMode field when not previously present", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+    const after: MindDocument = { ...live.value.tree, layoutMode: "manual" };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    expect(out).toContain("layoutMode: manual");
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.layoutMode).toBe("manual");
+  });
+
+  it("removes the layoutMode field when cleared", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+    // Seed it first so the delete branch has something to remove.
+    applyTreeToDocument(live.value.doc, {
+      ...live.value.tree,
+      layoutMode: "manual",
+    });
+    applyTreeToDocument(live.value.doc, {
+      ...live.value.tree,
+      layoutMode: undefined,
+    });
+    const out = serializeLiveYaml(live.value.doc);
+    expect(out).not.toContain("layoutMode:");
+  });
+
+  it("writes a per-node position and updates it on a subsequent apply", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+    // First write: introduce a position on the root.
+    applyTreeToDocument(live.value.doc, {
+      ...live.value.tree,
+      root: { ...live.value.tree.root, position: { x: 100, y: 200 } },
+    });
+    let out = serializeLiveYaml(live.value.doc);
+    let reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.root.position).toEqual({ x: 100, y: 200 });
+
+    // Second write: update the same field.
+    applyTreeToDocument(live.value.doc, {
+      ...live.value.tree,
+      root: { ...live.value.tree.root, position: { x: 999, y: 888 } },
+    });
+    out = serializeLiveYaml(live.value.doc);
+    reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.root.position).toEqual({ x: 999, y: 888 });
+  });
+
+  it("removes a per-node position when it goes back to undefined", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+    // Seed.
+    applyTreeToDocument(live.value.doc, {
+      ...live.value.tree,
+      root: { ...live.value.tree.root, position: { x: 50, y: 60 } },
+    });
+    expect(serializeLiveYaml(live.value.doc)).toContain("position:");
+    // Clear.
+    applyTreeToDocument(live.value.doc, live.value.tree);
+    expect(serializeLiveYaml(live.value.doc)).not.toContain("position:");
+  });
+
+  it("creates new nodes that carry every layout/edge field", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+    const after: MindDocument = {
+      ...live.value.tree,
+      root: {
+        ...live.value.tree.root,
+        children: [
+          {
+            id: "n2",
+            text: "Decorated",
+            children: [],
+            maxWidth: 320,
+            maxHeight: 200,
+            notes: "Some notes",
+            position: { x: 400, y: 300 },
+            edgeFrom: "bottom",
+            edgeTo: "top",
+          },
+        ],
+      },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    const child = reparsed.value.root.children[0];
+    expect(child?.maxWidth).toBe(320);
+    expect(child?.maxHeight).toBe(200);
+    expect(child?.notes).toBe("Some notes");
+    expect(child?.position).toEqual({ x: 400, y: 300 });
+    expect(child?.edgeFrom).toBe("bottom");
+    expect(child?.edgeTo).toBe("top");
+  });
+
   it("updates the document title", () => {
     const text = loadFixture("01-minimal.yaml");
     const live = parseLiveYaml(text);
