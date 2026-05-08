@@ -52,6 +52,7 @@ function MindMapInner() {
   const editingId = useUIStore((s) => s.editingNodeId);
   const setEditing = useUIStore((s) => s.setEditing);
   const openNotesEditor = useUIStore((s) => s.openNotesEditor);
+  const notesEditorNodeId = useUIStore((s) => s.notesEditorNodeId);
   const contextMenu = useUIStore((s) => s.contextMenu);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
@@ -193,7 +194,16 @@ function MindMapInner() {
   // Global keyboard handler for the canvas
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Don't compete with active text inputs: inline rename, notes popup,
+      // or anything else that owns keyboard focus (e.g. CodeMirror in YAML
+      // view). Short-circuit if any of those are present.
       if (editingId !== null) return;
+      if (notesEditorNodeId !== null) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      }
       const tree = useDocumentStore.getState().parsedDoc;
       if (!tree) return;
 
@@ -347,6 +357,7 @@ function MindMapInner() {
     applyTreeChange,
     closeContextMenu,
     editingId,
+    notesEditorNodeId,
     redo,
     reactFlow,
     revealNode,

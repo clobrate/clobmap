@@ -243,6 +243,9 @@ function App() {
   // App-wide keyboard shortcuts (capture phase to beat CodeMirror).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Don't compete with the notes popup or any text input that owns
+      // focus — Cmd+T inside the notes editor shouldn't open a new tab.
+      if (useUIStore.getState().notesEditorNodeId !== null) return;
       const cmd = e.metaKey || e.ctrlKey;
       if (!cmd) return;
 
