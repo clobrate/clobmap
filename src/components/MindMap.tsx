@@ -28,14 +28,24 @@ import {
   moveNode,
   OpError,
   setLayoutMode,
+  setPositions,
   updateNode,
 } from "../model";
+import type { MindNode } from "../model";
 import { navigateIntoChildren, navigateSibling, navigateToParent } from "../lib/navigation";
 
 import { MindEdge } from "./MindEdge";
 
 const nodeTypes = { mind: MindMapNode };
 const edgeTypes = { smoothstep: MindEdge };
+
+/** Visit every strict descendant (not the root itself) of the given node. */
+function forEachDescendant(node: MindNode, visit: (n: MindNode) => void): void {
+  for (const child of node.children) {
+    visit(child);
+    forEachDescendant(child, visit);
+  }
+}
 
 export function MindMap() {
   // ReactFlowProvider is lifted to App so export actions (PNG/SVG/PDF)
@@ -176,11 +186,12 @@ function MindMapInner() {
   }, [setSelected, setEditing, closeContextMenu]);
 
   const onNodeDragStop: OnNodeDrag<Node<MindNodeData>> = useCallback(
-    (_e, node) => {
+    (e, node) => {
       const tree = useDocumentStore.getState().parsedDoc;
       if (!tree) return;
       // Drop on another node always reparents — same gesture in both
-      // layout modes.
+      // layout modes. Modifier-drag is ignored on reparent (the user's
+      // intent is "move under here", not "translate the subtree").
       const intersecting = reactFlow.getIntersectingNodes(node).filter((n) => n.id !== node.id);
       const target = intersecting[0];
       if (target) {
@@ -191,32 +202,76 @@ function MindMapInner() {
           if (!(err instanceof OpError)) throw err;
         }
       }
-      // Drop on empty space:
-      //   - Manual layout: persist the drop point as the node's new
-      //     `position` field.
-      //   - Auto layout: the user is asking for manual — first drag is
-      //     the canonical "I want to position things myself" gesture.
-      //     Snapshot every node's current auto-layout position so the
-      //     rest of the tree stays put, override the dragged node's
-      //     position with the drop point, switch to manual mode in a
-      //     single tree change.
+
+      // Hold Ctrl/Cmd while dragging to translate the whole subtree —
+      // every descendant moves by the same delta as the dragged node.
+      const moveSubtree = e.ctrlKey || e.metaKey;
+      const dropPoint = { x: node.position.x, y: node.position.y };
+
       if (tree.layoutMode === "manual") {
-        applyTreeChange(
-          updateNode(tree, node.id, {
-            position: { x: node.position.x, y: node.position.y },
-          }),
-        );
+        if (!moveSubtree) {
+          applyTreeChange(updateNode(tree, node.id, { position: dropPoint }));
+          return;
+        }
+        const dragged = findById(tree, node.id);
+        if (!dragged?.position) {
+          // No prior stored position to compute a delta from — fall
+          // back to the single-node behavior.
+          applyTreeChange(updateNode(tree, node.id, { position: dropPoint }));
+          return;
+        }
+        const delta = {
+          x: dropPoint.x - dragged.position.x,
+          y: dropPoint.y - dragged.position.y,
+        };
+        const positions = new Map<string, { x: number; y: number }>();
+        positions.set(node.id, dropPoint);
+        // Offset every descendant that has a stored position. Descendants
+        // without a stored position layout-fall-back to a parent-relative
+        // offset, so they cascade with the moved parent automatically.
+        forEachDescendant(dragged, (n) => {
+          if (n.position) {
+            positions.set(n.id, {
+              x: n.position.x + delta.x,
+              y: n.position.y + delta.y,
+            });
+          }
+        });
+        applyTreeChange(setPositions(tree, positions));
         return;
       }
-      // Materialize manual positions: prefer this drop point for the
-      // dragged node; prefer last-known stored positions for everyone
-      // else (so a previous Manual session is restored); fall back to
-      // the auto-layout's positions for nodes that have neither (e.g.,
-      // children added since the last manual session).
+
+      // Auto-layout drop. First drag is the canonical "I want to position
+      // things myself" gesture: snapshot every node's auto-layout
+      // position so the rest of the tree stays put, then either pin just
+      // the dragged node to the drop point, or translate the entire
+      // subtree by the drag delta when the modifier is held.
       const overrides = new Map<string, { x: number; y: number }>();
-      overrides.set(node.id, { x: node.position.x, y: node.position.y });
+      overrides.set(node.id, dropPoint);
       const seeded = materializeManualPositions(tree, overrides);
-      applyTreeChange(setLayoutMode(seeded, "manual"));
+      let withSubtreeOffset = seeded;
+      if (moveSubtree) {
+        const draggedSeeded = findById(seeded, node.id);
+        const autoNodes = layoutMindMap({ ...tree, layoutMode: undefined }).nodes;
+        const draggedAuto = autoNodes.find((n) => n.id === node.id);
+        if (draggedSeeded && draggedAuto) {
+          const delta = {
+            x: dropPoint.x - draggedAuto.position.x,
+            y: dropPoint.y - draggedAuto.position.y,
+          };
+          const positions = new Map<string, { x: number; y: number }>();
+          forEachDescendant(draggedSeeded, (n) => {
+            if (n.position) {
+              positions.set(n.id, {
+                x: n.position.x + delta.x,
+                y: n.position.y + delta.y,
+              });
+            }
+          });
+          if (positions.size > 0) withSubtreeOffset = setPositions(seeded, positions);
+        }
+      }
+      applyTreeChange(setLayoutMode(withSubtreeOffset, "manual"));
     },
     [applyTreeChange, reactFlow],
   );

@@ -353,6 +353,8 @@ nodes anywhere, positions persisted in YAML as `position: { x, y }`.
 | 16.2.5 | Drag at high zoom | Drop position lands accurately at cursor. |
 | 16.2.6 | Drag at very low zoom | Same. |
 | 16.2.7 | Drag a node off-screen | Node lands at the off-screen coordinate; can be retrieved via the canvas Controls' fit-to-view (`Cmd+0`). |
+| 16.2.8 | Hold `Ctrl` (or `Cmd`) and drag a node with descendants | The whole subtree translates by the same delta — every descendant moves with the parent. YAML updates `position: { x, y }` for the dragged node and for every descendant that already had a stored position. Descendants without stored positions keep their parent-relative offsets, so they cascade visually. |
+| 16.2.9 | Ctrl-drag onto another node (reparent) | Modifier is ignored on reparent — same single-node move-into-target behavior as a plain drag. |
 
 ### 16.3 Drag in auto mode (regression check)
 
