@@ -94,14 +94,13 @@ export function MindMapNode({ id, data, selected }: Props) {
       ) : (
         <div className="flex items-start gap-1.5">
           <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
-          {hasNotes && (
-            <NoteIndicator
-              onActivate={() => {
-                setSelected(id);
-                openNotesEditor(id);
-              }}
-            />
-          )}
+          <NoteIndicator
+            hasNotes={hasNotes}
+            onActivate={() => {
+              setSelected(id);
+              openNotesEditor(id);
+            }}
+          />
           {hasChildren && (
             <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
           )}
@@ -118,10 +117,21 @@ export function MindMapNode({ id, data, selected }: Props) {
   );
 }
 
-function NoteIndicator({ onActivate }: { onActivate: () => void }) {
-  // Small notepad / sticky-note glyph in the node's accent color. Click
-  // opens the notes popup; the icon is also a visual flag that this node
-  // has long-form notes attached.
+function NoteIndicator({
+  hasNotes,
+  onActivate,
+}: {
+  hasNotes: boolean;
+  onActivate: () => void;
+}) {
+  // Always-visible affordance. Muted neutral palette so it sits with the
+  // chevron rather than competing for attention. When the node has notes
+  // we step up the contrast a notch so it reads as "has content";
+  // otherwise it's a faint hint that the action exists. Click opens the
+  // notes popup — same as pressing `N` on the selected node.
+  const stateClass = hasNotes
+    ? "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/60 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-neutral-700/60"
+    : "text-neutral-300 hover:text-neutral-700 hover:bg-neutral-200/60 dark:text-neutral-700 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/60";
   return (
     <button
       type="button"
@@ -130,18 +140,18 @@ function NoteIndicator({ onActivate }: { onActivate: () => void }) {
         e.stopPropagation();
         onActivate();
       }}
-      className="shrink-0 rounded p-0.5 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/40 dark:hover:text-emerald-300"
-      title="Open notes (N)"
-      aria-label="Open notes"
+      className={`shrink-0 rounded p-0.5 ${stateClass}`}
+      title={hasNotes ? "Open notes (N)" : "Add notes (N)"}
+      aria-label={hasNotes ? "Open notes" : "Add notes"}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="12"
-        height="12"
+        width="10"
+        height="10"
         viewBox="0 0 16 16"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.4"
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden="true"
