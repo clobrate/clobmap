@@ -32,3 +32,121 @@ body {
   outline: 2px solid theme(colors.emerald.500);
   outline-offset: 2px;
 }
+
+/* ───── Notes popup markdown preview ─────
+ * Tailwind's preflight resets default heading / list / code styles,
+ * which leaves micromark's <h1>…<h6>/<ul>/<pre>/etc. looking like body
+ * text. We don't pull in @tailwindcss/typography (extra dep + bundle
+ * weight); these scoped rules mimic its essentials, just for the
+ * preview pane.
+ */
+.clobmap-md > * {
+  margin: 0 0 0.5em 0;
+}
+.clobmap-md > *:last-child {
+  margin-bottom: 0;
+}
+.clobmap-md h1,
+.clobmap-md h2,
+.clobmap-md h3,
+.clobmap-md h4,
+.clobmap-md h5,
+.clobmap-md h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 0.85em;
+  margin-bottom: 0.35em;
+}
+.clobmap-md h1 {
+  font-size: 1.5em;
+}
+.clobmap-md h2 {
+  font-size: 1.3em;
+}
+.clobmap-md h3 {
+  font-size: 1.15em;
+}
+.clobmap-md h4,
+.clobmap-md h5,
+.clobmap-md h6 {
+  font-size: 1em;
+}
+.clobmap-md p {
+  margin: 0 0 0.6em 0;
+}
+.clobmap-md ul,
+.clobmap-md ol {
+  padding-left: 1.4em;
+  margin: 0 0 0.6em 0;
+}
+.clobmap-md li {
+  margin: 0.1em 0;
+}
+.clobmap-md ul > li {
+  list-style: disc;
+}
+.clobmap-md ol > li {
+  list-style: decimal;
+}
+.clobmap-md ul ul > li {
+  list-style: circle;
+}
+.clobmap-md a {
+  color: theme(colors.emerald.600);
+  text-decoration: underline;
+}
+html.dark .clobmap-md a {
+  color: theme(colors.emerald.400);
+}
+.clobmap-md code {
+  font-family:
+    ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: theme(colors.neutral.100);
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+}
+html.dark .clobmap-md code {
+  background: theme(colors.neutral.800);
+}
+.clobmap-md pre {
+  font-family:
+    ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  background: theme(colors.neutral.100);
+  padding: 0.75em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0 0 0.6em 0;
+}
+html.dark .clobmap-md pre {
+  background: theme(colors.neutral.800);
+}
+.clobmap-md pre code {
+  background: transparent;
+  padding: 0;
+}
+.clobmap-md blockquote {
+  border-left: 3px solid theme(colors.neutral.300);
+  padding-left: 0.8em;
+  margin: 0 0 0.6em 0;
+  color: theme(colors.neutral.600);
+}
+html.dark .clobmap-md blockquote {
+  border-left-color: theme(colors.neutral.700);
+  color: theme(colors.neutral.400);
+}
+.clobmap-md hr {
+  border: 0;
+  border-top: 1px solid theme(colors.neutral.200);
+  margin: 0.8em 0;
+}
+html.dark .clobmap-md hr {
+  border-top-color: theme(colors.neutral.800);
+}
+.clobmap-md strong {
+  font-weight: 600;
+}
+.clobmap-md em {
+  font-style: italic;
+}

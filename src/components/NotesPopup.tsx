@@ -224,11 +224,12 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
           {showPreview && (
             <div className="min-h-0 flex-1 overflow-auto border-t border-neutral-200 p-4 text-sm dark:border-neutral-800 sm:border-l sm:border-t-0">
               <div
-                className="prose prose-sm max-w-none dark:prose-invert"
-                /* The HTML comes from micromark's CommonMark parser, so it
-                   doesn't include arbitrary user HTML by default. Still
-                   trusted-source-only — these are user's own notes from
-                   their own document. */
+                className="clobmap-md max-w-none"
+                /* Styles for headings / lists / code / blockquote come
+                   from .clobmap-md in src/index.css — Tailwind's preflight
+                   strips browser defaults, so we restyle here. The HTML
+                   comes from micromark's CommonMark parser; user-supplied
+                   HTML is escaped by default. */
                 dangerouslySetInnerHTML={{ __html: renderedHtml }}
               />
             </div>
