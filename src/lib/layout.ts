@@ -1,4 +1,4 @@
-import type { Edge, Node } from "@xyflow/react";
+import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import type { HandleSide, MindDocument, MindNode } from "../model";
 
 export const DEFAULT_MAX_WIDTH = 280;
@@ -23,14 +23,20 @@ export interface MindNodeData extends Record<string, unknown> {
   maxHeight: number;
   /** True if the node has long-form Markdown notes attached. */
   hasNotes: boolean;
-  /** Side this node's outgoing-edge handle ("source") sits on. */
-  sourceHandle: HandleSide;
-  /** Side this node's incoming-edge handle ("target") sits on. */
-  targetHandle: HandleSide;
+  /**
+   * Set of sides this node has at least one outgoing edge leaving from
+   * (union of every child's `edgeFrom`). MindMapNode renders a visible
+   * source dot on each. Empty for leaves.
+   */
+  outgoingSides: HandleSide[];
+  /**
+   * Side of this node where the incoming edge arrives. Always defined
+   * (unused on the root, but rendering treats root as "no incoming"). */
+  incomingSide: HandleSide;
 }
 
-const DEFAULT_SOURCE_SIDE: HandleSide = "right";
-const DEFAULT_TARGET_SIDE: HandleSide = "left";
+const DEFAULT_FROM_SIDE: HandleSide = "right";
+const DEFAULT_TO_SIDE: HandleSide = "left";
 
 export interface LayoutResult {
   nodes: Node<MindNodeData>[];
@@ -145,6 +151,20 @@ function emitNode(
   isRoot: boolean,
   collapsed: boolean,
 ): void {
+  // Union of edgeFrom values across this node's children — the parent
+  // needs a visible source-dot on every side that at least one child's
+  // incoming edge leaves from.
+  const outgoingSides: HandleSide[] = [];
+  if (!collapsed) {
+    const seen = new Set<HandleSide>();
+    for (const child of node.children) {
+      const side = child.edgeFrom ?? DEFAULT_FROM_SIDE;
+      if (!seen.has(side)) {
+        seen.add(side);
+        outgoingSides.push(side);
+      }
+    }
+  }
   out.push({
     id: node.id,
     type: "mind",
@@ -161,21 +181,28 @@ function emitNode(
       maxWidth: m.width,
       maxHeight: m.height,
       hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
-      sourceHandle: node.sourceHandle ?? DEFAULT_SOURCE_SIDE,
-      targetHandle: node.targetHandle ?? DEFAULT_TARGET_SIDE,
+      outgoingSides,
+      incomingSide: node.edgeTo ?? DEFAULT_TO_SIDE,
     },
   });
 }
 
 function emitEdge(out: Edge[], node: MindNode, parent: MindNode | null): void {
   if (!parent) return;
+  // Per-edge endpoints come off the CHILD (each child has exactly one
+  // incoming edge, so storage maps 1:1).
+  const fromSide = node.edgeFrom ?? DEFAULT_FROM_SIDE;
+  const toSide = node.edgeTo ?? DEFAULT_TO_SIDE;
   out.push({
     id: `${parent.id}->${node.id}`,
     source: parent.id,
-    sourceHandle: handleId("source", parent.sourceHandle ?? DEFAULT_SOURCE_SIDE),
+    sourceHandle: handleId("source", fromSide),
     target: node.id,
-    targetHandle: handleId("target", node.targetHandle ?? DEFAULT_TARGET_SIDE),
+    targetHandle: handleId("target", toSide),
     type: "smoothstep",
+    // Direction arrow at the target end so users can tell incoming from
+    // outgoing visually now that edges can land on any of the four sides.
+    markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
   });
 }
 

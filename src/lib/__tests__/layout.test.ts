@@ -164,51 +164,72 @@ describe("layoutMindMap", () => {
     });
   });
 
-  describe("handle sides", () => {
-    it("defaults each node to source: right, target: left", () => {
-      const { nodes } = layoutMindMap(tree());
-      for (const n of nodes) {
-        expect(n.data.sourceHandle).toBe("right");
-        expect(n.data.targetHandle).toBe("left");
-      }
-    });
-
-    it("emits per-node overrides on the data payload", () => {
-      const doc: MindDocument = {
-        title: "T",
-        root: {
-          id: "n1",
-          text: "R",
-          sourceHandle: "bottom",
-          children: [{ id: "n2", text: "C", targetHandle: "top", children: [] }],
-        },
-      };
-      const { nodes } = layoutMindMap(doc);
-      expect(nodes.find((n) => n.id === "n1")?.data.sourceHandle).toBe("bottom");
-      expect(nodes.find((n) => n.id === "n2")?.data.targetHandle).toBe("top");
-    });
-
-    it("references handle ids on the edges (using the resolved sides)", () => {
-      const doc: MindDocument = {
-        title: "T",
-        root: {
-          id: "n1",
-          text: "R",
-          sourceHandle: "bottom",
-          children: [{ id: "n2", text: "C", targetHandle: "top", children: [] }],
-        },
-      };
-      const { edges } = layoutMindMap(doc);
-      expect(edges).toHaveLength(1);
-      expect(edges[0]?.sourceHandle).toBe("source-bottom");
-      expect(edges[0]?.targetHandle).toBe("target-top");
-    });
-
-    it("defaults edge handle ids when nodes don't override", () => {
+  describe("per-edge handle sides", () => {
+    it("defaults to source: right (parent side), target: left (child side)", () => {
       const { edges } = layoutMindMap(tree());
       for (const e of edges) {
         expect(e.sourceHandle).toBe("source-right");
         expect(e.targetHandle).toBe("target-left");
+      }
+    });
+
+    it("each child has its own per-edge endpoint config", () => {
+      const doc: MindDocument = {
+        title: "T",
+        root: {
+          id: "n1",
+          text: "R",
+          children: [
+            { id: "n2", text: "A", edgeFrom: "bottom", edgeTo: "top", children: [] },
+            { id: "n3", text: "B", edgeFrom: "right", edgeTo: "left", children: [] },
+          ],
+        },
+      };
+      const { edges } = layoutMindMap(doc);
+      const ea = edges.find((e) => e.target === "n2");
+      const eb = edges.find((e) => e.target === "n3");
+      expect(ea?.sourceHandle).toBe("source-bottom");
+      expect(ea?.targetHandle).toBe("target-top");
+      expect(eb?.sourceHandle).toBe("source-right");
+      expect(eb?.targetHandle).toBe("target-left");
+    });
+
+    it("emits a node-level outgoingSides union of every child's edgeFrom", () => {
+      const doc: MindDocument = {
+        title: "T",
+        root: {
+          id: "n1",
+          text: "R",
+          children: [
+            { id: "n2", text: "A", edgeFrom: "bottom", children: [] },
+            { id: "n3", text: "B", edgeFrom: "bottom", children: [] }, // same side
+            { id: "n4", text: "C", edgeFrom: "right", children: [] },
+          ],
+        },
+      };
+      const { nodes } = layoutMindMap(doc);
+      const root = nodes.find((n) => n.id === "n1");
+      expect(root?.data.outgoingSides).toEqual(["bottom", "right"]);
+    });
+
+    it("emits incomingSide on each non-root node", () => {
+      const doc: MindDocument = {
+        title: "T",
+        root: {
+          id: "n1",
+          text: "R",
+          children: [{ id: "n2", text: "A", edgeTo: "top", children: [] }],
+        },
+      };
+      const { nodes } = layoutMindMap(doc);
+      const a = nodes.find((n) => n.id === "n2");
+      expect(a?.data.incomingSide).toBe("top");
+    });
+
+    it("attaches a markerEnd arrow to every edge for direction visibility", () => {
+      const { edges } = layoutMindMap(tree());
+      for (const e of edges) {
+        expect(e.markerEnd).toBeTruthy();
       }
     });
   });

@@ -24,14 +24,17 @@ export interface MindNode {
    */
   position?: { x: number; y: number };
   /**
-   * Side the outgoing-edge handle ("source" in React Flow terms) sits
-   * on. Default "right" matches the LR tidy-tree shape.
+   * Side of the PARENT where the edge to this node originates. Each
+   * child has its own value, so a parent with N children can route each
+   * outgoing edge from a different side. Only meaningful for non-root
+   * nodes. Default: "right".
    */
-  sourceHandle?: HandleSide;
+  edgeFrom?: HandleSide;
   /**
-   * Side the incoming-edge handle ("target") sits on. Default "left".
+   * Side of THIS node where the incoming edge arrives. Only meaningful
+   * for non-root nodes. Default: "left".
    */
-  targetHandle?: HandleSide;
+  edgeTo?: HandleSide;
 }
 
 export type HandleSide = "top" | "right" | "bottom" | "left";

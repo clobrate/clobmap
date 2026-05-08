@@ -22,8 +22,8 @@ export function MindMapNode({ id, data, selected }: Props) {
     maxWidth,
     maxHeight,
     hasNotes,
-    sourceHandle: activeSourceSide,
-    targetHandle: activeTargetSide,
+    outgoingSides,
+    incomingSide,
   } = data;
 
   const editingNodeId = useUIStore((s) => s.editingNodeId);
@@ -80,7 +80,7 @@ export function MindMapNode({ id, data, selected }: Props) {
       aria-expanded={hasChildren ? !collapsed : undefined}
       {...longPress}
     >
-      {!isRoot && <HandleSet role="target" activeSide={activeTargetSide} />}
+      {!isRoot && <HandleSet role="target" activeSides={[incomingSide]} />}
       {isEditing ? (
         <InlineRename
           initialText={text}
@@ -103,7 +103,7 @@ export function MindMapNode({ id, data, selected }: Props) {
           )}
         </div>
       )}
-      {hasChildren && <HandleSet role="source" activeSide={activeSourceSide} />}
+      {hasChildren && <HandleSet role="source" activeSides={outgoingSides} />}
     </div>
   );
 }
@@ -117,18 +117,29 @@ const POSITION_BY_SIDE: Record<HandleSide, Position> = {
 };
 
 /**
- * React Flow needs Handle elements at every position the user might
- * route an edge through, since handle ids are matched at edge time.
- * We render all four sides; the "active" one is the visible solid dot
- * (matching the rest of the chrome's neutral palette), the others are
- * invisible-but-present so React Flow can resolve the edge if the user
- * picks a different side via the context menu.
+ * React Flow needs a Handle at every position the user might route an
+ * edge through, because handle ids are matched at edge time. We render
+ * all four sides; the ones in `activeSides` are visible solid dots,
+ * the others are invisible-but-present so React Flow can re-route an
+ * edge to a different side at any moment without a remount.
+ *
+ * For the source role, multiple sides can be active simultaneously
+ * (one per child whose `edgeFrom` value picks that side). For the
+ * target role there's always exactly one active side (each node has
+ * one parent → one incoming edge).
  */
-function HandleSet({ role, activeSide }: { role: "source" | "target"; activeSide: HandleSide }) {
+function HandleSet({
+  role,
+  activeSides,
+}: {
+  role: "source" | "target";
+  activeSides: HandleSide[];
+}) {
+  const active = new Set(activeSides);
   return (
     <>
       {SIDES.map((side) => {
-        const isActive = side === activeSide;
+        const isActive = active.has(side);
         return (
           <Handle
             key={side}

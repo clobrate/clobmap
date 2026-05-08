@@ -148,8 +148,8 @@ export function updateNode(
       | "maxHeight"
       | "notes"
       | "position"
-      | "sourceHandle"
-      | "targetHandle"
+      | "edgeFrom"
+      | "edgeTo"
     >
   >,
 ): MindDocument {
@@ -187,13 +187,13 @@ export function updateNode(
       if (patch.position === undefined) delete next.position;
       else next.position = { x: patch.position.x, y: patch.position.y };
     }
-    if ("sourceHandle" in patch) {
-      if (patch.sourceHandle === undefined) delete next.sourceHandle;
-      else next.sourceHandle = patch.sourceHandle;
+    if ("edgeFrom" in patch) {
+      if (patch.edgeFrom === undefined) delete next.edgeFrom;
+      else next.edgeFrom = patch.edgeFrom;
     }
-    if ("targetHandle" in patch) {
-      if (patch.targetHandle === undefined) delete next.targetHandle;
-      else next.targetHandle = patch.targetHandle;
+    if ("edgeTo" in patch) {
+      if (patch.edgeTo === undefined) delete next.edgeTo;
+      else next.edgeTo = patch.edgeTo;
     }
     return next;
   });
@@ -289,6 +289,7 @@ export function emptyDocument(title = "Untitled", ids?: IdGenerator): MindDocume
   return {
     title,
     version: SCHEMA_VERSION,
+    layoutMode: "manual",
     root: { id, text: title, children: [] },
   };
 }

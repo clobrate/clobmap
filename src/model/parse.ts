@@ -12,8 +12,8 @@ const NODE_FIELDS = [
   "maxHeight",
   "notes",
   "position",
-  "sourceHandle",
-  "targetHandle",
+  "edgeFrom",
+  "edgeTo",
 ] as const;
 
 const HANDLE_SIDES = ["top", "right", "bottom", "left"] as const;
@@ -78,16 +78,16 @@ function validateNode(value: unknown, path: string): Result<MindNode> {
     }
   }
   if (
-    typeof value.sourceHandle === "string" &&
-    (HANDLE_SIDES as readonly string[]).includes(value.sourceHandle)
+    typeof value.edgeFrom === "string" &&
+    (HANDLE_SIDES as readonly string[]).includes(value.edgeFrom)
   ) {
-    node.sourceHandle = value.sourceHandle as MindNode["sourceHandle"];
+    node.edgeFrom = value.edgeFrom as MindNode["edgeFrom"];
   }
   if (
-    typeof value.targetHandle === "string" &&
-    (HANDLE_SIDES as readonly string[]).includes(value.targetHandle)
+    typeof value.edgeTo === "string" &&
+    (HANDLE_SIDES as readonly string[]).includes(value.edgeTo)
   ) {
-    node.targetHandle = value.targetHandle as MindNode["targetHandle"];
+    node.edgeTo = value.edgeTo as MindNode["edgeTo"];
   }
   return { ok: true, value: node };
 }
