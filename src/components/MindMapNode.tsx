@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Node } from "@xyflow/react";
-import type { MindNodeData } from "../lib/layout";
+import { handleId, type MindNodeData } from "../lib/layout";
+import type { HandleSide } from "../model";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
 import { useLongPress } from "../lib/useLongPress";
@@ -21,6 +22,8 @@ export function MindMapNode({ id, data, selected }: Props) {
     maxWidth,
     maxHeight,
     hasNotes,
+    sourceHandle: activeSourceSide,
+    targetHandle: activeTargetSide,
   } = data;
 
   const editingNodeId = useUIStore((s) => s.editingNodeId);
@@ -77,13 +80,7 @@ export function MindMapNode({ id, data, selected }: Props) {
       aria-expanded={hasChildren ? !collapsed : undefined}
       {...longPress}
     >
-      {!isRoot && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="!h-2 !w-2 !border-0 !bg-neutral-500"
-        />
-      )}
+      {!isRoot && <HandleSet role="target" activeSide={activeTargetSide} />}
       {isEditing ? (
         <InlineRename
           initialText={text}
@@ -106,14 +103,47 @@ export function MindMapNode({ id, data, selected }: Props) {
           )}
         </div>
       )}
-      {hasChildren && (
-        <Handle
-          type="source"
-          position={Position.Right}
-          className="!h-2 !w-2 !border-0 !bg-neutral-500"
-        />
-      )}
+      {hasChildren && <HandleSet role="source" activeSide={activeSourceSide} />}
     </div>
+  );
+}
+
+const SIDES: HandleSide[] = ["top", "right", "bottom", "left"];
+const POSITION_BY_SIDE: Record<HandleSide, Position> = {
+  top: Position.Top,
+  right: Position.Right,
+  bottom: Position.Bottom,
+  left: Position.Left,
+};
+
+/**
+ * React Flow needs Handle elements at every position the user might
+ * route an edge through, since handle ids are matched at edge time.
+ * We render all four sides; the "active" one is the visible solid dot
+ * (matching the rest of the chrome's neutral palette), the others are
+ * invisible-but-present so React Flow can resolve the edge if the user
+ * picks a different side via the context menu.
+ */
+function HandleSet({ role, activeSide }: { role: "source" | "target"; activeSide: HandleSide }) {
+  return (
+    <>
+      {SIDES.map((side) => {
+        const isActive = side === activeSide;
+        return (
+          <Handle
+            key={side}
+            id={handleId(role, side)}
+            type={role}
+            position={POSITION_BY_SIDE[side]}
+            className={
+              isActive
+                ? "!h-2 !w-2 !border-0 !bg-neutral-500"
+                : "!h-2 !w-2 !border-0 !bg-transparent !pointer-events-none !opacity-0"
+            }
+          />
+        );
+      })}
+    </>
   );
 }
 

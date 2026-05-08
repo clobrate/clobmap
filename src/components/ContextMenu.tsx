@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { findById, type MindDocument } from "../model";
+import { findById, type HandleSide, type MindDocument } from "../model";
 
 interface Props {
   nodeId: string;
@@ -17,6 +17,7 @@ interface Props {
   onEditNote: (note: string) => void;
   onEditNotes: () => void;
   onSetColor: (color: string | null) => void;
+  onSetHandle: (role: "source" | "target", side: HandleSide) => void;
   onCut: () => void;
   onPaste: () => void;
 }
@@ -38,6 +39,7 @@ export function ContextMenu(props: Props) {
     onEditNote,
     onEditNotes,
     onSetColor,
+    onSetHandle,
     onCut,
     onPaste,
   } = props;
@@ -95,6 +97,19 @@ export function ContextMenu(props: Props) {
         onClick={onToggleCollapse}
       />
       <Item label="Duplicate" disabled={isRoot} onClick={onDuplicate} />
+      <Divider />
+      <HandleRow
+        label="Outgoing edge"
+        active={node.sourceHandle ?? "right"}
+        disabled={!hasChildren}
+        onPick={(side) => onSetHandle("source", side)}
+      />
+      <HandleRow
+        label="Incoming edge"
+        active={node.targetHandle ?? "left"}
+        disabled={isRoot}
+        onPick={(side) => onSetHandle("target", side)}
+      />
       <Divider />
       <Item label="Cut" shortcut="⌘X" disabled={isRoot} onClick={onCut} />
       <Item label="Paste here" shortcut="⌘V" disabled={!isClipboardActive} onClick={onPaste} />
@@ -206,6 +221,55 @@ function ColorRow({ current, onPick }: { current?: string; onPick: (c: string | 
 
 function Divider() {
   return <div className="my-1 border-t border-neutral-200 dark:border-neutral-800" />;
+}
+
+const HANDLE_SIDES: { side: HandleSide; label: string; aria: string }[] = [
+  { side: "top", label: "↑", aria: "Top" },
+  { side: "right", label: "→", aria: "Right" },
+  { side: "bottom", label: "↓", aria: "Bottom" },
+  { side: "left", label: "←", aria: "Left" },
+];
+
+function HandleRow({
+  label,
+  active,
+  disabled,
+  onPick,
+}: {
+  label: string;
+  active: HandleSide;
+  disabled: boolean;
+  onPick: (side: HandleSide) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5">
+      <span className="mr-1 flex-1 text-neutral-600 dark:text-neutral-400">{label}</span>
+      {HANDLE_SIDES.map(({ side, label: glyph, aria }) => {
+        const isActive = side === active;
+        return (
+          <button
+            key={side}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(side)}
+            aria-label={`${aria} side`}
+            aria-pressed={isActive}
+            title={aria}
+            className={
+              "flex h-6 w-6 items-center justify-center rounded text-xs font-mono " +
+              (disabled
+                ? "cursor-not-allowed text-neutral-300 dark:text-neutral-700"
+                : isActive
+                  ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                  : "text-neutral-700 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800")
+            }
+          >
+            {glyph}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function Item({

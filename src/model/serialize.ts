@@ -15,6 +15,8 @@ function nodeToPlain(node: MindNode): Record<string, unknown> {
   if (node.position !== undefined) {
     out.position = { x: node.position.x, y: node.position.y };
   }
+  if (node.sourceHandle !== undefined) out.sourceHandle = node.sourceHandle;
+  if (node.targetHandle !== undefined) out.targetHandle = node.targetHandle;
   out.children = node.children.map(nodeToPlain);
   return out;
 }

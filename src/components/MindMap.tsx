@@ -468,6 +468,7 @@ function MindMapInner() {
             closeContextMenu();
           }}
           onSetColor={(color) => handleSetColor(contextMenu.nodeId, color)}
+          onSetHandle={(role, side) => handleSetHandle(contextMenu.nodeId, role, side)}
           onCut={() => handleCut(contextMenu.nodeId)}
           onPaste={() => handlePaste(contextMenu.nodeId)}
         />
@@ -554,6 +555,21 @@ function MindMapInner() {
     const tree = useDocumentStore.getState().parsedDoc;
     if (!tree) return;
     applyTreeChange(updateNode(tree, nodeId, { color: color ?? "" }));
+    closeContextMenu();
+  }
+
+  function handleSetHandle(
+    nodeId: string,
+    role: "source" | "target",
+    side: "top" | "right" | "bottom" | "left",
+  ) {
+    const tree = useDocumentStore.getState().parsedDoc;
+    if (!tree) return;
+    applyTreeChange(
+      updateNode(tree, nodeId, {
+        [role === "source" ? "sourceHandle" : "targetHandle"]: side,
+      }),
+    );
     closeContextMenu();
   }
 

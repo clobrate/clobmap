@@ -283,6 +283,56 @@ root:
     expect(r.value.root.position).toBeUndefined();
   });
 
+  it("accepts per-node sourceHandle / targetHandle", () => {
+    const r = parseYaml(`
+title: T
+root:
+  id: n1
+  text: Root
+  sourceHandle: bottom
+  targetHandle: top
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.root.sourceHandle).toBe("bottom");
+    expect(r.value.root.targetHandle).toBe("top");
+  });
+
+  it("ignores invalid handle sides (treats as absent)", () => {
+    const r = parseYaml(`
+title: T
+root:
+  id: n1
+  text: Root
+  sourceHandle: diagonal
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.root.sourceHandle).toBeUndefined();
+  });
+
+  it("round-trips sourceHandle / targetHandle through serialize", () => {
+    const original = parseYaml(`
+title: T
+root:
+  id: n1
+  text: Root
+  sourceHandle: bottom
+  targetHandle: top
+  children: []
+`);
+    expect(original.ok).toBe(true);
+    if (!original.ok) return;
+    const reserialized = serializeYaml(original.value);
+    const reparsed = parseYaml(reserialized);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.root.sourceHandle).toBe("bottom");
+    expect(reparsed.value.root.targetHandle).toBe("top");
+  });
+
   it("round-trips layoutMode + position through serialize", () => {
     const original = parseYaml(`
 title: T

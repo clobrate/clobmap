@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { MindDocument, MindNode } from "../model";
+import type { HandleSide, MindDocument, MindNode } from "../model";
 
 export const DEFAULT_MAX_WIDTH = 280;
 export const DEFAULT_MAX_HEIGHT = 200;
@@ -23,7 +23,14 @@ export interface MindNodeData extends Record<string, unknown> {
   maxHeight: number;
   /** True if the node has long-form Markdown notes attached. */
   hasNotes: boolean;
+  /** Side this node's outgoing-edge handle ("source") sits on. */
+  sourceHandle: HandleSide;
+  /** Side this node's incoming-edge handle ("target") sits on. */
+  targetHandle: HandleSide;
 }
+
+const DEFAULT_SOURCE_SIDE: HandleSide = "right";
+const DEFAULT_TARGET_SIDE: HandleSide = "left";
 
 export interface LayoutResult {
   nodes: Node<MindNodeData>[];
@@ -119,6 +126,60 @@ function countDescendants(node: MindNode): number {
 }
 
 /**
+ * Stable handle id for a node + side. React Flow requires explicit ids
+ * when an edge could connect to multiple handles on the same node — and
+ * since we render handles on all four sides per node (so the user can
+ * pick), we always specify the id on edges.
+ */
+export function handleId(role: "source" | "target", side: HandleSide): string {
+  return `${role}-${side}`;
+}
+
+function emitNode(
+  out: Node<MindNodeData>[],
+  node: MindNode,
+  m: NodeMetrics,
+  x: number,
+  y: number,
+  depth: number,
+  isRoot: boolean,
+  collapsed: boolean,
+): void {
+  out.push({
+    id: node.id,
+    type: "mind",
+    position: { x, y },
+    data: {
+      text: node.text,
+      depth,
+      isRoot,
+      color: node.color,
+      note: node.note,
+      collapsed,
+      hasChildren: node.children.length > 0,
+      hiddenChildCount: collapsed ? m.descendantCount : 0,
+      maxWidth: m.width,
+      maxHeight: m.height,
+      hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
+      sourceHandle: node.sourceHandle ?? DEFAULT_SOURCE_SIDE,
+      targetHandle: node.targetHandle ?? DEFAULT_TARGET_SIDE,
+    },
+  });
+}
+
+function emitEdge(out: Edge[], node: MindNode, parent: MindNode | null): void {
+  if (!parent) return;
+  out.push({
+    id: `${parent.id}->${node.id}`,
+    source: parent.id,
+    sourceHandle: handleId("source", parent.sourceHandle ?? DEFAULT_SOURCE_SIDE),
+    target: node.id,
+    targetHandle: handleId("target", node.targetHandle ?? DEFAULT_TARGET_SIDE),
+    type: "smoothstep",
+  });
+}
+
+/**
  * Manual-mode placement. Honors each node's stored `position` verbatim;
  * nodes without one (newly added since the last save, typically) inherit
  * a small offset from their parent so they're visible and the user can
@@ -130,7 +191,7 @@ const NEW_NODE_OFFSET_Y = 30;
 
 function placeManual(
   node: MindNode,
-  parentId: string | null,
+  parent: MindNode | null,
   parentPosition: { x: number; y: number; width: number; height: number } | null,
   depth: number,
   defaults: LayoutDefaults,
@@ -158,43 +219,19 @@ function placeManual(
     y = parentPosition.y + NEW_NODE_OFFSET_Y;
   }
 
-  outNodes.push({
-    id: node.id,
-    type: "mind",
-    position: { x, y },
-    data: {
-      text: node.text,
-      depth,
-      isRoot: parentId === null,
-      color: node.color,
-      note: node.note,
-      collapsed,
-      hasChildren: node.children.length > 0,
-      hiddenChildCount: collapsed ? m.descendantCount : 0,
-      maxWidth: m.width,
-      maxHeight: m.height,
-      hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
-    },
-  });
-  if (parentId) {
-    outEdges.push({
-      id: `${parentId}->${node.id}`,
-      source: parentId,
-      target: node.id,
-      type: "smoothstep",
-    });
-  }
+  emitNode(outNodes, node, m, x, y, depth, parent === null, collapsed);
+  emitEdge(outEdges, node, parent);
   if (collapsed) return;
 
   const myRect = { x, y, width: m.width, height: m.height };
   for (const child of node.children) {
-    placeManual(child, node.id, myRect, depth + 1, defaults, metrics, outNodes, outEdges);
+    placeManual(child, node, myRect, depth + 1, defaults, metrics, outNodes, outEdges);
   }
 }
 
 function place(
   node: MindNode,
-  parentId: string | null,
+  parent: MindNode | null,
   parentRect: { x: number; width: number } | null,
   depth: number,
   yTop: number,
@@ -210,33 +247,8 @@ function place(
   const y = yTop + (m.subtreeHeight - m.height) / 2;
   const collapsed = Boolean(node.collapsed);
 
-  outNodes.push({
-    id: node.id,
-    type: "mind",
-    position: { x, y },
-    data: {
-      text: node.text,
-      depth,
-      isRoot: parentId === null,
-      color: node.color,
-      note: node.note,
-      collapsed,
-      hasChildren: node.children.length > 0,
-      hiddenChildCount: collapsed ? m.descendantCount : 0,
-      maxWidth: m.width,
-      maxHeight: m.height,
-      hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
-    },
-  });
-
-  if (parentId) {
-    outEdges.push({
-      id: `${parentId}->${node.id}`,
-      source: parentId,
-      target: node.id,
-      type: "smoothstep",
-    });
-  }
+  emitNode(outNodes, node, m, x, y, depth, parent === null, collapsed);
+  emitEdge(outEdges, node, parent);
 
   if (collapsed) return;
   let childY = yTop;
@@ -244,7 +256,7 @@ function place(
     const childMetrics = metrics.get(child);
     place(
       child,
-      node.id,
+      node,
       { x, width: m.width },
       depth + 1,
       childY,

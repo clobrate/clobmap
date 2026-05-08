@@ -148,6 +148,8 @@ export function updateNode(
       | "maxHeight"
       | "notes"
       | "position"
+      | "sourceHandle"
+      | "targetHandle"
     >
   >,
 ): MindDocument {
@@ -184,6 +186,14 @@ export function updateNode(
     if ("position" in patch) {
       if (patch.position === undefined) delete next.position;
       else next.position = { x: patch.position.x, y: patch.position.y };
+    }
+    if ("sourceHandle" in patch) {
+      if (patch.sourceHandle === undefined) delete next.sourceHandle;
+      else next.sourceHandle = patch.sourceHandle;
+    }
+    if ("targetHandle" in patch) {
+      if (patch.targetHandle === undefined) delete next.targetHandle;
+      else next.targetHandle = patch.targetHandle;
     }
     return next;
   });

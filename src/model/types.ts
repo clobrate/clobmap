@@ -23,7 +23,18 @@ export interface MindNode {
    * in auto mode.
    */
   position?: { x: number; y: number };
+  /**
+   * Side the outgoing-edge handle ("source" in React Flow terms) sits
+   * on. Default "right" matches the LR tidy-tree shape.
+   */
+  sourceHandle?: HandleSide;
+  /**
+   * Side the incoming-edge handle ("target") sits on. Default "left".
+   */
+  targetHandle?: HandleSide;
 }
+
+export type HandleSide = "top" | "right" | "bottom" | "left";
 
 export type LayoutMode = "auto" | "manual";
 

@@ -164,6 +164,55 @@ describe("layoutMindMap", () => {
     });
   });
 
+  describe("handle sides", () => {
+    it("defaults each node to source: right, target: left", () => {
+      const { nodes } = layoutMindMap(tree());
+      for (const n of nodes) {
+        expect(n.data.sourceHandle).toBe("right");
+        expect(n.data.targetHandle).toBe("left");
+      }
+    });
+
+    it("emits per-node overrides on the data payload", () => {
+      const doc: MindDocument = {
+        title: "T",
+        root: {
+          id: "n1",
+          text: "R",
+          sourceHandle: "bottom",
+          children: [{ id: "n2", text: "C", targetHandle: "top", children: [] }],
+        },
+      };
+      const { nodes } = layoutMindMap(doc);
+      expect(nodes.find((n) => n.id === "n1")?.data.sourceHandle).toBe("bottom");
+      expect(nodes.find((n) => n.id === "n2")?.data.targetHandle).toBe("top");
+    });
+
+    it("references handle ids on the edges (using the resolved sides)", () => {
+      const doc: MindDocument = {
+        title: "T",
+        root: {
+          id: "n1",
+          text: "R",
+          sourceHandle: "bottom",
+          children: [{ id: "n2", text: "C", targetHandle: "top", children: [] }],
+        },
+      };
+      const { edges } = layoutMindMap(doc);
+      expect(edges).toHaveLength(1);
+      expect(edges[0]?.sourceHandle).toBe("source-bottom");
+      expect(edges[0]?.targetHandle).toBe("target-top");
+    });
+
+    it("defaults edge handle ids when nodes don't override", () => {
+      const { edges } = layoutMindMap(tree());
+      for (const e of edges) {
+        expect(e.sourceHandle).toBe("source-right");
+        expect(e.targetHandle).toBe("target-left");
+      }
+    });
+  });
+
   describe("hasNotes flag", () => {
     function withNotes(notes: string | undefined): MindDocument {
       return {

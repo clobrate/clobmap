@@ -12,7 +12,11 @@ const NODE_FIELDS = [
   "maxHeight",
   "notes",
   "position",
+  "sourceHandle",
+  "targetHandle",
 ] as const;
+
+const HANDLE_SIDES = ["top", "right", "bottom", "left"] as const;
 const DOC_FIELDS = ["title", "root", "version", "layoutMode"] as const;
 
 function makeError(message: string, line = 1, col = 1): ParseError {
@@ -72,6 +76,18 @@ function validateNode(value: unknown, path: string): Result<MindNode> {
     if (typeof px === "number" && typeof py === "number" && isFinite(px) && isFinite(py)) {
       node.position = { x: px, y: py };
     }
+  }
+  if (
+    typeof value.sourceHandle === "string" &&
+    (HANDLE_SIDES as readonly string[]).includes(value.sourceHandle)
+  ) {
+    node.sourceHandle = value.sourceHandle as MindNode["sourceHandle"];
+  }
+  if (
+    typeof value.targetHandle === "string" &&
+    (HANDLE_SIDES as readonly string[]).includes(value.targetHandle)
+  ) {
+    node.targetHandle = value.targetHandle as MindNode["targetHandle"];
   }
   return { ok: true, value: node };
 }
