@@ -347,23 +347,33 @@ describe("setLayoutMode", () => {
     expect(next.root.children[0]?.position).toEqual({ x: 100, y: 50 });
   });
 
-  it("switches to auto and strips every node's position + per-edge sides", () => {
+  it("switches to auto without stripping manual fields (so manual round-trips)", () => {
     const seed = fixture();
     seed.layoutMode = "manual";
     seed.root.position = { x: 0, y: 0 };
     seed.root.children[0]!.position = { x: 100, y: 50 };
     seed.root.children[0]!.edgeFrom = "bottom";
     seed.root.children[0]!.edgeTo = "top";
-    seed.root.children[1]!.position = { x: 200, y: 50 };
-    seed.root.children[1]!.edgeFrom = "right";
     const next = setLayoutMode(seed, "auto");
     expect(next.layoutMode).toBeUndefined();
-    expect(next.root.position).toBeUndefined();
-    expect(next.root.children[0]?.position).toBeUndefined();
-    expect(next.root.children[0]?.edgeFrom).toBeUndefined();
-    expect(next.root.children[0]?.edgeTo).toBeUndefined();
-    expect(next.root.children[1]?.position).toBeUndefined();
-    expect(next.root.children[1]?.edgeFrom).toBeUndefined();
+    // Stored positions + per-edge sides are PRESERVED so a later
+    // switch back to manual restores the user's prior arrangement.
+    // The layout function ignores them while in auto mode.
+    expect(next.root.position).toEqual({ x: 0, y: 0 });
+    expect(next.root.children[0]?.position).toEqual({ x: 100, y: 50 });
+    expect(next.root.children[0]?.edgeFrom).toBe("bottom");
+    expect(next.root.children[0]?.edgeTo).toBe("top");
+  });
+
+  it("manual → auto → manual round-trip preserves positions exactly", () => {
+    const seed = fixture();
+    seed.layoutMode = "manual";
+    seed.root.position = { x: 5, y: 7 };
+    seed.root.children[0]!.position = { x: 110, y: 220 };
+    const after = setLayoutMode(setLayoutMode(seed, "auto"), "manual");
+    expect(after.layoutMode).toBe("manual");
+    expect(after.root.position).toEqual({ x: 5, y: 7 });
+    expect(after.root.children[0]?.position).toEqual({ x: 110, y: 220 });
   });
 
   it("is a no-op when the mode is already what's asked for", () => {

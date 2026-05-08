@@ -327,21 +327,12 @@ export function setLayoutMode(doc: MindDocument, mode: "auto" | "manual"): MindD
   // common "default doc, no edits yet" case doesn't churn the YAML.
   const current = doc.layoutMode ?? "auto";
   if (mode === current) return doc;
-  if (mode === "auto") {
-    // Auto mode is "the algorithm decides everything": position,
-    // outgoing-side per child, incoming-side per child. Strip all
-    // three so a switch back to auto produces the canonical LR
-    // tidy-tree shape with default right→left edges. Without
-    // stripping the edge fields, the user's previous manual-mode
-    // edge routing would persist visually even though the nodes
-    // moved back to algorithmic positions.
-    return {
-      ...doc,
-      layoutMode: undefined,
-      root: mapAllNodes(doc.root, stripManualLayout),
-    };
-  }
-  return { ...doc, layoutMode: "manual" };
+  // Both transitions just flip the flag. Manual-only fields
+  // (`position`, `edgeFrom`, `edgeTo`) are preserved across the
+  // round-trip so a user toggling Manual → Auto → Manual gets back
+  // exactly what they had. The "Reset positions" button is the
+  // separate escape hatch for "I want a clean tidy-tree now".
+  return { ...doc, layoutMode: mode === "auto" ? undefined : "manual" };
 }
 
 /**
@@ -379,19 +370,3 @@ function stripPosition(n: MindNode): MindNode {
   return rest;
 }
 
-/**
- * Strip every field that's only meaningful in manual layout mode:
- * position (where the node sits) and the per-edge endpoint sides
- * (edgeFrom on the parent's box, edgeTo on this node's box). Used
- * when switching to auto mode so the result is a clean tidy-tree.
- */
-function stripManualLayout(n: MindNode): MindNode {
-  if (n.position === undefined && n.edgeFrom === undefined && n.edgeTo === undefined) {
-    return n;
-  }
-  const { position: _p, edgeFrom: _f, edgeTo: _t, ...rest } = n;
-  void _p;
-  void _f;
-  void _t;
-  return rest;
-}

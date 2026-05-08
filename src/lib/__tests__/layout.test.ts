@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_MAX_HEIGHT, DEFAULT_MAX_WIDTH, layoutMindMap } from "../layout";
+import {
+  DEFAULT_MAX_HEIGHT,
+  DEFAULT_MAX_WIDTH,
+  layoutMindMap,
+  materializeManualPositions,
+} from "../layout";
 import type { MindDocument } from "../../model";
 
 function tree(): MindDocument {
@@ -231,6 +236,62 @@ describe("layoutMindMap", () => {
       for (const e of edges) {
         expect(e.markerEnd).toBeTruthy();
       }
+    });
+  });
+
+  describe("materializeManualPositions", () => {
+    function mixedDoc(): MindDocument {
+      return {
+        title: "T",
+        root: {
+          id: "n1",
+          text: "Root",
+          position: { x: 50, y: 60 }, // stored
+          children: [
+            { id: "n2", text: "A", position: { x: 200, y: 100 }, children: [] }, // stored
+            { id: "n3", text: "B", children: [] }, // unset → falls back to auto
+          ],
+        },
+      };
+    }
+
+    it("keeps every existing position and gap-fills the rest from auto-layout", () => {
+      const filled = materializeManualPositions(mixedDoc());
+      const root = filled.root;
+      const n2 = root.children[0]!;
+      const n3 = root.children[1]!;
+      expect(root.position).toEqual({ x: 50, y: 60 });
+      expect(n2.position).toEqual({ x: 200, y: 100 });
+      // n3 had no stored position — it should now have one (from auto).
+      expect(n3.position).toBeDefined();
+      expect(typeof n3.position?.x).toBe("number");
+      expect(typeof n3.position?.y).toBe("number");
+    });
+
+    it("override wins over a stored position", () => {
+      const overrides = new Map([["n2", { x: 999, y: 888 }]]);
+      const filled = materializeManualPositions(mixedDoc(), overrides);
+      expect(filled.root.children[0]?.position).toEqual({ x: 999, y: 888 });
+      // n1 still has its stored position.
+      expect(filled.root.position).toEqual({ x: 50, y: 60 });
+    });
+
+    it("populates positions for a doc that has none yet", () => {
+      const fresh: MindDocument = {
+        title: "T",
+        root: {
+          id: "n1",
+          text: "Root",
+          children: [
+            { id: "n2", text: "A", children: [] },
+            { id: "n3", text: "B", children: [] },
+          ],
+        },
+      };
+      const filled = materializeManualPositions(fresh);
+      expect(filled.root.position).toBeDefined();
+      expect(filled.root.children[0]?.position).toBeDefined();
+      expect(filled.root.children[1]?.position).toBeDefined();
     });
   });
 

@@ -13,7 +13,7 @@ import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
 import { openExternal } from "../lib/openExternal";
 import { isTelemetryAvailable } from "../lib/telemetry";
 import { clearAllPositions, setLayoutMode, setPositions, type LayoutMode } from "../model";
-import { layoutMindMap } from "../lib/layout";
+import { layoutMindMap, materializeManualPositions } from "../lib/layout";
 
 const PRIVACY_URL = "https://github.com/clobrate/clobmap/blob/main/PRIVACY.md";
 const ISSUE_URL = "https://github.com/clobrate/clobmap/issues/new?labels=bug";
@@ -50,14 +50,14 @@ export function SettingsMenu() {
   const onLayoutMode = (next: LayoutMode) => {
     if (!parsedDoc || layoutMode === next) return;
     if (next === "manual") {
-      // Seed manual positions from the current auto-layout so the
-      // visual state is preserved at the moment of switching.
-      const { nodes } = layoutMindMap(parsedDoc);
-      const positions = new Map<string, { x: number; y: number }>();
-      for (const n of nodes) positions.set(n.id, { x: n.position.x, y: n.position.y });
-      const seeded = setPositions(parsedDoc, positions);
-      applyTreeChange(setLayoutMode(seeded, "manual"));
+      // Restore last-known manual positions; gap-fill any nodes lacking
+      // a stored position (added in auto mode since the last manual
+      // session) with the current auto-layout's coordinates so the
+      // visual transition is smooth.
+      applyTreeChange(setLayoutMode(materializeManualPositions(parsedDoc), "manual"));
     } else {
+      // Stored positions remain in YAML so a later switch back to
+      // manual restores the user's previous arrangement.
       applyTreeChange(setLayoutMode(parsedDoc, "auto"));
     }
   };

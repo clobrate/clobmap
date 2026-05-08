@@ -1,5 +1,5 @@
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
-import type { HandleSide, MindDocument, MindNode } from "../model";
+import { setPositions, type HandleSide, type MindDocument, type MindNode } from "../model";
 
 export const DEFAULT_MAX_WIDTH = 280;
 export const DEFAULT_MAX_HEIGHT = 200;
@@ -294,4 +294,53 @@ function place(
     );
     if (childMetrics) childY += childMetrics.subtreeHeight + ROW_GAP;
   }
+}
+
+/**
+ * Returns a copy of `doc` with every node's `position` field populated
+ * for use in manual mode. Resolution order per node:
+ *
+ *   1. caller-supplied `overrides[id]` (e.g., the dragged node's drop
+ *      point during the auto→manual auto-switch),
+ *   2. the node's existing `position` field (last known manual state —
+ *      preserved across mode toggles),
+ *   3. fallback to the auto-layout's position for that node, so newly-
+ *      added auto-mode nodes get sensible coordinates instead of the
+ *      bare parent-offset stacking we'd otherwise get.
+ *
+ * Layout mode itself is not changed — caller does that explicitly with
+ * setLayoutMode.
+ */
+export function materializeManualPositions(
+  doc: MindDocument,
+  overrides?: Map<string, { x: number; y: number }>,
+): MindDocument {
+  // Compute auto-layout positions to gap-fill any nodes lacking both
+  // an override and a stored position.
+  const autoNodes = layoutMindMap({ ...doc, layoutMode: undefined }).nodes;
+  const autoPositions = new Map<string, { x: number; y: number }>();
+  for (const n of autoNodes) {
+    autoPositions.set(n.id, { x: n.position.x, y: n.position.y });
+  }
+
+  const positions = new Map<string, { x: number; y: number }>();
+  walk(doc.root, (treeNode) => {
+    const o = overrides?.get(treeNode.id);
+    if (o) {
+      positions.set(treeNode.id, o);
+      return;
+    }
+    if (treeNode.position) {
+      positions.set(treeNode.id, treeNode.position);
+      return;
+    }
+    const fallback = autoPositions.get(treeNode.id);
+    if (fallback) positions.set(treeNode.id, fallback);
+  });
+  return setPositions(doc, positions);
+}
+
+function walk(node: MindNode, visit: (n: MindNode) => void): void {
+  visit(node);
+  for (const c of node.children) walk(c, visit);
 }

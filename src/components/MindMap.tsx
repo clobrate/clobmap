@@ -15,7 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
-import { layoutMindMap, type MindNodeData } from "../lib/layout";
+import { layoutMindMap, materializeManualPositions, type MindNodeData } from "../lib/layout";
 import { MindMapNode } from "./MindMapNode";
 import { ContextMenu } from "./ContextMenu";
 import {
@@ -28,7 +28,6 @@ import {
   moveNode,
   OpError,
   setLayoutMode,
-  setPositions,
   updateNode,
 } from "../model";
 import { navigateIntoChildren, navigateSibling, navigateToParent } from "../lib/navigation";
@@ -209,19 +208,17 @@ function MindMapInner() {
         );
         return;
       }
-      const positions = new Map<string, { x: number; y: number }>();
-      for (const n of layout.nodes) {
-        positions.set(
-          n.id,
-          n.id === node.id
-            ? { x: node.position.x, y: node.position.y }
-            : { x: n.position.x, y: n.position.y },
-        );
-      }
-      const seeded = setPositions(tree, positions);
+      // Materialize manual positions: prefer this drop point for the
+      // dragged node; prefer last-known stored positions for everyone
+      // else (so a previous Manual session is restored); fall back to
+      // the auto-layout's positions for nodes that have neither (e.g.,
+      // children added since the last manual session).
+      const overrides = new Map<string, { x: number; y: number }>();
+      overrides.set(node.id, { x: node.position.x, y: node.position.y });
+      const seeded = materializeManualPositions(tree, overrides);
       applyTreeChange(setLayoutMode(seeded, "manual"));
     },
-    [applyTreeChange, layout.nodes, reactFlow],
+    [applyTreeChange, reactFlow],
   );
 
   // Global keyboard handler for the canvas
