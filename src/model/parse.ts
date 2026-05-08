@@ -1,7 +1,16 @@
 import { parseDocument, type Document } from "yaml";
 import type { MindDocument, MindNode, ParseError, Result } from "./types";
 
-const NODE_FIELDS = ["id", "text", "children", "note", "color", "collapsed"] as const;
+const NODE_FIELDS = [
+  "id",
+  "text",
+  "children",
+  "note",
+  "color",
+  "collapsed",
+  "maxWidth",
+  "maxHeight",
+] as const;
 const DOC_FIELDS = ["title", "root", "version"] as const;
 
 function makeError(message: string, line = 1, col = 1): ParseError {
@@ -48,6 +57,12 @@ function validateNode(value: unknown, path: string): Result<MindNode> {
   if (typeof value.note === "string") node.note = value.note;
   if (typeof value.color === "string") node.color = value.color;
   if (typeof value.collapsed === "boolean") node.collapsed = value.collapsed;
+  if (typeof value.maxWidth === "number" && value.maxWidth > 0) {
+    node.maxWidth = value.maxWidth;
+  }
+  if (typeof value.maxHeight === "number" && value.maxHeight > 0) {
+    node.maxHeight = value.maxHeight;
+  }
   return { ok: true, value: node };
 }
 

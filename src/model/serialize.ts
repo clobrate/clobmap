@@ -9,6 +9,8 @@ function nodeToPlain(node: MindNode): Record<string, unknown> {
   if (node.note !== undefined) out.note = node.note;
   if (node.color !== undefined) out.color = node.color;
   if (node.collapsed !== undefined) out.collapsed = node.collapsed;
+  if (node.maxWidth !== undefined) out.maxWidth = node.maxWidth;
+  if (node.maxHeight !== undefined) out.maxHeight = node.maxHeight;
   out.children = node.children.map(nodeToPlain);
   return out;
 }

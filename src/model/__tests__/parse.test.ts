@@ -172,6 +172,76 @@ root:
     const r = parseYaml("- 1\n- 2\n");
     expect(r.ok).toBe(false);
   });
+
+  it("accepts maxWidth and maxHeight as positive numbers", () => {
+    const r = parseYaml(`
+title: T
+root:
+  id: n1
+  text: Root
+  maxWidth: 320
+  maxHeight: 180
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.root.maxWidth).toBe(320);
+    expect(r.value.root.maxHeight).toBe(180);
+  });
+
+  it("ignores non-positive maxWidth / maxHeight", () => {
+    const r = parseYaml(`
+title: T
+root:
+  id: n1
+  text: Root
+  maxWidth: 0
+  maxHeight: -10
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.root.maxWidth).toBeUndefined();
+    expect(r.value.root.maxHeight).toBeUndefined();
+  });
+
+  it("preserves multi-line text via YAML literal block scalar", () => {
+    const r = parseYaml(`
+title: T
+root:
+  id: n1
+  text: |
+    line one
+    line two
+  children: []
+`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // YAML's `|` literal scalar preserves newlines but typically appends one
+    // trailing newline; we just confirm both lines round-tripped.
+    expect(r.value.root.text).toContain("line one");
+    expect(r.value.root.text).toContain("line two");
+  });
+
+  it("round-trips maxWidth / maxHeight through serialize", () => {
+    const original = parseYaml(`
+title: T
+root:
+  id: n1
+  text: Root
+  maxWidth: 320
+  maxHeight: 180
+  children: []
+`);
+    expect(original.ok).toBe(true);
+    if (!original.ok) return;
+    const reserialized = serializeYaml(original.value);
+    const reparsed = parseYaml(reserialized);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.root.maxWidth).toBe(320);
+    expect(reparsed.value.root.maxHeight).toBe(180);
+  });
 });
 
 describe("round-trip parse → serialize → parse", () => {

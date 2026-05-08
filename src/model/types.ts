@@ -5,6 +5,10 @@ export interface MindNode {
   note?: string;
   color?: string;
   collapsed?: boolean;
+  /** Per-node override of the default max-width in pixels. */
+  maxWidth?: number;
+  /** Per-node override of the default max-height in pixels. */
+  maxHeight?: number;
 }
 
 export interface MindDocument {

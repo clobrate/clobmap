@@ -10,7 +10,17 @@ import { updateNode, updateText } from "../model";
 type Props = NodeProps<Node<MindNodeData>>;
 
 export function MindMapNode({ id, data, selected }: Props) {
-  const { text, isRoot, color, note, hasChildren, collapsed, hiddenChildCount } = data;
+  const {
+    text,
+    isRoot,
+    color,
+    note,
+    hasChildren,
+    collapsed,
+    hiddenChildCount,
+    maxWidth,
+    maxHeight,
+  } = data;
 
   const editingNodeId = useUIStore((s) => s.editingNodeId);
   const setEditing = useUIStore((s) => s.setEditing);
@@ -39,13 +49,20 @@ export function MindMapNode({ id, data, selected }: Props) {
 
   const dimClass = isClipped ? "opacity-40 outline-dashed outline-1 outline-amber-400/60" : "";
 
-  const style = color && !selected ? { borderColor: color } : undefined;
+  const colorBorderStyle = color && !selected ? { borderColor: color } : undefined;
 
   return (
     <div
       className={`${baseClass} ${borderClass} ${dimClass}`}
       style={{
-        ...style,
+        ...colorBorderStyle,
+        // Cap node visual size to its resolved max dimensions; the layout
+        // pre-reserves the slot at the same numbers so visuals match math.
+        maxWidth: `${maxWidth}px`,
+        maxHeight: `${maxHeight}px`,
+        // Long single-line text wraps; the rendered node grows up to maxHeight
+        // and overflows with a scrollbar past that.
+        overflow: "auto",
         WebkitTouchCallout: "none",
         WebkitUserSelect: "none",
         userSelect: "none",
@@ -66,10 +83,15 @@ export function MindMapNode({ id, data, selected }: Props) {
         />
       )}
       {isEditing ? (
-        <InlineRename initialText={text} nodeId={id} onClose={() => setEditing(null)} />
+        <InlineRename
+          initialText={text}
+          nodeId={id}
+          onClose={() => setEditing(null)}
+          maxHeight={maxHeight}
+        />
       ) : (
-        <div className="flex max-w-[200px] items-center gap-1.5">
-          <span className="truncate">{text}</span>
+        <div className="flex items-start gap-1.5">
+          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
           {hasChildren && (
             <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
           )}
@@ -128,13 +150,15 @@ function InlineRename({
   initialText,
   nodeId,
   onClose,
+  maxHeight,
 }: {
   initialText: string;
   nodeId: string;
   onClose: () => void;
+  maxHeight: number;
 }) {
   const [value, setValue] = useState(initialText);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
 
   useEffect(() => {
@@ -163,6 +187,14 @@ function InlineRename({
     requestAnimationFrame(tryFocus);
   }, []);
 
+  // Auto-grow the textarea height to fit its content (capped at maxHeight).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  }, [value, maxHeight]);
+
   const commit = () => {
     const tree = useDocumentStore.getState().parsedDoc;
     if (tree && value !== initialText) {
@@ -172,16 +204,19 @@ function InlineRename({
   };
 
   return (
-    <input
+    <textarea
       ref={inputRef}
       aria-label="Rename node"
-      className="w-full rounded border border-neutral-300 bg-white px-1 py-0.5 text-sm text-neutral-900 outline-none focus:border-emerald-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100 dark:focus:border-emerald-400"
+      rows={1}
+      className="block w-full resize-none rounded border border-neutral-300 bg-white px-1 py-0.5 text-sm text-neutral-900 outline-none focus:border-emerald-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100 dark:focus:border-emerald-400"
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
         e.stopPropagation();
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.shiftKey) {
+          // Plain Enter commits; Shift+Enter inserts a newline (matches
+          // Slack / Notion / GitHub / Gmail conventions).
           e.preventDefault();
           commit();
         } else if (e.key === "Escape") {

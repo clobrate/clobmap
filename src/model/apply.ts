@@ -63,6 +63,8 @@ function syncNode(target: YAMLMap, source: MindNode, index: Map<string, YAMLMap>
   setOrDelete(target, "note", source.note);
   setOrDelete(target, "color", source.color);
   setOrDelete(target, "collapsed", source.collapsed);
+  setOrDelete(target, "maxWidth", source.maxWidth);
+  setOrDelete(target, "maxHeight", source.maxHeight);
   syncChildren(target, source.children, index);
 }
 
@@ -106,6 +108,8 @@ function syncOrCreate(source: MindNode, index: Map<string, YAMLMap>): YAMLMap {
     if (source.collapsed !== undefined) {
       map.set("collapsed", new Scalar(source.collapsed));
     }
+    if (source.maxWidth !== undefined) map.set("maxWidth", new Scalar(source.maxWidth));
+    if (source.maxHeight !== undefined) map.set("maxHeight", new Scalar(source.maxHeight));
     map.set("children", new YAMLSeq());
     index.set(source.id, map);
   }

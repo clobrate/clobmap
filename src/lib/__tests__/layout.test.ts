@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutMindMap, NODE_HEIGHT, NODE_WIDTH } from "../layout";
+import { DEFAULT_MAX_HEIGHT, DEFAULT_MAX_WIDTH, layoutMindMap } from "../layout";
 import type { MindDocument } from "../../model";
 
 function tree(): MindDocument {
@@ -79,8 +79,33 @@ describe("layoutMindMap", () => {
     expect(root && child && root.position.x < child.position.x).toBe(true);
   });
 
-  it("uses canonical node dimensions in the layout", () => {
-    expect(NODE_WIDTH).toBeGreaterThan(0);
-    expect(NODE_HEIGHT).toBeGreaterThan(0);
+  it("exposes canonical default dimensions", () => {
+    expect(DEFAULT_MAX_WIDTH).toBeGreaterThan(0);
+    expect(DEFAULT_MAX_HEIGHT).toBeGreaterThan(0);
+  });
+
+  it("emits resolved maxWidth / maxHeight on each node's data", () => {
+    const { nodes } = layoutMindMap(tree());
+    for (const n of nodes) {
+      expect(n.data.maxWidth).toBe(DEFAULT_MAX_WIDTH);
+      expect(n.data.maxHeight).toBe(DEFAULT_MAX_HEIGHT);
+    }
+  });
+
+  it("honors per-node maxWidth / maxHeight overrides", () => {
+    const doc: MindDocument = {
+      title: "T",
+      root: {
+        id: "n1",
+        text: "Root",
+        maxWidth: 400,
+        maxHeight: 300,
+        children: [],
+      },
+    };
+    const { nodes } = layoutMindMap(doc);
+    const root = nodes.find((n) => n.id === "n1");
+    expect(root?.data.maxWidth).toBe(400);
+    expect(root?.data.maxHeight).toBe(300);
   });
 });
