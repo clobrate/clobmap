@@ -172,12 +172,17 @@ The popup is the largest manual-test surface. Walk every row.
 
 ### 6.7 Notepad indicator icon
 
+The icon is **always visible** as a click-to-add-notes affordance.
+The color signals whether notes already exist.
+
 | # | Check | Pass criteria |
 |---|---|---|
-| 6.7.1 | Node with no notes | No icon. |
-| 6.7.2 | Node with non-empty notes | Small notepad SVG visible at the right edge of the node. |
-| 6.7.3 | Empty / whitespace-only notes string | Treated as no-notes; icon hidden. |
-| 6.7.4 | Click the icon | Opens the popup for that node. Stops propagation (does not also fire node click). |
+| 6.7.1 | Node with no notes | Icon visible but very faint (`neutral-300` / dark `neutral-700`). Tooltip: "Add notes (N)". |
+| 6.7.2 | Node with non-empty notes | Icon visible at higher contrast (`neutral-500` / dark `neutral-400`), matches the chevron's color weight. Tooltip: "Open notes (N)". |
+| 6.7.3 | Empty / whitespace-only notes string | Treated as no-notes — icon shows in the faint state. |
+| 6.7.4 | Hover the icon (either state) | Color bumps to `neutral-700` / dark `neutral-100`; subtle gray hover background appears. |
+| 6.7.5 | Click the icon | Opens the popup for that node. Stops propagation (does NOT also fire node-click selection). |
+| 6.7.6 | Icon size | 10×10 px — small enough to sit unobtrusively next to the chevron, no visual weight conflict. |
 
 ---
 
@@ -316,6 +321,100 @@ For every release, run §1, §2, §4 (subset), §6 on:
 - [ ] clobmap.com/app on Firefox
 
 For patch releases scoped to one surface, only that row is required.
+
+---
+
+## 16. Layout mode — auto vs manual (free-form positioning)
+
+Per-document setting, lives in `⚙ Settings → Layout` (visible only when
+a document is open). Auto = current tidy-tree algorithm; Manual = drag
+nodes anywhere, positions persisted in YAML as `position: { x, y }`.
+
+### 16.1 Toggle behavior
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 16.1.1 | Open Settings while a doc is open | "Layout" row visible with `(this document)` hint, segmented Auto / Manual control. Auto is selected by default. |
+| 16.1.2 | Click Manual | Visual layout doesn't jump — current auto-layout positions are captured and written into each node's `position` field at the moment of switch. |
+| 16.1.3 | Open the YAML view immediately after | `layoutMode: manual` appears at the top; every node has a `position: { x, y }` block. |
+| 16.1.4 | Click Auto from manual | Every `position` field strips out of YAML; `layoutMode` removed (canonical default). Tidy-tree algorithm resumes; layout may re-arrange. |
+| 16.1.5 | Click Auto when already in Auto | No-op (no YAML churn, dirty-marker stays clean). |
+| 16.1.6 | Click Manual when already in Manual | No-op. |
+| 16.1.7 | Toggle Auto → Manual → Auto without dragging | YAML on the second Auto matches the YAML before the first switch (no positions added or lost). |
+
+### 16.2 Drag in manual mode
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 16.2.1 | Drag a node onto empty canvas space | Node stays where you dropped it (does NOT snap back). YAML's `position: { x, y }` updates to the new coordinates. |
+| 16.2.2 | Drag a node onto another node | Reparents (same gesture as auto mode). Position field for the dragged node updates only if reparent fails / lands on empty space. |
+| 16.2.3 | Drag, release, undo (`Cmd/Ctrl+Z`) | Reverts to previous position. Redo restores the drag. |
+| 16.2.4 | Drag the root node | Root reparenting is rejected (no parent to drop on); empty-space drop persists position normally. |
+| 16.2.5 | Drag at high zoom | Drop position lands accurately at cursor. |
+| 16.2.6 | Drag at very low zoom | Same. |
+| 16.2.7 | Drag a node off-screen | Node lands at the off-screen coordinate; can be retrieved via the canvas Controls' fit-to-view (`Cmd+0`). |
+
+### 16.3 Drag in auto mode (regression check)
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 16.3.1 | Drag a node onto empty space in Auto mode | Node snaps back to its tidy-tree position (existing behavior, unchanged). |
+| 16.3.2 | YAML in Auto mode after a drag | No `position` fields appear (we explicitly strip them). |
+
+### 16.4 New nodes in manual mode
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 16.4.1 | Press `Tab` on a positioned node | New child appears offset to the right and below the parent (no overlap). User can drag it to a final spot. |
+| 16.4.2 | Press `Enter` (sibling) | Same — small offset from the parent. |
+| 16.4.3 | The new node has no `position` field in YAML on save | Until dragged, the field stays absent — the parent-relative offset is computed at layout time, not stored. |
+| 16.4.4 | Drag the new node, then save | Now the YAML has the explicit position. |
+
+### 16.5 Reset positions
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 16.5.1 | "Reset positions" button visible | Only when in Manual mode. Hidden in Auto. |
+| 16.5.2 | Click Reset positions | Every node snaps to its tidy-tree position. **Stays in Manual mode**; the new positions are written into YAML (so the visual matches what auto would produce, but you can keep dragging). |
+| 16.5.3 | Reset, then drag one node | Other nodes keep their reset positions. |
+| 16.5.4 | Reset on a doc with thousands of nodes | Completes <1s; layout still smooth. |
+
+### 16.6 Persistence
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 16.6.1 | Manual mode + dragged positions, save file, reopen | Layout restored exactly. |
+| 16.6.2 | Manual mode YAML edited by hand to change a `position.x` | The change reflects in the canvas after parse. |
+| 16.6.3 | Manual mode YAML missing a node's `position` | That specific node falls back to parent-relative offset; siblings still honor their stored positions. |
+| 16.6.4 | Auto-save toggle on, drag a node | Position auto-saves after the debounce (~1s pause). |
+
+### 16.7 Cross-mode interactions
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 16.7.1 | Manual mode active, then add a child via Tab | Tree mutation works; new node placed at parent-offset. Existing manual positions of other nodes preserved. |
+| 16.7.2 | Manual mode + delete a non-root node | Deleted node removed from tree + YAML. Remaining nodes keep their positions. |
+| 16.7.3 | Manual mode + cut/paste subtree to a new parent | Subtree retains relative positions; root of subtree gets parent-offset placement under the new parent if it lacked a position. |
+| 16.7.4 | Manual mode + collapse a node | Children hidden visually; their `position` fields stay in YAML for when the user expands again. |
+| 16.7.5 | Manual mode + change a node's `maxWidth` / `maxHeight` from defaults | Edges still connect correctly to the variable-size node. |
+
+### 16.8 YAML format check
+
+For a 100-node doc in manual mode, the YAML's per-node `position`
+blocks should look like:
+
+```yaml
+- id: n42
+  text: Some node
+  position:
+    x: 480
+    y: 320
+  children: []
+```
+
+— no flow-style `[480, 320]` arrays, consistent indentation, and the
+`position` block sits between `text` and `children` for predictable
+git diffs.
 
 ---
 
