@@ -22,6 +22,7 @@ import {
 import { useTabsStore } from "./store/tabs";
 import { TabStrip } from "./components/TabStrip";
 import { WelcomeBanner } from "./components/WelcomeBanner";
+import { NotesPopup } from "./components/NotesPopup";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -469,6 +470,7 @@ function App() {
         )}
       </div>
       <StatusBar />
+      <NotesPopup />
       <div
         role="status"
         aria-live="polite"

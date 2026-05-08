@@ -11,6 +11,7 @@ function nodeToPlain(node: MindNode): Record<string, unknown> {
   if (node.collapsed !== undefined) out.collapsed = node.collapsed;
   if (node.maxWidth !== undefined) out.maxWidth = node.maxWidth;
   if (node.maxHeight !== undefined) out.maxHeight = node.maxHeight;
+  if (node.notes !== undefined) out.notes = node.notes;
   out.children = node.children.map(nodeToPlain);
   return out;
 }

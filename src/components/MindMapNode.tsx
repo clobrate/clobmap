@@ -20,12 +20,14 @@ export function MindMapNode({ id, data, selected }: Props) {
     hiddenChildCount,
     maxWidth,
     maxHeight,
+    hasNotes,
   } = data;
 
   const editingNodeId = useUIStore((s) => s.editingNodeId);
   const setEditing = useUIStore((s) => s.setEditing);
   const setSelected = useUIStore((s) => s.setSelected);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
+  const openNotesEditor = useUIStore((s) => s.openNotesEditor);
   const clipboard = useUIStore((s) => s.clipboard);
   const isEditing = editingNodeId === id;
   const isClipped = clipboard?.nodeId === id;
@@ -92,6 +94,14 @@ export function MindMapNode({ id, data, selected }: Props) {
       ) : (
         <div className="flex items-start gap-1.5">
           <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
+          {hasNotes && (
+            <NoteIndicator
+              onActivate={() => {
+                setSelected(id);
+                openNotesEditor(id);
+              }}
+            />
+          )}
           {hasChildren && (
             <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
           )}
@@ -105,6 +115,41 @@ export function MindMapNode({ id, data, selected }: Props) {
         />
       )}
     </div>
+  );
+}
+
+function NoteIndicator({ onActivate }: { onActivate: () => void }) {
+  // Small notepad / sticky-note glyph in the node's accent color. Click
+  // opens the notes popup; the icon is also a visual flag that this node
+  // has long-form notes attached.
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onActivate();
+      }}
+      className="shrink-0 rounded p-0.5 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/40 dark:hover:text-emerald-300"
+      title="Open notes (N)"
+      aria-label="Open notes"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="3" y="2.5" width="10" height="11" rx="1.5" />
+        <path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" />
+      </svg>
+    </button>
   );
 }
 

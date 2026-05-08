@@ -137,7 +137,9 @@ export function updateText(doc: MindDocument, id: string, text: string): MindDoc
 export function updateNode(
   doc: MindDocument,
   id: string,
-  patch: Partial<Pick<MindNode, "text" | "note" | "color" | "collapsed">>,
+  patch: Partial<
+    Pick<MindNode, "text" | "note" | "color" | "collapsed" | "maxWidth" | "maxHeight" | "notes">
+  >,
 ): MindDocument {
   let updated = false;
   const newRoot = mapTree(doc.root, (n) => {
@@ -156,6 +158,18 @@ export function updateNode(
     if (patch.collapsed !== undefined) {
       if (patch.collapsed === false) delete next.collapsed;
       else next.collapsed = patch.collapsed;
+    }
+    if ("maxWidth" in patch) {
+      if (patch.maxWidth === undefined || patch.maxWidth <= 0) delete next.maxWidth;
+      else next.maxWidth = patch.maxWidth;
+    }
+    if ("maxHeight" in patch) {
+      if (patch.maxHeight === undefined || patch.maxHeight <= 0) delete next.maxHeight;
+      else next.maxHeight = patch.maxHeight;
+    }
+    if ("notes" in patch) {
+      if (patch.notes === undefined || patch.notes === "") delete next.notes;
+      else next.notes = patch.notes;
     }
     return next;
   });

@@ -28,6 +28,8 @@ export interface UIState {
 
   selectedNodeId: string | null;
   editingNodeId: string | null;
+  /** Node whose long-form Markdown notes popup is open, or null. */
+  notesEditorNodeId: string | null;
   contextMenu: { nodeId: string; x: number; y: number } | null;
   clipboard: ClipboardEntry | null;
   liveAnnouncement: string;
@@ -46,6 +48,8 @@ export interface UIState {
 
   setSelected: (id: string | null) => void;
   setEditing: (id: string | null) => void;
+  openNotesEditor: (id: string) => void;
+  closeNotesEditor: () => void;
   openContextMenu: (nodeId: string, x: number, y: number) => void;
   closeContextMenu: () => void;
   setClipboard: (entry: ClipboardEntry | null) => void;
@@ -65,6 +69,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   selectedNodeId: null,
   editingNodeId: null,
+  notesEditorNodeId: null,
   contextMenu: null,
   clipboard: null,
   liveAnnouncement: "",
@@ -91,6 +96,8 @@ export const useUIStore = create<UIState>((set) => ({
 
   setSelected: (id) => set({ selectedNodeId: id }),
   setEditing: (id) => set({ editingNodeId: id }),
+  openNotesEditor: (id) => set({ notesEditorNodeId: id, contextMenu: null }),
+  closeNotesEditor: () => set({ notesEditorNodeId: null }),
   openContextMenu: (nodeId, x, y) => set({ contextMenu: { nodeId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
   setClipboard: (entry) => set({ clipboard: entry }),

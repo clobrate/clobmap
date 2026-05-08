@@ -2,6 +2,7 @@ export interface MindNode {
   id: string;
   text: string;
   children: MindNode[];
+  /** Short tooltip shown on hover. */
   note?: string;
   color?: string;
   collapsed?: boolean;
@@ -9,6 +10,13 @@ export interface MindNode {
   maxWidth?: number;
   /** Per-node override of the default max-height in pixels. */
   maxHeight?: number;
+  /**
+   * Long-form Markdown notes. May be inline content (typically <800 chars)
+   * or a path reference to a sidecar `.md` file (starts with ./, ../, /,
+   * ~/, or is a single-line `*.md` filename). Resolved at read/write time
+   * by `src/lib/notes.ts`.
+   */
+  notes?: string;
 }
 
 export interface MindDocument {

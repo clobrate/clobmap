@@ -21,6 +21,8 @@ export interface MindNodeData extends Record<string, unknown> {
   maxWidth: number;
   /** Resolved max-height for this node. */
   maxHeight: number;
+  /** True if the node has long-form Markdown notes attached. */
+  hasNotes: boolean;
 }
 
 export interface LayoutResult {
@@ -145,6 +147,7 @@ function place(
       hiddenChildCount: collapsed ? m.descendantCount : 0,
       maxWidth: m.width,
       maxHeight: m.height,
+      hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
     },
   });
 

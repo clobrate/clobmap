@@ -51,6 +51,7 @@ function MindMapInner() {
   const setSelected = useUIStore((s) => s.setSelected);
   const editingId = useUIStore((s) => s.editingNodeId);
   const setEditing = useUIStore((s) => s.setEditing);
+  const openNotesEditor = useUIStore((s) => s.openNotesEditor);
   const contextMenu = useUIStore((s) => s.contextMenu);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
@@ -276,6 +277,16 @@ function MindMapInner() {
           setEditing(selectedId);
           return;
         }
+        case "n":
+        case "N": {
+          // Open the long-form Markdown notes popup for the selected node.
+          // Only fires for the bare key — Cmd/Ctrl+N is the global "new
+          // file" shortcut handled in App.tsx.
+          if (e.metaKey || e.ctrlKey || e.altKey) return;
+          e.preventDefault();
+          openNotesEditor(selectedId);
+          return;
+        }
         case "Delete":
         case "Backspace": {
           if (selectedId === tree.root.id) return;
@@ -343,6 +354,7 @@ function MindMapInner() {
     selectedId,
     setEditing,
     setSelected,
+    openNotesEditor,
     undo,
   ]);
 
@@ -427,6 +439,10 @@ function MindMapInner() {
           }}
           onDuplicate={() => handleDuplicate(contextMenu.nodeId)}
           onEditNote={(note) => handleEditNote(contextMenu.nodeId, note)}
+          onEditNotes={() => {
+            openNotesEditor(contextMenu.nodeId);
+            closeContextMenu();
+          }}
           onSetColor={(color) => handleSetColor(contextMenu.nodeId, color)}
           onCut={() => handleCut(contextMenu.nodeId)}
           onPaste={() => handlePaste(contextMenu.nodeId)}

@@ -10,6 +10,7 @@ const NODE_FIELDS = [
   "collapsed",
   "maxWidth",
   "maxHeight",
+  "notes",
 ] as const;
 const DOC_FIELDS = ["title", "root", "version"] as const;
 
@@ -63,6 +64,7 @@ function validateNode(value: unknown, path: string): Result<MindNode> {
   if (typeof value.maxHeight === "number" && value.maxHeight > 0) {
     node.maxHeight = value.maxHeight;
   }
+  if (typeof value.notes === "string") node.notes = value.notes;
   return { ok: true, value: node };
 }
 
