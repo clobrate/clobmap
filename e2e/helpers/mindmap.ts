@@ -6,7 +6,13 @@ export function nodeByText(page: Page, text: string): Locator {
 
 export async function selectNode(page: Page, text: string): Promise<void> {
   const node = nodeByText(page, text);
-  await node.click();
+  // Click the React Flow node wrapper that owns `data-id` — that's the
+  // element React Flow listens on for `onNodeClick`. Inner clicks
+  // (text span, buttons) sometimes don't reach React Flow's handler in
+  // headed mode because focus/animation timing differs from headless.
+  // Targeting the wrapper makes selection deterministic across modes.
+  const wrapper = page.locator(".react-flow__node").filter({ has: node });
+  await wrapper.click();
   await expect(node).toHaveAttribute("aria-selected", "true");
 }
 
