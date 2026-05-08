@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { YamlEditor } from "./components/YamlEditor";
 import { MindMap } from "./components/MindMap";
@@ -166,6 +166,13 @@ function App() {
   const autoSave = useUIStore((s) => s.autoSave);
   useDebouncedParse(150);
 
+  // The dirty-tracker effect below must not run until cold-launch loading
+  // has finished. Without this gate, the synchronous useEffect fires on
+  // mount with the empty default state (isDirty=false) and calls
+  // clearDraft() before the async bootstrap below has a chance to call
+  // loadDraft() — wiping the user's in-progress work on every reload.
+  const [bootstrapped, setBootstrapped] = useState(false);
+
   // Coordinated cold-launch document load. Order of preference:
   //   1. argv path (user double-clicked a .clobmap.yaml file at launch)
   //   2. unsaved draft from a previous session
@@ -210,27 +217,35 @@ function App() {
       if (result.ok) reset(DEFAULT_YAML, result.value.tree, result.value.doc);
       else reset(DEFAULT_YAML, null);
     })().finally(() => {
+      if (cancelled) return;
       // Materialize the bootstrapped document as tab 0 so subsequent file
       // actions can spawn additional tabs. init() is a no-op if openFromPath
       // already populated the tabs store.
-      if (!cancelled) useTabsStore.getState().init();
+      useTabsStore.getState().init();
+      // Now that the document is loaded, the dirty tracker can take over.
+      setBootstrapped(true);
     });
     return () => {
       cancelled = true;
     };
   }, [reset]);
 
-  // Persist a draft of the in-progress YAML so closing the tab never loses work.
-  // Saves while dirty (debounced); clears when the document is clean (just
-  // saved, just opened, etc.).
+  // Persist a draft of the in-progress YAML so closing the tab never loses
+  // work. The draft is the only record of unsaved-and-unfiled state, so we
+  // only clear it when the editor is backed by a saved file that's in sync
+  // with disk. For documents without a file path (web-only flows, just-
+  // opened welcome doc), we keep the draft alive: the user's in-progress
+  // text *is* the draft — clearing it would mean losing all work on the
+  // next reload.
   useEffect(() => {
-    if (!isDirty) {
+    if (!bootstrapped) return;
+    if (currentFilePath && !isDirty) {
       clearDraft();
       return;
     }
     const handle = setTimeout(() => saveDraft(yamlText), 500);
     return () => clearTimeout(handle);
-  }, [yamlText, isDirty]);
+  }, [yamlText, isDirty, currentFilePath, bootstrapped]);
 
   // Hydrate persisted settings on mount.
   useEffect(() => {
