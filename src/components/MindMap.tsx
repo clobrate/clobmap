@@ -27,6 +27,8 @@ import {
   idGeneratorForDocument,
   moveNode,
   OpError,
+  setLayoutMode,
+  setPositions,
   updateNode,
 } from "../model";
 import { navigateIntoChildren, navigateSibling, navigateToParent } from "../lib/navigation";
@@ -191,9 +193,14 @@ function MindMapInner() {
         }
       }
       // Drop on empty space:
-      //   - Auto layout: snap back to the algorithm's position.
       //   - Manual layout: persist the drop point as the node's new
       //     `position` field.
+      //   - Auto layout: the user is asking for manual — first drag is
+      //     the canonical "I want to position things myself" gesture.
+      //     Snapshot every node's current auto-layout position so the
+      //     rest of the tree stays put, override the dragged node's
+      //     position with the drop point, switch to manual mode in a
+      //     single tree change.
       if (tree.layoutMode === "manual") {
         applyTreeChange(
           updateNode(tree, node.id, {
@@ -202,9 +209,19 @@ function MindMapInner() {
         );
         return;
       }
-      reactFlow.setNodes(layout.nodes.map((n) => ({ ...n, selected: n.id === selectedId })));
+      const positions = new Map<string, { x: number; y: number }>();
+      for (const n of layout.nodes) {
+        positions.set(
+          n.id,
+          n.id === node.id
+            ? { x: node.position.x, y: node.position.y }
+            : { x: n.position.x, y: n.position.y },
+        );
+      }
+      const seeded = setPositions(tree, positions);
+      applyTreeChange(setLayoutMode(seeded, "manual"));
     },
-    [applyTreeChange, layout.nodes, selectedId, reactFlow],
+    [applyTreeChange, layout.nodes, reactFlow],
   );
 
   // Global keyboard handler for the canvas
