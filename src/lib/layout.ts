@@ -3,8 +3,13 @@ import { setPositions, type HandleSide, type MindDocument, type MindNode } from 
 
 export const DEFAULT_MAX_WIDTH = 280;
 export const DEFAULT_MAX_HEIGHT = 200;
-const ROW_GAP = 20;
-const COLUMN_GAP = 80;
+// ROW_GAP is the gap between two leaf siblings. A sibling with
+// children naturally consumes more vertical space because its
+// allotment is sized to its `subtreeHeight` — so the *visible* gap
+// between two big subtrees grows with their child counts even though
+// this constant stays small.
+const ROW_GAP = 10;
+const COLUMN_GAP = 50;
 const MARGIN_X = 24;
 const MARGIN_Y = 24;
 
@@ -54,8 +59,15 @@ const FALLBACK_DEFAULTS: LayoutDefaults = {
 };
 
 interface NodeMetrics {
+  /** Slot width used by the layout. Measured when available, else cap. */
   width: number;
+  /** Slot height used by the layout. Measured when available, else cap. */
   height: number;
+  /** CSS max-width to apply on the rendered node — independent of the
+   * measured slot so re-measurement doesn't ratchet the cap down. */
+  capWidth: number;
+  /** CSS max-height to apply on the rendered node. */
+  capHeight: number;
   /** Vertical extent of this node's visible subtree in pixels. */
   subtreeHeight: number;
   /** Total descendants regardless of collapse, for the "hidden N" badge. */
@@ -82,14 +94,17 @@ interface NodeMetrics {
 export function layoutMindMap(
   doc: MindDocument,
   defaults: LayoutDefaults = FALLBACK_DEFAULTS,
+  measured?: Map<string, { width: number; height: number }>,
 ): LayoutResult {
   const metrics = new Map<MindNode, NodeMetrics>();
-  measure(doc.root, defaults, metrics);
+  measure(doc.root, defaults, metrics, measured);
 
   const nodes: Node<MindNodeData>[] = [];
   const edges: Edge[] = [];
   if (doc.layoutMode === "manual") {
-    placeManual(doc.root, null, null, 0, defaults, metrics, nodes, edges);
+    const rootX = doc.root.position?.x ?? MARGIN_X;
+    const rootY = doc.root.position?.y ?? MARGIN_Y;
+    placeManual(doc.root, null, rootX, rootY, 0, defaults, metrics, nodes, edges);
   } else {
     place(doc.root, null, null, 0, MARGIN_Y, defaults, metrics, nodes, edges);
   }
@@ -100,15 +115,29 @@ function measure(
   node: MindNode,
   defaults: LayoutDefaults,
   out: Map<MindNode, NodeMetrics>,
+  measured?: Map<string, { width: number; height: number }>,
 ): NodeMetrics {
-  const width = node.maxWidth ?? defaults.maxWidth;
-  const height = node.maxHeight ?? defaults.maxHeight;
+  // Two distinct sizes:
+  //   - LAYOUT (width/height): the slot the tidy-tree algorithm reserves.
+  //     Prefer the actually-rendered size when React Flow has measured
+  //     the node so a single-line "Hello" only reserves ~32 px of
+  //     vertical space instead of DEFAULT_MAX_HEIGHT (200).
+  //   - DISPLAY CAP (capWidth/capHeight): the user-visible CSS max-
+  //     width/max-height. Must stay at the per-node cap (or the
+  //     default) — applying a measured size as the CSS cap would
+  //     ratchet the node down to whatever it first rendered at and
+  //     clip text on the next paint.
+  const capWidth = node.maxWidth ?? defaults.maxWidth;
+  const capHeight = node.maxHeight ?? defaults.maxHeight;
+  const measuredSize = measured?.get(node.id);
+  const width = measuredSize?.width ?? capWidth;
+  const height = measuredSize?.height ?? capHeight;
   let descendantCount = node.children.length;
   let childrenHeight = 0;
 
   if (!node.collapsed) {
     for (let i = 0; i < node.children.length; i += 1) {
-      const childMetrics = measure(node.children[i]!, defaults, out);
+      const childMetrics = measure(node.children[i]!, defaults, out, measured);
       descendantCount += childMetrics.descendantCount;
       childrenHeight += childMetrics.subtreeHeight;
       if (i > 0) childrenHeight += ROW_GAP;
@@ -120,7 +149,14 @@ function measure(
   }
 
   const subtreeHeight = Math.max(height, childrenHeight);
-  const m: NodeMetrics = { width, height, subtreeHeight, descendantCount };
+  const m: NodeMetrics = {
+    width,
+    height,
+    capWidth,
+    capHeight,
+    subtreeHeight,
+    descendantCount,
+  };
   out.set(node, m);
   return m;
 }
@@ -178,8 +214,8 @@ function emitNode(
       collapsed,
       hasChildren: node.children.length > 0,
       hiddenChildCount: collapsed ? m.descendantCount : 0,
-      maxWidth: m.width,
-      maxHeight: m.height,
+      maxWidth: m.capWidth,
+      maxHeight: m.capHeight,
       hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
       outgoingSides,
       incomingSide: node.edgeTo ?? DEFAULT_TO_SIDE,
@@ -208,18 +244,17 @@ function emitEdge(out: Edge[], node: MindNode, parent: MindNode | null): void {
 
 /**
  * Manual-mode placement. Honors each node's stored `position` verbatim;
- * nodes without one (newly added since the last save, typically) inherit
- * a small offset from their parent so they're visible and the user can
- * drag from there. No subtree centering; no row gymnastics — manual
- * mode is exactly "what's on disk plus a sensible default for new nodes".
+ * children without one (typical of nodes freshly added via Tab/Enter)
+ * stack as a single vertically-centered block to the right of the
+ * parent. Each child is allotted its own `subtreeHeight`, so a leaf
+ * sibling and a many-children sibling don't collide — the allotment
+ * grows with the subtree.
  */
-const NEW_NODE_OFFSET_X = 60;
-const NEW_NODE_OFFSET_Y = 30;
-
 function placeManual(
   node: MindNode,
   parent: MindNode | null,
-  parentPosition: { x: number; y: number; width: number; height: number } | null,
+  resolvedX: number,
+  resolvedY: number,
   depth: number,
   defaults: LayoutDefaults,
   metrics: Map<MindNode, NodeMetrics>,
@@ -230,29 +265,47 @@ function placeManual(
   if (!m) return;
   const collapsed = Boolean(node.collapsed);
 
-  let x: number;
-  let y: number;
-  if (node.position) {
-    x = node.position.x;
-    y = node.position.y;
-  } else if (parentPosition === null) {
-    // Root with no position — start at canvas margin.
-    x = MARGIN_X;
-    y = MARGIN_Y;
-  } else {
-    // New child of an already-placed parent: offset right and down a bit
-    // so it doesn't sit on top of the parent.
-    x = parentPosition.x + parentPosition.width + NEW_NODE_OFFSET_X;
-    y = parentPosition.y + NEW_NODE_OFFSET_Y;
-  }
-
-  emitNode(outNodes, node, m, x, y, depth, parent === null, collapsed);
+  emitNode(outNodes, node, m, resolvedX, resolvedY, depth, parent === null, collapsed);
   emitEdge(outEdges, node, parent);
   if (collapsed) return;
 
-  const myRect = { x, y, width: m.width, height: m.height };
+  // Resolve each child's position before recursing. Children without a
+  // stored position are stacked as a vertically-centered block around
+  // the parent's midpoint, with each child allotted its own
+  // `subtreeHeight`. Two leaf siblings sit ROW_GAP apart; two parents
+  // with many children sit far enough apart that their subtrees don't
+  // overlap, because the allotment grew with the subtree.
+  const noPosX = resolvedX + m.width + COLUMN_GAP;
+  let totalNoPosBlock = 0;
+  let noPosCount = 0;
+  for (const c of node.children) {
+    if (c.position) continue;
+    const cm = metrics.get(c);
+    totalNoPosBlock += cm?.subtreeHeight ?? cm?.height ?? 0;
+    noPosCount += 1;
+  }
+  if (noPosCount > 1) totalNoPosBlock += (noPosCount - 1) * ROW_GAP;
+  const parentCenterY = resolvedY + m.height / 2;
+  let allotmentTop = parentCenterY - totalNoPosBlock / 2;
+
   for (const child of node.children) {
-    placeManual(child, node, myRect, depth + 1, defaults, metrics, outNodes, outEdges);
+    let cx: number;
+    let cy: number;
+    if (child.position) {
+      cx = child.position.x;
+      cy = child.position.y;
+    } else {
+      cx = noPosX;
+      const childMetrics = metrics.get(child);
+      const childHeight = childMetrics?.height ?? 0;
+      const childSubtreeHeight = childMetrics?.subtreeHeight ?? childHeight;
+      // Sit the child at the vertical center of its allotment so its
+      // own descendants extend symmetrically up/down from it (and stay
+      // inside the allotment, never colliding with the next sibling's).
+      cy = allotmentTop + (childSubtreeHeight - childHeight) / 2;
+      allotmentTop += childSubtreeHeight + ROW_GAP;
+    }
+    placeManual(child, node, cx, cy, depth + 1, defaults, metrics, outNodes, outEdges);
   }
 }
 

@@ -126,6 +126,7 @@ Invalid YAML keeps the **last valid mind-map** rendered — your work isn't lost
 | Move selection — into children   | `→` (auto-expands collapsed nodes)                                           |
 | Move selection — to parent       | `←`                                                                          |
 | Reparent (drag)                  | Drag a node onto another (illegal drops snap back)                           |
+| Move subtree (drag with modifier)| Hold `Ctrl` / `Cmd` while dragging — the whole subtree translates with the parent (manual layout) |
 | Reparent (cut/paste, long range) | `Cmd/Ctrl + X` on source, select target, `Cmd/Ctrl + V`                      |
 | Context menu                     | Right-click — Rename, Edit note, Set color, Add/Duplicate, Cut/Paste, Delete |
 | Fit to view                      | `Cmd/Ctrl + 0`                                                               |
