@@ -1,18 +1,8 @@
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import { setPositions, type HandleSide, type MindDocument, type MindNode } from "../model";
 
-// Per-node slot caps. The layout reserves exactly this much space per
-// node, regardless of how short the rendered text is — so anything
-// larger than the typical render directly shows up as visible empty
-// space between nodes. Tuned twice after user feedback: the original
-// 280×200 was scattering everything; 180×100 still left ~50 px of
-// dead vertical space around single-line labels. Current values match
-// a single-line label's natural render (~30–40 px tall, ~80–110 px
-// wide for typical 1–3-word labels). Longer labels wrap and scroll
-// inside their slot; users can override per-node via `maxWidth` /
-// `maxHeight` in the YAML when they need more room.
-export const DEFAULT_MAX_WIDTH = 140;
-export const DEFAULT_MAX_HEIGHT = 44;
+export const DEFAULT_MAX_WIDTH = 280;
+export const DEFAULT_MAX_HEIGHT = 200;
 // ROW_GAP is the gap between two leaf siblings. A sibling with
 // children naturally consumes more vertical space because its
 // allotment is sized to its `subtreeHeight` — so the *visible* gap
