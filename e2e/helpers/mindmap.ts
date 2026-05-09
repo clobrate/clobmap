@@ -38,6 +38,27 @@ export async function addChild(page: Page, parentText: string, childText: string
   await expect(nodeByText(page, childText)).toBeVisible();
 }
 
+/**
+ * Open the notes popup for a given node by selecting it and pressing N.
+ * Returns the dialog locator. Caller is responsible for closing it (Esc
+ * works only when the dialog is clean — use Cancel button or Cmd+Enter
+ * if the popup may be dirty).
+ */
+export async function openNotesPopup(page: Page, nodeText: string): Promise<Locator> {
+  await selectNode(page, nodeText);
+  await page.keyboard.press("n");
+  const dialog = page.getByRole("dialog", { name: new RegExp(`^Notes for `) });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Locator for the notes-popup textarea (only present in edit mode). */
+export function notesTextarea(page: Page): Locator {
+  return page
+    .getByRole("dialog")
+    .locator("textarea");
+}
+
 export async function waitForDraftPersisted(page: Page, marker: string): Promise<void> {
   await page.waitForFunction(
     (needle) => {

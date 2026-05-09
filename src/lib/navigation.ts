@@ -52,7 +52,5 @@ export function navigateIntoChildren(
   if (node.collapsed) {
     applyTreeChange(updateNode(doc, fromId, { collapsed: false }));
   }
-  const first = node.children[0];
-  if (!first) return null;
-  return asTarget(first, "child");
+  return asTarget(node.children[0]!, "child");
 }

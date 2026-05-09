@@ -204,6 +204,36 @@ describe("updateNode", () => {
     expect(findById(doc, "n3")?.notes).toBeUndefined();
   });
 
+  it("sets and clears position", () => {
+    let doc = updateNode(fixture(), "n3", { position: { x: 12, y: 34 } });
+    let n = findById(doc, "n3");
+    expect(n?.position).toEqual({ x: 12, y: 34 });
+
+    doc = updateNode(doc, "n3", { position: undefined });
+    n = findById(doc, "n3");
+    expect(n?.position).toBeUndefined();
+  });
+
+  it("copies position by value (does not retain caller reference)", () => {
+    const p = { x: 1, y: 2 };
+    const doc = updateNode(fixture(), "n3", { position: p });
+    const stored = findById(doc, "n3")?.position;
+    p.x = 999;
+    expect(stored?.x).toBe(1);
+  });
+
+  it("sets and clears edgeFrom / edgeTo", () => {
+    let doc = updateNode(fixture(), "n3", { edgeFrom: "bottom", edgeTo: "top" });
+    let n = findById(doc, "n3");
+    expect(n?.edgeFrom).toBe("bottom");
+    expect(n?.edgeTo).toBe("top");
+
+    doc = updateNode(doc, "n3", { edgeFrom: undefined, edgeTo: undefined });
+    n = findById(doc, "n3");
+    expect(n?.edgeFrom).toBeUndefined();
+    expect(n?.edgeTo).toBeUndefined();
+  });
+
   it("only clears keys actually present in the patch (omitted keys are preserved)", () => {
     let doc = updateNode(fixture(), "n3", {
       note: "hover",

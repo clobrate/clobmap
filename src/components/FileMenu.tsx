@@ -10,7 +10,7 @@ import {
   saveFileAs,
 } from "../lib/fileActions";
 import {
-  exportMarkdown,
+  exportAllNotes,
   exportPdf,
   exportPng,
   exportSvg,
@@ -48,10 +48,10 @@ export function FileMenu() {
     }
   };
 
-  const handleExportMarkdown = async (): Promise<void> => {
+  const handleExportAllNotes = async (): Promise<void> => {
     setOpen(false);
     try {
-      await exportMarkdown();
+      await exportAllNotes();
     } catch (err) {
       console.error("export failed", err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -152,8 +152,9 @@ export function FileMenu() {
             onClick={() => void handleExport(exportPdf)}
           />
           <Item
-            label="Markdown outline"
-            onClick={() => void handleExportMarkdown()}
+            label="All notes (Markdown)"
+            title="Export every node's long-form notes into a single Markdown file"
+            onClick={() => void handleExportAllNotes()}
           />
           {recents.length > 0 && (
             <>

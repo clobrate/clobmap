@@ -5,8 +5,9 @@ import type { ReactFlowInstance } from "@xyflow/react";
 // on first paint for users who never export).
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
-import type { MindDocument, MindNode } from "../model";
+import type { MindNode } from "../model";
 import { isTauri } from "./env";
+import { loadNotes } from "./notes";
 
 // Export width in pixels. Tall maps preserve aspect ratio. 2048 is the
 // sweet spot: sharp at retina display sizes, not so big that PDF
@@ -15,8 +16,6 @@ const EXPORT_WIDTH = 2048;
 const EXPORT_PADDING = 0.05;
 const EXPORT_MIN_ZOOM = 0.1;
 const EXPORT_MAX_ZOOM = 4;
-
-export type ExportFormat = "png" | "svg" | "pdf" | "markdown";
 
 function suggestedFilename(ext: string): string {
   const path = useDocumentStore.getState().currentFilePath;
@@ -28,6 +27,47 @@ function suggestedFilename(ext: string): string {
   // Strip filesystem-hostile characters.
   const safe = base.replace(/[\\/:*?"<>|]+/g, " ").trim() || "mindmap";
   return `${safe}.${ext}`;
+}
+
+/**
+ * Demote ATX headings inside a notes body by one level so they sit
+ * beneath the `# Title (id)` heading the exporter wraps each note in.
+ * Skips lines inside fenced code blocks so `#` comments in code stay put.
+ */
+function demoteHeadings(body: string): string {
+  const lines = body.split("\n");
+  let inFence = false;
+  let fence: string | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fenceMatch = line.match(/^\s*(```|~~~)/);
+    if (fenceMatch) {
+      const marker = fenceMatch[1];
+      if (!inFence) {
+        inFence = true;
+        fence = marker;
+      } else if (fence === marker) {
+        inFence = false;
+        fence = null;
+      }
+      continue;
+    }
+    if (inFence) continue;
+    const heading = line.match(/^(\s*)(#{1,6})(\s)/);
+    if (heading) {
+      lines[i] = `${heading[1]}#${heading[2]}${line.slice(heading[0].length - 1)}`;
+    }
+  }
+  return lines.join("\n");
+}
+
+function timestampForFilename(): string {
+  const d = new Date();
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
+    `${pad(d.getHours())}${pad(d.getMinutes())}`
+  );
 }
 
 function backgroundColorForRender(): string {
@@ -164,33 +204,6 @@ async function saveText(text: string, suggestedName: string): Promise<void> {
   await saveBytes(new TextEncoder().encode(text), suggestedName);
 }
 
-/**
- * Recursive Markdown serialization. Uses a `# {title}` heading and
- * indented bullets for the tree. Notes hang under their node as
- * blockquotes.
- */
-function toMarkdown(doc: MindDocument): string {
-  const lines: string[] = [];
-  if (doc.title) {
-    lines.push(`# ${doc.title}`);
-    lines.push("");
-  }
-  emitMarkdown(doc.root, 0, lines);
-  return lines.join("\n");
-}
-
-function emitMarkdown(node: MindNode, depth: number, out: string[]): void {
-  const indent = "  ".repeat(depth);
-  out.push(`${indent}- ${node.text}`);
-  if (node.note) {
-    const noteIndent = `${indent}  `;
-    for (const line of node.note.split("\n")) {
-      out.push(`${noteIndent}> ${line}`);
-    }
-  }
-  for (const child of node.children) emitMarkdown(child, depth + 1, out);
-}
-
 // ---- Public actions (each accepts the React Flow instance for image
 // formats; markdown doesn't need it). ----
 
@@ -204,12 +217,32 @@ export async function exportSvg(reactFlow: ReactFlowInstance): Promise<void> {
   await saveBytes(dataUrlToUint8Array(dataUrl), suggestedFilename("svg"));
 }
 
-export async function exportMarkdown(): Promise<void> {
+export async function exportAllNotes(): Promise<void> {
   const tree = useDocumentStore.getState().parsedDoc;
   if (!tree) {
     throw new Error("Nothing to export — document is empty or has parse errors.");
   }
-  await saveText(toMarkdown(tree), suggestedFilename("md"));
+  const docPath = useDocumentStore.getState().currentFilePath;
+
+  const ordered: MindNode[] = [];
+  const visit = (n: MindNode): void => {
+    ordered.push(n);
+    for (const c of n.children) visit(c);
+  };
+  visit(tree.root);
+
+  const sections: string[] = [];
+  for (const node of ordered) {
+    let body = "";
+    if (node.notes) {
+      const loaded = await loadNotes(node.notes, docPath);
+      body = demoteHeadings(loaded.content.trim());
+    }
+    if (!body) body = "__ no notes found __";
+    sections.push(`# ${node.text} (${node.id})\n\n${body}\n`);
+  }
+
+  await saveText(sections.join("\n"), suggestedFilename(`notes.${timestampForFilename()}.md`));
 }
 
 export async function exportPdf(reactFlow: ReactFlowInstance): Promise<void> {

@@ -82,4 +82,31 @@ test.describe("inline rename (§5)", () => {
     await page.keyboard.press("Enter");
     await expect(nodeByText(page, "Wedding planner")).toBeVisible();
   });
+
+  test("5.6 stress: rapid Tab+rename+commit cycles all land focused on the new node", async ({
+    page,
+  }) => {
+    // Five children added in quick succession off "Vendors". Each Tab→fill→Enter
+    // cycle exercises the brand-new-node focus path — the regression we
+    // care about is "focus didn't latch in time, the typed text landed on
+    // the canvas instead of in the input." If any cycle slips, the
+    // resulting tree is missing one of the labels.
+    await selectNode(page, "Vendors");
+    const labels = ["Stress-1", "Stress-2", "Stress-3", "Stress-4", "Stress-5"];
+    for (const label of labels) {
+      await page.keyboard.press("Tab");
+      const rename = page.getByRole("textbox", { name: "Rename node" });
+      await expect(rename).toBeFocused();
+      await rename.fill(label);
+      await page.keyboard.press("Enter");
+      await expect(rename).toHaveCount(0);
+      // After commit, selection moves up to the parent (the new child becomes
+      // the next-cycle starting point only if the user re-selects). Re-select
+      // Vendors so the next Tab adds another sibling, not a grandchild.
+      await selectNode(page, "Vendors");
+    }
+    for (const label of labels) {
+      await expect(nodeByText(page, label)).toBeVisible();
+    }
+  });
 });

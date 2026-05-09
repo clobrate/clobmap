@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { nodeByText } from "../helpers/mindmap";
+import { nodeByText, selectNode } from "../helpers/mindmap";
 
 async function activeView(page: Page): Promise<string> {
   const tab = page.locator('[role="tab"][aria-selected="true"]');
@@ -41,6 +41,19 @@ test.describe("view modes & split (§9)", () => {
     // Both surfaces visible side by side / stacked.
     await expect(page.locator(".cm-content")).toBeVisible();
     await expect(nodeByText(page, "Our wedding")).toBeVisible();
+  });
+
+  test("9.5 selecting a node, then switching to YAML, jumps the cursor to that node's line", async ({
+    page,
+  }) => {
+    // Pick a node deep enough that its YAML line isn't already the active
+    // line by accident on first paint.
+    await selectNode(page, "Reception");
+    await page.getByRole("tab", { name: "YAML" }).click();
+    // CodeMirror highlights the active line via .cm-activeLine. Reception
+    // is `id: n4` per the welcome-doc fixture (n1=root, n2=Venue, n3=Ceremony,
+    // n4=Reception).
+    await expect(page.locator(".cm-activeLine")).toContainText("id: n4");
   });
 
   test("9.4 inline parse errors don't blank the canvas — last-good tree stays", async ({
