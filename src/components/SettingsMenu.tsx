@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useReactFlow } from "@xyflow/react";
 import { useUIStore, type ThemePreference } from "../store/ui";
 import { useDocumentStore } from "../store/document";
 import {
@@ -46,15 +47,21 @@ export function SettingsMenu() {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
   const layoutMode: LayoutMode = parsedDoc?.layoutMode ?? "auto";
+  const reactFlow = useReactFlow();
 
   const onLayoutMode = (next: LayoutMode) => {
     if (!parsedDoc || layoutMode === next) return;
     if (next === "manual") {
-      // Restore last-known manual positions; gap-fill any nodes lacking
-      // a stored position (added in auto mode since the last manual
-      // session) with the current auto-layout's coordinates so the
-      // visual transition is smooth.
-      applyTreeChange(setLayoutMode(materializeManualPositions(parsedDoc), "manual"));
+      // Snapshot the *currently rendered* positions so the visual
+      // doesn't jump on toggle. React Flow's node positions reflect the
+      // measurement-driven layout (tight gaps); materializing without
+      // them would re-run the layout with cap-sized slots and produce
+      // a much wider canvas.
+      const overrides = new Map<string, { x: number; y: number }>();
+      for (const n of reactFlow.getNodes()) {
+        overrides.set(n.id, { x: n.position.x, y: n.position.y });
+      }
+      applyTreeChange(setLayoutMode(materializeManualPositions(parsedDoc, overrides), "manual"));
     } else {
       // Stored positions remain in YAML so a later switch back to
       // manual restores the user's previous arrangement.
@@ -64,11 +71,18 @@ export function SettingsMenu() {
 
   const onResetPositions = () => {
     if (!parsedDoc) return;
-    const { nodes } = layoutMindMap({ ...parsedDoc, layoutMode: "auto" });
+    // Run the auto layout with the *currently measured* node sizes so
+    // the snapped positions match the tight visual the user saw in
+    // auto, not the wide cap-sized fallback.
+    const measured = new Map<string, { width: number; height: number }>();
+    for (const n of reactFlow.getNodes()) {
+      if (n.measured && typeof n.measured.width === "number" && typeof n.measured.height === "number") {
+        measured.set(n.id, { width: n.measured.width, height: n.measured.height });
+      }
+    }
+    const { nodes } = layoutMindMap({ ...parsedDoc, layoutMode: "auto" }, undefined, measured);
     const positions = new Map<string, { x: number; y: number }>();
     for (const n of nodes) positions.set(n.id, { x: n.position.x, y: n.position.y });
-    // Clear, then re-seed from auto so the user sees a clean tidy-tree
-    // immediately while staying in manual mode.
     const cleared = clearAllPositions(parsedDoc);
     applyTreeChange(setPositions(cleared, positions));
   };
