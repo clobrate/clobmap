@@ -8,8 +8,13 @@ import { setPositions, type HandleSide, type MindDocument, type MindNode } from 
 // inside the node.
 export const DEFAULT_MAX_WIDTH = 180;
 export const DEFAULT_MAX_HEIGHT = 100;
-const ROW_GAP = 12;
-const COLUMN_GAP = 40;
+// ROW_GAP is the gap between two leaf siblings. A sibling with
+// children naturally consumes more vertical space because its
+// allotment is sized to its `subtreeHeight` — so the *visible* gap
+// between two big subtrees grows with their child counts even though
+// this constant stays small.
+const ROW_GAP = 5;
+const COLUMN_GAP = 10;
 const MARGIN_X = 24;
 const MARGIN_Y = 24;
 
@@ -215,13 +220,12 @@ function emitEdge(out: Edge[], node: MindNode, parent: MindNode | null): void {
 
 /**
  * Manual-mode placement. Honors each node's stored `position` verbatim;
- * nodes without one (newly added since the last save, typically) inherit
- * a small offset from their parent so they're visible and the user can
- * drag from there. No subtree centering; no row gymnastics — manual
- * mode is exactly "what's on disk plus a sensible default for new nodes".
+ * children without one (typical of nodes freshly added via Tab/Enter)
+ * stack as a single vertically-centered block to the right of the
+ * parent. Each child is allotted its own `subtreeHeight`, so a leaf
+ * sibling and a many-children sibling don't collide — the allotment
+ * grows with the subtree.
  */
-const NEW_NODE_OFFSET_X = 60;
-
 function placeManual(
   node: MindNode,
   parent: MindNode | null,
@@ -242,22 +246,23 @@ function placeManual(
   if (collapsed) return;
 
   // Resolve each child's position before recursing. Children without a
-  // stored position are stacked as a single vertically-centered block
-  // around the parent's vertical midpoint — so adding siblings spreads
-  // them symmetrically north/south of the parent instead of always
-  // accumulating southward.
-  const noPosX = resolvedX + m.width + NEW_NODE_OFFSET_X;
-  let totalNoPosHeight = 0;
+  // stored position are stacked as a vertically-centered block around
+  // the parent's midpoint, with each child allotted its own
+  // `subtreeHeight`. Two leaf siblings sit ROW_GAP apart; two parents
+  // with many children sit far enough apart that their subtrees don't
+  // overlap, because the allotment grew with the subtree.
+  const noPosX = resolvedX + m.width + COLUMN_GAP;
+  let totalNoPosBlock = 0;
   let noPosCount = 0;
   for (const c of node.children) {
     if (c.position) continue;
     const cm = metrics.get(c);
-    totalNoPosHeight += cm?.height ?? 0;
+    totalNoPosBlock += cm?.subtreeHeight ?? cm?.height ?? 0;
     noPosCount += 1;
   }
-  if (noPosCount > 1) totalNoPosHeight += (noPosCount - 1) * ROW_GAP;
+  if (noPosCount > 1) totalNoPosBlock += (noPosCount - 1) * ROW_GAP;
   const parentCenterY = resolvedY + m.height / 2;
-  let nextNoPosY = parentCenterY - totalNoPosHeight / 2;
+  let allotmentTop = parentCenterY - totalNoPosBlock / 2;
 
   for (const child of node.children) {
     let cx: number;
@@ -267,10 +272,14 @@ function placeManual(
       cy = child.position.y;
     } else {
       cx = noPosX;
-      cy = nextNoPosY;
       const childMetrics = metrics.get(child);
       const childHeight = childMetrics?.height ?? 0;
-      nextNoPosY += childHeight + ROW_GAP;
+      const childSubtreeHeight = childMetrics?.subtreeHeight ?? childHeight;
+      // Sit the child at the vertical center of its allotment so its
+      // own descendants extend symmetrically up/down from it (and stay
+      // inside the allotment, never colliding with the next sibling's).
+      cy = allotmentTop + (childSubtreeHeight - childHeight) / 2;
+      allotmentTop += childSubtreeHeight + ROW_GAP;
     }
     placeManual(child, node, cx, cy, depth + 1, defaults, metrics, outNodes, outEdges);
   }
