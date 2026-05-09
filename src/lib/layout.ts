@@ -87,9 +87,10 @@ interface NodeMetrics {
 export function layoutMindMap(
   doc: MindDocument,
   defaults: LayoutDefaults = FALLBACK_DEFAULTS,
+  measured?: Map<string, { width: number; height: number }>,
 ): LayoutResult {
   const metrics = new Map<MindNode, NodeMetrics>();
-  measure(doc.root, defaults, metrics);
+  measure(doc.root, defaults, metrics, measured);
 
   const nodes: Node<MindNodeData>[] = [];
   const edges: Edge[] = [];
@@ -107,15 +108,23 @@ function measure(
   node: MindNode,
   defaults: LayoutDefaults,
   out: Map<MindNode, NodeMetrics>,
+  measured?: Map<string, { width: number; height: number }>,
 ): NodeMetrics {
-  const width = node.maxWidth ?? defaults.maxWidth;
-  const height = node.maxHeight ?? defaults.maxHeight;
+  // Prefer the actually-rendered size when React Flow has measured the
+  // node — gives layout the *true* footprint instead of the slot cap,
+  // so a single-line "Hello" only reserves ~32 px of vertical space
+  // instead of DEFAULT_MAX_HEIGHT (200) and siblings stack tightly.
+  // Falls back to the per-node cap and then the default cap so the
+  // very first paint (before any measurement) is still reasonable.
+  const measuredSize = measured?.get(node.id);
+  const width = measuredSize?.width ?? node.maxWidth ?? defaults.maxWidth;
+  const height = measuredSize?.height ?? node.maxHeight ?? defaults.maxHeight;
   let descendantCount = node.children.length;
   let childrenHeight = 0;
 
   if (!node.collapsed) {
     for (let i = 0; i < node.children.length; i += 1) {
-      const childMetrics = measure(node.children[i]!, defaults, out);
+      const childMetrics = measure(node.children[i]!, defaults, out, measured);
       descendantCount += childMetrics.descendantCount;
       childrenHeight += childMetrics.subtreeHeight;
       if (i > 0) childrenHeight += ROW_GAP;

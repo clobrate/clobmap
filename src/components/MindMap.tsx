@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   Controls,
   MiniMap,
   ReactFlow,
   applyNodeChanges,
+  useNodesInitialized,
   useReactFlow,
   type Edge,
   type Node,
@@ -75,12 +76,56 @@ function MindMapInner() {
   const resolvedTheme = useUIStore((s) => s.resolvedTheme);
   const announce = useUIStore((s) => s.announce);
 
+  // Track each node's actual rendered size so the layout can use the
+  // *real* footprint instead of the slot cap (DEFAULT_MAX_HEIGHT etc.).
+  // First paint runs the layout with no measurements (slot caps).
+  // After React Flow measures, this state updates and the layout
+  // re-runs with the true sizes — which collapses the visible vertical
+  // gap between short-label leaves to ROW_GAP.
+  const [measured, setMeasured] = useState<Map<string, { width: number; height: number }>>(
+    new Map(),
+  );
+
   const layout = useMemo(
-    () => (parsedDoc ? layoutMindMap(parsedDoc) : { nodes: [], edges: [] }),
-    [parsedDoc],
+    () => (parsedDoc ? layoutMindMap(parsedDoc, undefined, measured) : { nodes: [], edges: [] }),
+    [parsedDoc, measured],
   );
 
   const reactFlow = useReactFlow<Node<MindNodeData>, Edge>();
+  const nodesInitialized = useNodesInitialized();
+
+  // Read measured node dimensions from React Flow once everything has
+  // been measured, and feed them back into the layout. We bail early
+  // when nothing has changed so we don't loop on identical updates.
+  useEffect(() => {
+    if (!nodesInitialized) return;
+    const next = new Map<string, { width: number; height: number }>();
+    for (const n of reactFlow.getNodes()) {
+      const m = n.measured;
+      if (m && typeof m.width === "number" && typeof m.height === "number") {
+        next.set(n.id, { width: m.width, height: m.height });
+      }
+    }
+    // Reading DOM-measured sizes from React Flow is exactly the
+    // setState-in-effect pattern's intended use: we're reconciling
+    // with external state. The bail-early comparison above keeps it
+    // a no-op once measurements stabilize.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMeasured((prev) => {
+      if (prev.size === next.size) {
+        let same = true;
+        for (const [k, v] of next) {
+          const p = prev.get(k);
+          if (!p || p.width !== v.width || p.height !== v.height) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return next;
+    });
+  }, [nodesInitialized, reactFlow, layout.nodes]);
 
   // iOS-specific keyboard primer: a hidden input we focus synchronously
   // inside a tap handler so iOS counts it as a user-gesture-initiated focus
@@ -94,9 +139,13 @@ function MindMapInner() {
   // Keep React Flow's internal node positions in sync with layout positions.
   // Selection changes are handled in a separate effect below so we don't
   // rebuild the entire node array on every arrow keypress (matters at 1k+
-  // nodes, where the rebuild itself is the slow path).
+  // nodes, where the rebuild itself is the slow path). We still seed the
+  // selected flag from the store on each layout change so a re-layout
+  // that fires for a non-selection reason (e.g. node measurements just
+  // arrived) doesn't clobber the previously-patched selection state.
   useEffect(() => {
-    reactFlow.setNodes(layout.nodes);
+    const sid = useUIStore.getState().selectedNodeId;
+    reactFlow.setNodes(layout.nodes.map((n) => ({ ...n, selected: n.id === sid })));
     reactFlow.setEdges(layout.edges);
   }, [layout.nodes, layout.edges, reactFlow]);
 
