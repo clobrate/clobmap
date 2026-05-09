@@ -59,8 +59,15 @@ const FALLBACK_DEFAULTS: LayoutDefaults = {
 };
 
 interface NodeMetrics {
+  /** Slot width used by the layout. Measured when available, else cap. */
   width: number;
+  /** Slot height used by the layout. Measured when available, else cap. */
   height: number;
+  /** CSS max-width to apply on the rendered node — independent of the
+   * measured slot so re-measurement doesn't ratchet the cap down. */
+  capWidth: number;
+  /** CSS max-height to apply on the rendered node. */
+  capHeight: number;
   /** Vertical extent of this node's visible subtree in pixels. */
   subtreeHeight: number;
   /** Total descendants regardless of collapse, for the "hidden N" badge. */
@@ -110,15 +117,21 @@ function measure(
   out: Map<MindNode, NodeMetrics>,
   measured?: Map<string, { width: number; height: number }>,
 ): NodeMetrics {
-  // Prefer the actually-rendered size when React Flow has measured the
-  // node — gives layout the *true* footprint instead of the slot cap,
-  // so a single-line "Hello" only reserves ~32 px of vertical space
-  // instead of DEFAULT_MAX_HEIGHT (200) and siblings stack tightly.
-  // Falls back to the per-node cap and then the default cap so the
-  // very first paint (before any measurement) is still reasonable.
+  // Two distinct sizes:
+  //   - LAYOUT (width/height): the slot the tidy-tree algorithm reserves.
+  //     Prefer the actually-rendered size when React Flow has measured
+  //     the node so a single-line "Hello" only reserves ~32 px of
+  //     vertical space instead of DEFAULT_MAX_HEIGHT (200).
+  //   - DISPLAY CAP (capWidth/capHeight): the user-visible CSS max-
+  //     width/max-height. Must stay at the per-node cap (or the
+  //     default) — applying a measured size as the CSS cap would
+  //     ratchet the node down to whatever it first rendered at and
+  //     clip text on the next paint.
+  const capWidth = node.maxWidth ?? defaults.maxWidth;
+  const capHeight = node.maxHeight ?? defaults.maxHeight;
   const measuredSize = measured?.get(node.id);
-  const width = measuredSize?.width ?? node.maxWidth ?? defaults.maxWidth;
-  const height = measuredSize?.height ?? node.maxHeight ?? defaults.maxHeight;
+  const width = measuredSize?.width ?? capWidth;
+  const height = measuredSize?.height ?? capHeight;
   let descendantCount = node.children.length;
   let childrenHeight = 0;
 
@@ -136,7 +149,14 @@ function measure(
   }
 
   const subtreeHeight = Math.max(height, childrenHeight);
-  const m: NodeMetrics = { width, height, subtreeHeight, descendantCount };
+  const m: NodeMetrics = {
+    width,
+    height,
+    capWidth,
+    capHeight,
+    subtreeHeight,
+    descendantCount,
+  };
   out.set(node, m);
   return m;
 }
@@ -194,8 +214,8 @@ function emitNode(
       collapsed,
       hasChildren: node.children.length > 0,
       hiddenChildCount: collapsed ? m.descendantCount : 0,
-      maxWidth: m.width,
-      maxHeight: m.height,
+      maxWidth: m.capWidth,
+      maxHeight: m.capHeight,
       hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
       outgoingSides,
       incomingSide: node.edgeTo ?? DEFAULT_TO_SIDE,
