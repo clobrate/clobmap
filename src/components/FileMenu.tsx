@@ -11,7 +11,6 @@ import {
 } from "../lib/fileActions";
 import {
   exportAllNotes,
-  exportMarkdown,
   exportPdf,
   exportPng,
   exportSvg,
@@ -45,17 +44,6 @@ export function FileMenu() {
       const msg = err instanceof Error ? err.message : String(err);
       // Cheap surfacing — the alert is loud but it's the simplest way to
       // tell the user "switch to mind-map view" from a menu action.
-      window.alert(`Export failed: ${msg}`);
-    }
-  };
-
-  const handleExportMarkdown = async (): Promise<void> => {
-    setOpen(false);
-    try {
-      await exportMarkdown();
-    } catch (err) {
-      console.error("export failed", err);
-      const msg = err instanceof Error ? err.message : String(err);
       window.alert(`Export failed: ${msg}`);
     }
   };
@@ -162,10 +150,6 @@ export function FileMenu() {
             disabled={!canExportImage}
             title={canExportImage ? undefined : "Switch to Mind-map or Split view first"}
             onClick={() => void handleExport(exportPdf)}
-          />
-          <Item
-            label="Markdown outline"
-            onClick={() => void handleExportMarkdown()}
           />
           <Item
             label="All notes (Markdown)"

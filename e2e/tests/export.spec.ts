@@ -24,7 +24,7 @@ test.describe("export (§7)", () => {
       await expect(page.getByRole("menuitem", { name: label })).toBeDisabled();
     }
     // Markdown is always enabled.
-    await expect(page.getByRole("menuitem", { name: "Markdown outline" })).toBeEnabled();
+    await expect(page.getByRole("menuitem", { name: "All notes (Markdown)" })).toBeEnabled();
   });
 
   test("7.1–7.3 PNG / SVG / PDF are enabled in the Mind-map view", async ({ page }) => {
@@ -33,24 +33,6 @@ test.describe("export (§7)", () => {
     for (const label of ["PNG (image)", "SVG (vector)", "PDF"]) {
       await expect(page.getByRole("menuitem", { name: label })).toBeEnabled();
     }
-  });
-
-  test("7.4 / 7.7 Markdown export downloads an outline matching the tree shape", async ({
-    page,
-  }) => {
-    await openFileMenu(page);
-    const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("menuitem", { name: "Markdown outline" }).click();
-    const dl = await downloadPromise;
-    expect(dl.suggestedFilename()).toMatch(/\.md$/);
-    const path = await dl.path();
-    const fs = await import("node:fs/promises");
-    const content = await fs.readFile(path, "utf8");
-    // Title heading + a couple of known nodes from the welcome doc.
-    expect(content).toMatch(/^# Wedding planning/m);
-    expect(content).toMatch(/Our wedding/);
-    expect(content).toMatch(/Venue/);
-    expect(content).toMatch(/Ceremony/);
   });
 
   test("7.7 PNG export triggers a browser download", async ({ page }) => {

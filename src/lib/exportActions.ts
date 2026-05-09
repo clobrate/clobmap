@@ -5,7 +5,7 @@ import type { ReactFlowInstance } from "@xyflow/react";
 // on first paint for users who never export).
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
-import type { MindDocument, MindNode } from "../model";
+import type { MindNode } from "../model";
 import { isTauri } from "./env";
 import { loadNotes } from "./notes";
 
@@ -16,8 +16,6 @@ const EXPORT_WIDTH = 2048;
 const EXPORT_PADDING = 0.05;
 const EXPORT_MIN_ZOOM = 0.1;
 const EXPORT_MAX_ZOOM = 4;
-
-export type ExportFormat = "png" | "svg" | "pdf" | "markdown";
 
 function suggestedFilename(ext: string): string {
   const path = useDocumentStore.getState().currentFilePath;
@@ -206,33 +204,6 @@ async function saveText(text: string, suggestedName: string): Promise<void> {
   await saveBytes(new TextEncoder().encode(text), suggestedName);
 }
 
-/**
- * Recursive Markdown serialization. Uses a `# {title}` heading and
- * indented bullets for the tree. Notes hang under their node as
- * blockquotes.
- */
-function toMarkdown(doc: MindDocument): string {
-  const lines: string[] = [];
-  if (doc.title) {
-    lines.push(`# ${doc.title}`);
-    lines.push("");
-  }
-  emitMarkdown(doc.root, 0, lines);
-  return lines.join("\n");
-}
-
-function emitMarkdown(node: MindNode, depth: number, out: string[]): void {
-  const indent = "  ".repeat(depth);
-  out.push(`${indent}- ${node.text}`);
-  if (node.note) {
-    const noteIndent = `${indent}  `;
-    for (const line of node.note.split("\n")) {
-      out.push(`${noteIndent}> ${line}`);
-    }
-  }
-  for (const child of node.children) emitMarkdown(child, depth + 1, out);
-}
-
 // ---- Public actions (each accepts the React Flow instance for image
 // formats; markdown doesn't need it). ----
 
@@ -244,14 +215,6 @@ export async function exportPng(reactFlow: ReactFlowInstance): Promise<void> {
 export async function exportSvg(reactFlow: ReactFlowInstance): Promise<void> {
   const dataUrl = await captureMindmap(reactFlow, "svg");
   await saveBytes(dataUrlToUint8Array(dataUrl), suggestedFilename("svg"));
-}
-
-export async function exportMarkdown(): Promise<void> {
-  const tree = useDocumentStore.getState().parsedDoc;
-  if (!tree) {
-    throw new Error("Nothing to export — document is empty or has parse errors.");
-  }
-  await saveText(toMarkdown(tree), suggestedFilename("md"));
 }
 
 export async function exportAllNotes(): Promise<void> {
