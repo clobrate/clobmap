@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-05-09
+
+### Changed
+- The first-launch **Wedding planning** seed now ships in canonical
+  auto layout (no `layoutMode` key, no per-node `position` blocks).
+  Previously the seed carried positions hand-placed against the
+  pre-1.1.2 layout constants, so first-launch users saw the older,
+  looser spacing instead of the current measurement-driven tidy-tree
+  (ROW_GAP=10, COLUMN_GAP=50). Returning users with an existing
+  draft are unaffected — only fresh installs / cleared localStorage
+  see the new defaults.
+
 ## [1.1.4] - 2026-05-09
 
 ### Changed
