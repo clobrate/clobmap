@@ -8,7 +8,7 @@ export const DEFAULT_MAX_HEIGHT = 200;
 // allotment is sized to its `subtreeHeight` — so the *visible* gap
 // between two big subtrees grows with their child counts even though
 // this constant stays small.
-const ROW_GAP = 5;
+const ROW_GAP = 10;
 const COLUMN_GAP = 40;
 const MARGIN_X = 24;
 const MARGIN_Y = 24;
