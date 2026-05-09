@@ -7,6 +7,7 @@ import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
 import type { MindDocument, MindNode } from "../model";
 import { isTauri } from "./env";
+import { loadNotes } from "./notes";
 
 // Export width in pixels. Tall maps preserve aspect ratio. 2048 is the
 // sweet spot: sharp at retina display sizes, not so big that PDF
@@ -28,6 +29,15 @@ function suggestedFilename(ext: string): string {
   // Strip filesystem-hostile characters.
   const safe = base.replace(/[\\/:*?"<>|]+/g, " ").trim() || "mindmap";
   return `${safe}.${ext}`;
+}
+
+function timestampForFilename(): string {
+  const d = new Date();
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
+    `${pad(d.getHours())}${pad(d.getMinutes())}`
+  );
 }
 
 function backgroundColorForRender(): string {
@@ -210,6 +220,34 @@ export async function exportMarkdown(): Promise<void> {
     throw new Error("Nothing to export — document is empty or has parse errors.");
   }
   await saveText(toMarkdown(tree), suggestedFilename("md"));
+}
+
+export async function exportAllNotes(): Promise<void> {
+  const tree = useDocumentStore.getState().parsedDoc;
+  if (!tree) {
+    throw new Error("Nothing to export — document is empty or has parse errors.");
+  }
+  const docPath = useDocumentStore.getState().currentFilePath;
+
+  const ordered: MindNode[] = [];
+  const visit = (n: MindNode): void => {
+    ordered.push(n);
+    for (const c of n.children) visit(c);
+  };
+  visit(tree.root);
+
+  const sections: string[] = [];
+  for (const node of ordered) {
+    let body = "";
+    if (node.notes) {
+      const loaded = await loadNotes(node.notes, docPath);
+      body = loaded.content.trim();
+    }
+    if (!body) body = "__ no notes found __";
+    sections.push(`# ${node.text} (${node.id})\n\n${body}\n`);
+  }
+
+  await saveText(sections.join("\n"), suggestedFilename(`notes.${timestampForFilename()}.md`));
 }
 
 export async function exportPdf(reactFlow: ReactFlowInstance): Promise<void> {
