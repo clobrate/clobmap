@@ -9,7 +9,7 @@ export const DEFAULT_MAX_HEIGHT = 200;
 // between two big subtrees grows with their child counts even though
 // this constant stays small.
 const ROW_GAP = 10;
-const COLUMN_GAP = 40;
+const COLUMN_GAP = 50;
 const MARGIN_X = 24;
 const MARGIN_Y = 24;
 
