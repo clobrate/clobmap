@@ -73,13 +73,20 @@ test.describe("tabs (§3)", () => {
   });
 
   test("3.5 dirty tab + Cmd+W prompts to discard; cancel keeps the tab open", async ({ page }) => {
-    // Make tab A dirty so the close prompt fires.
+    // Track whether the discard prompt actually fires — registering BEFORE
+    // we trigger the dirty-edit cycle eliminates any chance of a race
+    // between Cmd+W and Playwright's listener wiring.
+    let dialogFired = false;
+    page.on("dialog", (d) => {
+      dialogFired = true;
+      void d.dismiss();
+    });
     await addChild(page, "Venue", "Unsaved edit");
-    // Reject the confirm dialog when it appears.
-    page.once("dialog", (d) => d.dismiss());
     await closeActiveTab(page);
-    // Tab still there with the unsaved node visible.
+    // The prompt fired (so the dirty state actually triggered the guard)
+    // AND we dismissed it, so the tab stays open with the unsaved node.
     await expect(nodeByText(page, "Unsaved edit")).toBeVisible();
+    expect(dialogFired).toBe(true);
   });
 
   test("3.5 dirty tab + Cmd+W → accept discards and closes the tab", async ({ page }) => {
