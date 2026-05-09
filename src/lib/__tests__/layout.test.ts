@@ -200,6 +200,70 @@ describe("layoutMindMap", () => {
       expect(ys[ys.length - 1]!).toBeGreaterThan(root.position.y);
     });
 
+    it("falls back to MARGIN_X / MARGIN_Y when the root has no stored position", () => {
+      const doc: MindDocument = {
+        title: "T",
+        layoutMode: "manual",
+        root: {
+          id: "n1",
+          text: "Root",
+          children: [{ id: "n2", text: "A", children: [] }],
+        },
+      };
+      const { nodes } = layoutMindMap(doc);
+      const root = nodes.find((n) => n.id === "n1");
+      // Hard-coded MARGIN_X/Y in layout.ts is 24/24.
+      expect(root?.position).toEqual({ x: 24, y: 24 });
+    });
+
+    it("skips child placement when a parent is collapsed", () => {
+      const doc: MindDocument = {
+        title: "T",
+        layoutMode: "manual",
+        root: {
+          id: "n1",
+          text: "Root",
+          position: { x: 0, y: 0 },
+          children: [
+            {
+              id: "n2",
+              text: "Collapsed parent",
+              position: { x: 200, y: 0 },
+              collapsed: true,
+              children: [
+                { id: "n3", text: "hidden", position: { x: 999, y: 999 }, children: [] },
+              ],
+            },
+          ],
+        },
+      };
+      const { nodes, edges } = layoutMindMap(doc);
+      // Collapsed parent renders; its child is not emitted.
+      expect(nodes.map((n) => n.id).sort()).toEqual(["n1", "n2"]);
+      expect(edges).toHaveLength(1);
+      const collapsedParent = nodes.find((n) => n.id === "n2");
+      expect(collapsedParent?.data.collapsed).toBe(true);
+      // descendantCount surfaces as the hidden-children badge.
+      expect(collapsedParent?.data.hiddenChildCount).toBe(1);
+    });
+
+    it("returns early when the root itself is collapsed", () => {
+      const doc: MindDocument = {
+        title: "T",
+        layoutMode: "manual",
+        root: {
+          id: "n1",
+          text: "Root",
+          position: { x: 0, y: 0 },
+          collapsed: true,
+          children: [{ id: "n2", text: "A", position: { x: 100, y: 0 }, children: [] }],
+        },
+      };
+      const { nodes, edges } = layoutMindMap(doc);
+      expect(nodes.map((n) => n.id)).toEqual(["n1"]);
+      expect(edges).toHaveLength(0);
+    });
+
     it("staggers multiple no-position siblings vertically (regression: stacked-on-top bug)", () => {
       const doc: MindDocument = {
         title: "T",
@@ -332,6 +396,33 @@ describe("layoutMindMap", () => {
       expect(filled.root.children[0]?.position).toEqual({ x: 999, y: 888 });
       // n1 still has its stored position.
       expect(filled.root.position).toEqual({ x: 50, y: 60 });
+    });
+
+    it("leaves nodes hidden under a collapsed ancestor without a fallback position", () => {
+      // Auto-layout doesn't recurse into collapsed branches, so its
+      // position map has no entry for `hidden`. With no override and no
+      // stored position, materializeManualPositions has nothing to set.
+      const doc: MindDocument = {
+        title: "T",
+        root: {
+          id: "n1",
+          text: "Root",
+          children: [
+            {
+              id: "n2",
+              text: "Collapsed",
+              collapsed: true,
+              children: [{ id: "hidden", text: "Hidden", children: [] }],
+            },
+          ],
+        },
+      };
+      const filled = materializeManualPositions(doc);
+      // Visible nodes get auto-derived positions.
+      expect(filled.root.position).toBeDefined();
+      expect(filled.root.children[0]?.position).toBeDefined();
+      // The hidden descendant has nothing to fall back to.
+      expect(filled.root.children[0]?.children[0]?.position).toBeUndefined();
     });
 
     it("populates positions for a doc that has none yet", () => {

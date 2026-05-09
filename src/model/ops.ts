@@ -24,15 +24,11 @@ function findNode(node: MindNode, id: string): MindNode | null {
 function findParent(
   node: MindNode,
   id: string,
-  parent: MindNode | null = null,
 ): { parent: MindNode; index: number } | null {
-  if (node.id === id) {
-    // Defensive: every caller validates id !== root.id first, so parent is non-null here.
-    /* v8 ignore next */
-    return parent ? { parent, index: parent.children.indexOf(node) } : null;
-  }
-  for (const child of node.children) {
-    const found = findParent(child, id, node);
+  for (let i = 0; i < node.children.length; i += 1) {
+    const child = node.children[i]!;
+    if (child.id === id) return { parent: node, index: i };
+    const found = findParent(child, id);
     if (found) return found;
   }
   return null;
@@ -302,14 +298,13 @@ function mapAllNodes(node: MindNode, fn: (n: MindNode) => MindNode): MindNode {
   const next = fn(node);
   if (next.children.length === 0) return next;
   const children = next.children.map((c) => mapAllNodes(c, fn));
-  // Avoid creating a new array if nothing actually changed.
-  let same = children.length === next.children.length;
-  if (same) {
-    for (let i = 0; i < children.length; i += 1) {
-      if (children[i] !== next.children[i]) {
-        same = false;
-        break;
-      }
+  // Avoid creating a new array if nothing actually changed (.map preserves
+  // length, so we only need to compare element identity).
+  let same = true;
+  for (let i = 0; i < children.length; i += 1) {
+    if (children[i] !== next.children[i]) {
+      same = false;
+      break;
     }
   }
   return same ? next : { ...next, children };

@@ -195,6 +195,50 @@ root:
     });
   });
 
+  it("applyTreeChange is a no-op when parsedDoc is null", () => {
+    useDocumentStore.getState().reset("any text", null);
+    const before = useDocumentStore.getState();
+    useDocumentStore.getState().applyTreeChange(sampleDoc);
+    expect(useDocumentStore.getState()).toBe(before);
+  });
+
+  describe("undo / redo with broken historic YAML text", () => {
+    it("undo restores tree but clears yamlDoc when historic yamlText fails to re-parse", () => {
+      // Reset to a valid baseline.
+      const live = freshLiveDoc();
+      useDocumentStore.getState().reset(SAMPLE_YAML, live.tree, live.doc);
+      // Type garbage into the YAML editor — yamlText is now broken,
+      // but parsedDoc is still the last good tree.
+      useDocumentStore.getState().setYamlText(": : not yaml :");
+      // Apply a tree change. The undo entry captures the broken yamlText.
+      const next = addChild(live.tree, "n1", "Hello", createIdGenerator(10)).doc;
+      useDocumentStore.getState().applyTreeChange(next);
+
+      useDocumentStore.getState().undo();
+      const s = useDocumentStore.getState();
+      expect(s.yamlText).toBe(": : not yaml :");
+      // parseLiveYaml on broken text fails → yamlDoc dropped to null.
+      expect(s.yamlDoc).toBeNull();
+    });
+
+    it("redo restores tree but clears yamlDoc when redo entry's yamlText is broken", () => {
+      const live = freshLiveDoc();
+      useDocumentStore.getState().reset(SAMPLE_YAML, live.tree, live.doc);
+      // Make a change so we have something to undo.
+      const next = addChild(live.tree, "n1", "Hello", createIdGenerator(10)).doc;
+      useDocumentStore.getState().applyTreeChange(next);
+      // Type garbage — current yamlText is now broken.
+      useDocumentStore.getState().setYamlText(": : nope :");
+      // Undo captures the broken yamlText into the redo entry.
+      useDocumentStore.getState().undo();
+      // Redo plays it back.
+      useDocumentStore.getState().redo();
+      const s = useDocumentStore.getState();
+      expect(s.yamlText).toBe(": : nope :");
+      expect(s.yamlDoc).toBeNull();
+    });
+  });
+
   describe("applyTreeChange (degraded — no live AST)", () => {
     it("falls back to plain serialization when yamlDoc is null", () => {
       const live = freshLiveDoc();
