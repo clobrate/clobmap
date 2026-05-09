@@ -13,8 +13,8 @@ import { isMobile, isTauri } from "../lib/env";
 import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
 import { openExternal } from "../lib/openExternal";
 import { isTelemetryAvailable } from "../lib/telemetry";
-import { clearAllPositions, setLayoutMode, setPositions, type LayoutMode } from "../model";
-import { layoutMindMap, materializeManualPositions } from "../lib/layout";
+import { clearAllPositions, setLayoutMode, type LayoutMode } from "../model";
+import { materializeManualPositions } from "../lib/layout";
 
 const PRIVACY_URL = "https://github.com/clobrate/clobmap/blob/main/PRIVACY.md";
 const ISSUE_URL = "https://github.com/clobrate/clobmap/issues/new?labels=bug";
@@ -67,24 +67,6 @@ export function SettingsMenu() {
       // manual restores the user's previous arrangement.
       applyTreeChange(setLayoutMode(parsedDoc, "auto"));
     }
-  };
-
-  const onResetPositions = () => {
-    if (!parsedDoc) return;
-    // Run the auto layout with the *currently measured* node sizes so
-    // the snapped positions match the tight visual the user saw in
-    // auto, not the wide cap-sized fallback.
-    const measured = new Map<string, { width: number; height: number }>();
-    for (const n of reactFlow.getNodes()) {
-      if (n.measured && typeof n.measured.width === "number" && typeof n.measured.height === "number") {
-        measured.set(n.id, { width: n.measured.width, height: n.measured.height });
-      }
-    }
-    const { nodes } = layoutMindMap({ ...parsedDoc, layoutMode: "auto" }, undefined, measured);
-    const positions = new Map<string, { x: number; y: number }>();
-    for (const n of nodes) positions.set(n.id, { x: n.position.x, y: n.position.y });
-    const cleared = clearAllPositions(parsedDoc);
-    applyTreeChange(setPositions(cleared, positions));
   };
 
   // Wipe every saved position AND switch to auto. The whole point is
@@ -181,16 +163,6 @@ export function SettingsMenu() {
                     label="Manual"
                   />
                 </div>
-                {layoutMode === "manual" && (
-                  <button
-                    type="button"
-                    onClick={onResetPositions}
-                    className="mt-2 w-full rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                    title="Snap every node back to the auto-layout position. You stay in Manual mode."
-                  >
-                    Reset positions
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={onResetToAuto}

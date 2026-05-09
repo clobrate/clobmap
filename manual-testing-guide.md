@@ -372,15 +372,15 @@ nodes anywhere, positions persisted in YAML as `position: { x, y }`.
 | 16.4.3 | The new node has no `position` field in YAML on save | Until dragged, the field stays absent — the parent-relative offset is computed at layout time, not stored. |
 | 16.4.4 | Drag the new node, then save | Now the YAML has the explicit position. |
 
-### 16.5 Reset positions
+### 16.5 Reset to Auto
 
 | # | Check | Pass criteria |
 |---|---|---|
-| 16.5.1 | "Reset positions" button visible | Only when in Manual mode. Hidden in Auto. |
-| 16.5.2 | Click Reset positions | Every node snaps to its tidy-tree position. **Stays in Manual mode**; the new positions are written into YAML (so the visual matches what auto would produce, but you can keep dragging). |
-| 16.5.3 | Reset, then drag one node | Other nodes keep their reset positions. |
-| 16.5.4 | Reset on a doc with thousands of nodes | Completes <1s; layout still smooth. |
-| 16.5.5 | "Reset to Auto (clear saved positions)" button | Visible in **both** Auto and Manual. Wipes every node's `position` field AND sets `layoutMode` back to absent (canonical auto). Closes the menu. Toggling Manual afterward goes through the standard materialize-from-auto path — no memory of the previous manual coords. |
+| 16.5.1 | "Reset to Auto (clear saved positions)" button | Visible in **both** Auto and Manual under ⚙ → Layout. |
+| 16.5.2 | Click it from Manual | Wipes every node's `position` field AND sets `layoutMode` back to absent (canonical auto). Closes the menu. Canvas re-renders with the tight measurement-driven auto layout. |
+| 16.5.3 | Click it from Auto (when stale `position` fields are still in YAML) | Same — strips the lingering positions so a future Manual toggle materializes fresh. |
+| 16.5.4 | Reset, then toggle Manual | Goes through the standard materialize-from-auto path. No memory of any previous manual coords. |
+| 16.5.5 | Reset on a doc with thousands of nodes | Completes <1s; layout still smooth. |
 
 ### 16.6 Persistence
 

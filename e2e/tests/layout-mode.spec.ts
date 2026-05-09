@@ -60,17 +60,6 @@ test.describe("layout mode (§16)", () => {
     );
   });
 
-  test("16.5.1 Reset-positions button is visible in Manual, hidden in Auto", async ({ page }) => {
-    await openSettings(page);
-    await expect(page.getByRole("button", { name: "Reset positions" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Auto", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Reset positions" })).toHaveCount(0);
-
-    await page.getByRole("button", { name: "Manual", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Reset positions" })).toBeVisible();
-  });
-
   test("16.1.4 Manual → Auto removes layoutMode but preserves stored positions", async ({
     page,
   }) => {
