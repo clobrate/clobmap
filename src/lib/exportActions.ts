@@ -31,6 +31,38 @@ function suggestedFilename(ext: string): string {
   return `${safe}.${ext}`;
 }
 
+/**
+ * Demote ATX headings inside a notes body by one level so they sit
+ * beneath the `# Title (id)` heading the exporter wraps each note in.
+ * Skips lines inside fenced code blocks so `#` comments in code stay put.
+ */
+function demoteHeadings(body: string): string {
+  const lines = body.split("\n");
+  let inFence = false;
+  let fence: string | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fenceMatch = line.match(/^\s*(```|~~~)/);
+    if (fenceMatch) {
+      const marker = fenceMatch[1];
+      if (!inFence) {
+        inFence = true;
+        fence = marker;
+      } else if (fence === marker) {
+        inFence = false;
+        fence = null;
+      }
+      continue;
+    }
+    if (inFence) continue;
+    const heading = line.match(/^(\s*)(#{1,6})(\s)/);
+    if (heading) {
+      lines[i] = `${heading[1]}#${heading[2]}${line.slice(heading[0].length - 1)}`;
+    }
+  }
+  return lines.join("\n");
+}
+
 function timestampForFilename(): string {
   const d = new Date();
   const pad = (n: number): string => String(n).padStart(2, "0");
@@ -241,7 +273,7 @@ export async function exportAllNotes(): Promise<void> {
     let body = "";
     if (node.notes) {
       const loaded = await loadNotes(node.notes, docPath);
-      body = loaded.content.trim();
+      body = demoteHeadings(loaded.content.trim());
     }
     if (!body) body = "__ no notes found __";
     sections.push(`# ${node.text} (${node.id})\n\n${body}\n`);
