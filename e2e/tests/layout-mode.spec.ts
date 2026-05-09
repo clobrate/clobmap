@@ -110,7 +110,7 @@ test.describe("layout mode (§16)", () => {
   }) => {
     // Snapshot one existing position before the mutation.
     const before = await yamlText(page);
-    const venuePos = before.match(/text: Venue\s+position:\s+x: (\d+)\s+y: (\d+)/);
+    const venuePos = before.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
     expect(venuePos).not.toBeNull();
 
     await addChild(page, "Vendors", "DJ");
@@ -138,6 +138,103 @@ test.describe("layout mode (§16)", () => {
     const text = await yamlText(page);
     expect(text).not.toMatch(/\blayoutMode:/);
     expect(text).not.toMatch(/\bposition:/);
+  });
+
+  test("16.3 dragging a node in auto mode snaps it back; YAML stays free of position fields", async ({
+    page,
+  }) => {
+    // Switch to auto first.
+    await openSettings(page);
+    await page.getByRole("button", { name: "Reset to Auto (clear saved positions)" }).click();
+    // 'Reset to Auto' closes the menu itself.
+    let yaml = await yamlText(page);
+    expect(yaml).not.toMatch(/\bposition:/);
+
+    // Drag Venue 200px to the right and 100px down.
+    const venueWrapper = page.locator(".react-flow__node").filter({ has: nodeByText(page, "Venue") });
+    const before = await venueWrapper.boundingBox();
+    expect(before).not.toBeNull();
+    if (!before) return;
+    await venueWrapper.hover();
+    await page.mouse.down();
+    await page.mouse.move(before.x + 200, before.y + 100, { steps: 12 });
+    await page.mouse.up();
+
+    // Auto mode re-runs the tidy-tree algorithm — Venue snaps back.
+    // Verify by reading the YAML: still no `position:` keys anywhere.
+    yaml = await yamlText(page);
+    expect(yaml).not.toMatch(/\bposition:/);
+    expect(yaml).not.toMatch(/\blayoutMode:/);
+  });
+
+  test("16.2 dragging a node in manual mode persists the new position to YAML", async ({
+    page,
+  }) => {
+    // Welcome doc is already manual. Drag Venue to a new spot.
+    const venueWrapper = page.locator(".react-flow__node").filter({ has: nodeByText(page, "Venue") });
+    const before = await venueWrapper.boundingBox();
+    expect(before).not.toBeNull();
+    if (!before) return;
+
+    const yamlBefore = await yamlText(page);
+    const venuePosBefore = yamlBefore.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
+    expect(venuePosBefore).not.toBeNull();
+
+    await venueWrapper.hover();
+    await page.mouse.down();
+    await page.mouse.move(before.x + 250, before.y + 150, { steps: 12 });
+    await page.mouse.up();
+
+    const yamlAfter = await yamlText(page);
+    const venuePosAfter = yamlAfter.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
+    expect(venuePosAfter).not.toBeNull();
+    if (!venuePosBefore || !venuePosAfter) return;
+    // Coords actually moved.
+    expect(venuePosAfter[1]).not.toBe(venuePosBefore[1]);
+    expect(venuePosAfter[2]).not.toBe(venuePosBefore[2]);
+    // Mode is still manual.
+    expect(yamlAfter).toMatch(/layoutMode:\s*manual/);
+  });
+
+  test("16.4 a new child added in manual mode has no `position` field until dragged", async ({
+    page,
+  }) => {
+    await addChild(page, "Vendors", "BrandNewChild");
+    const yaml = await yamlText(page);
+    // The new child sits in the YAML…
+    expect(yaml).toMatch(/text: BrandNewChild/);
+    // …but its block doesn't carry a `position:` field. The new child's
+    // block is `text: BrandNewChild\n      children: []` — no position
+    // line in between. (Layout coords are computed at render time, not
+    // stored, until the user drags it.)
+    expect(yaml).toMatch(/text: BrandNewChild\s+children:/);
+  });
+
+  test("16.6 manual-mode dragged positions survive a full reload", async ({ page }) => {
+    // Drag Venue to a recognisable spot.
+    const venueWrapper = page.locator(".react-flow__node").filter({ has: nodeByText(page, "Venue") });
+    const before = await venueWrapper.boundingBox();
+    expect(before).not.toBeNull();
+    if (!before) return;
+    await venueWrapper.hover();
+    await page.mouse.down();
+    await page.mouse.move(before.x + 180, before.y + 90, { steps: 12 });
+    await page.mouse.up();
+
+    const yamlBefore = await yamlText(page);
+    const venuePosBefore = yamlBefore.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
+    expect(venuePosBefore).not.toBeNull();
+
+    await page.reload();
+    await expect(nodeByText(page, "Our wedding")).toBeVisible();
+
+    const yamlAfter = await yamlText(page);
+    const venuePosAfter = yamlAfter.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
+    expect(venuePosAfter).not.toBeNull();
+    if (!venuePosBefore || !venuePosAfter) return;
+    // Coords are byte-identical pre/post reload.
+    expect(venuePosAfter[1]).toBe(venuePosBefore[1]);
+    expect(venuePosAfter[2]).toBe(venuePosBefore[2]);
   });
 
   test("16.7.2 deleting a node in manual mode preserves remaining positions", async ({ page }) => {

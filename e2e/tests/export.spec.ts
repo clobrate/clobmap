@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { nodeByText } from "../helpers/mindmap";
+import { nodeByText, notesTextarea, openNotesPopup } from "../helpers/mindmap";
+
+const isMac = process.platform === "darwin";
+const META = isMac ? "Meta" : "Control";
 
 async function openFileMenu(page: Page) {
   await page.getByRole("button", { name: "File" }).click();
@@ -64,5 +67,52 @@ test.describe("export (§7)", () => {
     await page.getByRole("menuitem", { name: "SVG (vector)" }).click();
     const dl = await downloadPromise;
     expect(dl.suggestedFilename()).toMatch(/\.svg$/i);
+  });
+
+  test.describe("All notes (Markdown) export", () => {
+    test("filename uses .notes.YYYYMMDDHHmm.md suffix", async ({ page }) => {
+      await openFileMenu(page);
+      const downloadPromise = page.waitForEvent("download");
+      await page.getByRole("menuitem", { name: "All notes (Markdown)" }).click();
+      const dl = await downloadPromise;
+      expect(dl.suggestedFilename()).toMatch(/\.notes\.\d{12}\.md$/);
+    });
+
+    test("emits a heading per node and `no notes found` for empty nodes", async ({ page }) => {
+      await openFileMenu(page);
+      const downloadPromise = page.waitForEvent("download");
+      await page.getByRole("menuitem", { name: "All notes (Markdown)" }).click();
+      const dl = await downloadPromise;
+      const path = await dl.path();
+      const fs = await import("node:fs/promises");
+      const content = await fs.readFile(path, "utf8");
+      // Welcome doc has no notes anywhere — every node should get the placeholder.
+      expect(content).toContain("# Our wedding (n1)");
+      expect(content).toContain("# Venue (n2)");
+      expect(content).toContain("# Ceremony (n3)");
+      // Every section ends with the placeholder body when there are no notes.
+      expect(content).toContain("__ no notes found __");
+    });
+
+    test("inlines saved notes under each heading and demotes inner headings", async ({ page }) => {
+      // Save notes on Venue with a `# Inner` heading — exporter should
+      // demote it so it sits below the per-node `# Venue (n2)` heading.
+      await openNotesPopup(page, "Venue");
+      await notesTextarea(page).fill("# Inner heading\n\nbody text");
+      await page.keyboard.press(`${META}+Enter`);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+
+      await openFileMenu(page);
+      const downloadPromise = page.waitForEvent("download");
+      await page.getByRole("menuitem", { name: "All notes (Markdown)" }).click();
+      const dl = await downloadPromise;
+      const path = await dl.path();
+      const fs = await import("node:fs/promises");
+      const content = await fs.readFile(path, "utf8");
+      // The Venue section contains the demoted heading + body.
+      expect(content).toMatch(/# Venue \(n2\)\n\n## Inner heading\n\nbody text/);
+      // Sibling without notes still gets the placeholder.
+      expect(content).toMatch(/# Reception \(n4\)\n\n__ no notes found __/);
+    });
   });
 });
