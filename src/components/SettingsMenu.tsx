@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useReactFlow } from "@xyflow/react";
 import { useUIStore, type ThemePreference } from "../store/ui";
 import { useDocumentStore } from "../store/document";
 import {
@@ -12,8 +13,8 @@ import { isMobile, isTauri } from "../lib/env";
 import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
 import { openExternal } from "../lib/openExternal";
 import { isTelemetryAvailable } from "../lib/telemetry";
-import { clearAllPositions, setLayoutMode, setPositions, type LayoutMode } from "../model";
-import { layoutMindMap, materializeManualPositions } from "../lib/layout";
+import { clearAllPositions, setLayoutMode, type LayoutMode } from "../model";
+import { materializeManualPositions } from "../lib/layout";
 
 const PRIVACY_URL = "https://github.com/clobrate/clobmap/blob/main/PRIVACY.md";
 const ISSUE_URL = "https://github.com/clobrate/clobmap/issues/new?labels=bug";
@@ -46,15 +47,21 @@ export function SettingsMenu() {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
   const layoutMode: LayoutMode = parsedDoc?.layoutMode ?? "auto";
+  const reactFlow = useReactFlow();
 
   const onLayoutMode = (next: LayoutMode) => {
     if (!parsedDoc || layoutMode === next) return;
     if (next === "manual") {
-      // Restore last-known manual positions; gap-fill any nodes lacking
-      // a stored position (added in auto mode since the last manual
-      // session) with the current auto-layout's coordinates so the
-      // visual transition is smooth.
-      applyTreeChange(setLayoutMode(materializeManualPositions(parsedDoc), "manual"));
+      // Snapshot the *currently rendered* positions so the visual
+      // doesn't jump on toggle. React Flow's node positions reflect the
+      // measurement-driven layout (tight gaps); materializing without
+      // them would re-run the layout with cap-sized slots and produce
+      // a much wider canvas.
+      const overrides = new Map<string, { x: number; y: number }>();
+      for (const n of reactFlow.getNodes()) {
+        overrides.set(n.id, { x: n.position.x, y: n.position.y });
+      }
+      applyTreeChange(setLayoutMode(materializeManualPositions(parsedDoc, overrides), "manual"));
     } else {
       // Stored positions remain in YAML so a later switch back to
       // manual restores the user's previous arrangement.
@@ -62,15 +69,15 @@ export function SettingsMenu() {
     }
   };
 
-  const onResetPositions = () => {
+  // Wipe every saved position AND switch to auto. The whole point is
+  // a fresh start — no memory of previously-stored manual coords —
+  // so toggling back to manual later goes through the standard
+  // materialize-from-auto path instead of resurrecting old coords.
+  const onResetToAuto = () => {
     if (!parsedDoc) return;
-    const { nodes } = layoutMindMap({ ...parsedDoc, layoutMode: "auto" });
-    const positions = new Map<string, { x: number; y: number }>();
-    for (const n of nodes) positions.set(n.id, { x: n.position.x, y: n.position.y });
-    // Clear, then re-seed from auto so the user sees a clean tidy-tree
-    // immediately while staying in manual mode.
     const cleared = clearAllPositions(parsedDoc);
-    applyTreeChange(setPositions(cleared, positions));
+    applyTreeChange(setLayoutMode(cleared, "auto"));
+    setOpen(false);
   };
 
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "none">("idle");
@@ -156,16 +163,14 @@ export function SettingsMenu() {
                     label="Manual"
                   />
                 </div>
-                {layoutMode === "manual" && (
-                  <button
-                    type="button"
-                    onClick={onResetPositions}
-                    className="mt-2 w-full rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                    title="Snap every node back to the auto-layout position. You stay in Manual mode."
-                  >
-                    Reset positions
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={onResetToAuto}
+                  className="mt-2 w-full rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  title="Wipe every saved position and switch to Auto. No memory of previous manual coordinates is kept."
+                >
+                  Reset to Auto (clear saved positions)
+                </button>
               </div>
               <Divider />
             </>

@@ -50,25 +50,14 @@ test.describe("layout mode (§16)", () => {
   test("16.1.1 Layout segmented control reflects the document's mode", async ({ page }) => {
     await openSettings(page);
     // Welcome doc starts in Manual.
-    await expect(page.getByRole("button", { name: "Manual" })).toHaveAttribute(
+    await expect(page.getByRole("button", { name: "Manual", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(page.getByRole("button", { name: "Auto" })).toHaveAttribute(
+    await expect(page.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
-  });
-
-  test("16.5.1 Reset-positions button is visible in Manual, hidden in Auto", async ({ page }) => {
-    await openSettings(page);
-    await expect(page.getByRole("button", { name: "Reset positions" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Auto" }).click();
-    await expect(page.getByRole("button", { name: "Reset positions" })).toHaveCount(0);
-
-    await page.getByRole("button", { name: "Manual" }).click();
-    await expect(page.getByRole("button", { name: "Reset positions" })).toBeVisible();
   });
 
   test("16.1.4 Manual → Auto removes layoutMode but preserves stored positions", async ({
@@ -79,11 +68,11 @@ test.describe("layout mode (§16)", () => {
     // exactly the manual layout (see `setLayoutMode` comment). Only the
     // `layoutMode` key itself flips.
     await openSettings(page);
-    await page.getByRole("button", { name: "Auto" }).click();
+    await page.getByRole("button", { name: "Auto", exact: true }).click();
     // Wait for the toggle to settle through the debounced parse before
     // closing the menu and switching tabs — otherwise the second
     // assertion races with stale state.
-    await expect(page.getByRole("button", { name: "Auto" })).toHaveAttribute(
+    await expect(page.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -96,14 +85,14 @@ test.describe("layout mode (§16)", () => {
 
   test("16.1.2 / 16.1.3 Auto → Manual writes layoutMode back into YAML", async ({ page }) => {
     await openSettings(page);
-    await page.getByRole("button", { name: "Auto" }).click();
-    await expect(page.getByRole("button", { name: "Auto" })).toHaveAttribute(
+    await page.getByRole("button", { name: "Auto", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
 
-    await page.getByRole("button", { name: "Manual" }).click();
-    await expect(page.getByRole("button", { name: "Manual" })).toHaveAttribute(
+    await page.getByRole("button", { name: "Manual", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Manual", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -136,6 +125,19 @@ test.describe("layout mode (§16)", () => {
         new RegExp(`text: Venue\\s+position:\\s+x: ${vx}\\s+y: ${vy}`),
       );
     }
+  });
+
+  test("'Reset to Auto' wipes every saved position and flips layoutMode back to auto", async ({
+    page,
+  }) => {
+    // Welcome doc starts in Manual with positions; clicking the reset
+    // button should clear *both* the position fields and the
+    // layoutMode key, leaving a clean canonical-auto YAML.
+    await openSettings(page);
+    await page.getByRole("button", { name: "Reset to Auto (clear saved positions)" }).click();
+    const text = await yamlText(page);
+    expect(text).not.toMatch(/\blayoutMode:/);
+    expect(text).not.toMatch(/\bposition:/);
   });
 
   test("16.7.2 deleting a node in manual mode preserves remaining positions", async ({ page }) => {
