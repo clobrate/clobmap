@@ -221,7 +221,6 @@ function emitEdge(out: Edge[], node: MindNode, parent: MindNode | null): void {
  * mode is exactly "what's on disk plus a sensible default for new nodes".
  */
 const NEW_NODE_OFFSET_X = 60;
-const NEW_NODE_OFFSET_Y = 30;
 
 function placeManual(
   node: MindNode,
@@ -242,14 +241,24 @@ function placeManual(
   emitEdge(outEdges, node, parent);
   if (collapsed) return;
 
-  // Resolve each child's position before recursing so that
-  // siblings without a stored position stagger vertically instead of
-  // stacking at the same y. `nextNoPosY` is a running cursor: it
-  // advances past every sibling's vertical extent (whether stored or
-  // freshly placed) so newly-added Tab/Enter children always land below
-  // whatever was last drawn.
+  // Resolve each child's position before recursing. Children without a
+  // stored position are stacked as a single vertically-centered block
+  // around the parent's vertical midpoint — so adding siblings spreads
+  // them symmetrically north/south of the parent instead of always
+  // accumulating southward.
   const noPosX = resolvedX + m.width + NEW_NODE_OFFSET_X;
-  let nextNoPosY = resolvedY + NEW_NODE_OFFSET_Y;
+  let totalNoPosHeight = 0;
+  let noPosCount = 0;
+  for (const c of node.children) {
+    if (c.position) continue;
+    const cm = metrics.get(c);
+    totalNoPosHeight += cm?.height ?? 0;
+    noPosCount += 1;
+  }
+  if (noPosCount > 1) totalNoPosHeight += (noPosCount - 1) * ROW_GAP;
+  const parentCenterY = resolvedY + m.height / 2;
+  let nextNoPosY = parentCenterY - totalNoPosHeight / 2;
+
   for (const child of node.children) {
     let cx: number;
     let cy: number;
@@ -259,10 +268,10 @@ function placeManual(
     } else {
       cx = noPosX;
       cy = nextNoPosY;
+      const childMetrics = metrics.get(child);
+      const childHeight = childMetrics?.height ?? 0;
+      nextNoPosY += childHeight + ROW_GAP;
     }
-    const childMetrics = metrics.get(child);
-    const childHeight = childMetrics?.height ?? 0;
-    nextNoPosY = Math.max(nextNoPosY, cy + childHeight + ROW_GAP);
     placeManual(child, node, cx, cy, depth + 1, defaults, metrics, outNodes, outEdges);
   }
 }

@@ -147,13 +147,18 @@ describe("layoutMindMap", () => {
     it("falls back to a parent-relative offset for new nodes without position", () => {
       const { nodes } = layoutMindMap(manualDoc());
       const orphan = nodes.find((n) => n.id === "n3");
-      // Should land somewhere to the right of, and below, its parent (n1).
+      // Should land to the right of its parent and within roughly one
+      // node-height of the parent's vertical center (a lone no-position
+      // child centers on the parent — see the symmetric-distribution
+      // test below).
       const root = nodes.find((n) => n.id === "n1");
       expect(orphan).toBeDefined();
       expect(root).toBeDefined();
       if (!orphan || !root) return;
       expect(orphan.position.x).toBeGreaterThan(root.position.x);
-      expect(orphan.position.y).toBeGreaterThan(root.position.y);
+      expect(Math.abs(orphan.position.y - root.position.y)).toBeLessThanOrEqual(
+        root.data.maxHeight,
+      );
     });
 
     it("doesn't run the tidy-tree algorithm in manual mode", () => {
@@ -166,6 +171,33 @@ describe("layoutMindMap", () => {
     it("still emits one edge per parent-child pair", () => {
       const { edges } = layoutMindMap(manualDoc());
       expect(edges).toHaveLength(2);
+    });
+
+    it("centers a block of no-position siblings on the parent's vertical midpoint (north + south, not all south)", () => {
+      const doc: MindDocument = {
+        title: "T",
+        layoutMode: "manual",
+        root: {
+          id: "n1",
+          text: "Root",
+          position: { x: 0, y: 0 },
+          children: [
+            { id: "n2", text: "A", children: [] },
+            { id: "n3", text: "B", children: [] },
+            { id: "n4", text: "C", children: [] },
+            { id: "n5", text: "D", children: [] },
+          ],
+        },
+      };
+      const { nodes } = layoutMindMap(doc);
+      const root = nodes.find((n) => n.id === "n1")!;
+      const ys = ["n2", "n3", "n4", "n5"]
+        .map((id) => nodes.find((n) => n.id === id)?.position.y ?? Number.NaN)
+        .sort((a, b) => a - b);
+      // The block is centered: at least one sibling sits above the
+      // parent and at least one sits below.
+      expect(ys[0]).toBeLessThan(root.position.y);
+      expect(ys[ys.length - 1]!).toBeGreaterThan(root.position.y);
     });
 
     it("staggers multiple no-position siblings vertically (regression: stacked-on-top bug)", () => {
