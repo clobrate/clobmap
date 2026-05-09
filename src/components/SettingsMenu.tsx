@@ -73,6 +73,17 @@ export function SettingsMenu() {
     applyTreeChange(setPositions(cleared, positions));
   };
 
+  // Wipe every saved position AND switch to auto. The whole point is
+  // a fresh start — no memory of previously-stored manual coords —
+  // so toggling back to manual later goes through the standard
+  // materialize-from-auto path instead of resurrecting old coords.
+  const onResetToAuto = () => {
+    if (!parsedDoc) return;
+    const cleared = clearAllPositions(parsedDoc);
+    applyTreeChange(setLayoutMode(cleared, "auto"));
+    setOpen(false);
+  };
+
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "none">("idle");
 
   const onCheckForUpdates = async () => {
@@ -166,6 +177,14 @@ export function SettingsMenu() {
                     Reset positions
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={onResetToAuto}
+                  className="mt-2 w-full rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  title="Wipe every saved position and switch to Auto. No memory of previous manual coordinates is kept."
+                >
+                  Reset to Auto (clear saved positions)
+                </button>
               </div>
               <Divider />
             </>

@@ -380,6 +380,7 @@ nodes anywhere, positions persisted in YAML as `position: { x, y }`.
 | 16.5.2 | Click Reset positions | Every node snaps to its tidy-tree position. **Stays in Manual mode**; the new positions are written into YAML (so the visual matches what auto would produce, but you can keep dragging). |
 | 16.5.3 | Reset, then drag one node | Other nodes keep their reset positions. |
 | 16.5.4 | Reset on a doc with thousands of nodes | Completes <1s; layout still smooth. |
+| 16.5.5 | "Reset to Auto (clear saved positions)" button | Visible in **both** Auto and Manual. Wipes every node's `position` field AND sets `layoutMode` back to absent (canonical auto). Closes the menu. Toggling Manual afterward goes through the standard materialize-from-auto path — no memory of the previous manual coords. |
 
 ### 16.6 Persistence
 
