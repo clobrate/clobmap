@@ -337,7 +337,7 @@ nodes anywhere, positions persisted in YAML as `position: { x, y }`.
 | 16.1.1 | Open Settings while a doc is open | "Layout" row visible with `(this document)` hint, segmented Auto / Manual control. Auto is selected by default. |
 | 16.1.2 | Click Manual | Visual layout doesn't jump — current auto-layout positions are captured and written into each node's `position` field at the moment of switch. |
 | 16.1.3 | Open the YAML view immediately after | `layoutMode: manual` appears at the top; every node has a `position: { x, y }` block. |
-| 16.1.4 | Click Auto from manual | Every `position` field strips out of YAML; `layoutMode` removed (canonical default). Tidy-tree algorithm resumes; layout may re-arrange. |
+| 16.1.4 | Click Auto from manual | `layoutMode` removed (canonical default); tidy-tree algorithm resumes and the canvas re-arranges. `position` fields are **preserved** in YAML so a later Manual toggle restores the exact prior layout. Use "Reset positions" if you want them dropped. |
 | 16.1.5 | Click Auto when already in Auto | No-op (no YAML churn, dirty-marker stays clean). |
 | 16.1.6 | Click Manual when already in Manual | No-op. |
 | 16.1.7 | Toggle Auto → Manual → Auto without dragging | YAML on the second Auto matches the YAML before the first switch (no positions added or lost). |
