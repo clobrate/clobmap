@@ -1,6 +1,6 @@
 # Tagging Feature — Design Doc
 
-Status: Draft (open questions resolved — see §11)
+Status: **Implemented** — Phases A–E shipped + selection-driven highlight extension. Merged in PR #23 (see CHANGELOG). This doc remains the canonical reference for behavior; deferred items in §12 are still open.
 Author: Kiran (designed with Claude)
 Last updated: 2026-05-13
 
