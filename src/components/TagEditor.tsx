@@ -77,10 +77,10 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
       .slice(0, 8);
   }, [activeFragment, allTagNames, currentTags]);
 
-  // Keep the highlight index in range as suggestions change.
-  useEffect(() => {
-    if (highlight >= suggestions.length) setHighlight(0);
-  }, [suggestions.length, highlight]);
+  // Bound the highlight index at render time rather than reconciling
+  // via a useEffect — derived state is preferred per
+  // react-hooks/set-state-in-effect and avoids a cascading render.
+  const safeHighlight = highlight >= suggestions.length ? 0 : highlight;
 
   if (!node) {
     close();
@@ -225,7 +225,7 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
                 // Tab / Right-arrow accept the current highlight without
                 // committing — the user can keep editing afterwards.
                 e.preventDefault();
-                const pick = suggestions[highlight];
+                const pick = suggestions[safeHighlight];
                 if (pick) acceptSuggestion(pick);
                 return;
               }
@@ -237,7 +237,7 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
                 // commit. Otherwise treat Enter as a plain commit so
                 // the user can type a brand-new tag and confirm with
                 // one keypress.
-                const pick = suggestions[highlight];
+                const pick = suggestions[safeHighlight];
                 if (
                   pick &&
                   pick.toLowerCase() !== activeFragment.toLowerCase()
@@ -267,7 +267,7 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
                   <li
                     key={name}
                     role="option"
-                    aria-selected={i === highlight}
+                    aria-selected={i === safeHighlight}
                     onMouseDown={(e) => {
                       // mousedown not click — click fires after blur, by
                       // which time the input has already lost focus and
@@ -277,7 +277,7 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
                     }}
                     onMouseEnter={() => setHighlight(i)}
                     className={`flex cursor-pointer items-center justify-between gap-2 px-2 py-1 text-sm ${
-                      i === highlight
+                      i === safeHighlight
                         ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100"
                         : "text-neutral-800 dark:text-neutral-200"
                     }`}

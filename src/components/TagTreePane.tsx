@@ -20,7 +20,6 @@ import {
   OpError,
   moveTagNode,
   tagDelete,
-  type MindDocument,
 } from "../model";
 import { layoutTagTree, type TagMapNodeData } from "../lib/tagLayout";
 import { TagMapNode } from "./TagMapNode";
@@ -283,12 +282,4 @@ function TagTreePaneInner() {
       )}
     </div>
   );
-}
-
-/**
- * Helper: does the doc have any user-visible tags?
- * Hoisted so callers (App.tsx) don't have to duplicate the check.
- */
-export function hasAnyTag(doc: MindDocument | null): boolean {
-  return !!doc?.tagRoot && doc.tagRoot.children.length > 0;
 }
