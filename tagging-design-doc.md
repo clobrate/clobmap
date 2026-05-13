@@ -469,6 +469,7 @@ chosen answer here so the doc remains self-contained.
   ships with a plain text input and accepts whatever the user types.
   Auto-complete against existing tag names is a Phase E polish.
 - **Multi-tag filter** (intersection / union semantics) — see §11.3.
+==> we don't need this. 
 - **Tag rename propagation.** v1 renames the tag-node only; data-nodes
   carrying the old name would become "orphan" tags (still listed on
   the data-node, no matching tag-node). v1 disables in-place rename
