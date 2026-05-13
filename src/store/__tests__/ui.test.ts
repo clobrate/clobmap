@@ -21,6 +21,7 @@ describe("useUIStore", () => {
       editingTagId: null,
       tagTreeVisible: null,
       tagTreeSplitRatio: 0.7,
+      filterTagId: null,
       contextMenu: null,
       tagContextMenu: null,
       clipboard: null,

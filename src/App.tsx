@@ -25,6 +25,7 @@ import { WelcomeBanner } from "./components/WelcomeBanner";
 import { NotesPopup } from "./components/NotesPopup";
 import { TagEditor } from "./components/TagEditor";
 import { TagTreePane, hasAnyTag } from "./components/TagTreePane";
+import { FilterCanvas } from "./components/FilterCanvas";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -116,9 +117,12 @@ function App() {
   const setTagTreeVisible = useUIStore((s) => s.setTagTreeVisible);
   const tagTreeSplitRatio = useUIStore((s) => s.tagTreeSplitRatio);
   const setTagTreeSplitRatio = useUIStore((s) => s.setTagTreeSplitRatio);
+  const filterTagId = useUIStore((s) => s.filterTagId);
+  const setFilterTagId = useUIStore((s) => s.setFilterTagId);
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
   const docHasTags = hasAnyTag(parsedDoc);
   const showTagTree = docHasTags && tagTreeVisible !== false;
+  const inFilterView = filterTagId !== null;
   const setAutoSave = useUIStore((s) => s.setAutoSave);
   const setSplitOrientation = useUIStore((s) => s.setSplitOrientation);
   const setThemePreference = useUIStore((s) => s.setThemePreference);
@@ -480,7 +484,17 @@ function App() {
               Install
             </a>
           )}
-          {docHasTags && (
+          {inFilterView && (
+            <button
+              type="button"
+              onClick={() => setFilterTagId(null)}
+              title="Return to the full mind map"
+              className="rounded border border-emerald-500 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-500/20 dark:border-emerald-400 dark:text-emerald-200"
+            >
+              Reset filter
+            </button>
+          )}
+          {docHasTags && !inFilterView && (
             <button
               type="button"
               onClick={() => setTagTreeVisible(showTagTree ? false : true)}
@@ -505,7 +519,9 @@ function App() {
         )}
         {viewMode === "mindmap" && (
           <div className="flex-1">
-            {showTagTree ? (
+            {inFilterView ? (
+              <FilterCanvas />
+            ) : showTagTree ? (
               <SplitPanes
                 orientation="vertical"
                 ratio={tagTreeSplitRatio}
@@ -526,7 +542,9 @@ function App() {
             onRatioCommit={(r) => void saveSplitRatioPref(r)}
             first={<YamlEditor />}
             second={
-              showTagTree ? (
+              inFilterView ? (
+                <FilterCanvas />
+              ) : showTagTree ? (
                 <SplitPanes
                   orientation="vertical"
                   ratio={tagTreeSplitRatio}

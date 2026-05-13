@@ -39,6 +39,10 @@ export interface UIState {
   /** Tag-tree pane visibility — `null` follows the auto rule (show when
    *  the doc has any tags); `true` / `false` are user overrides. */
   tagTreeVisible: boolean | null;
+  /** When non-null, the canvas swaps to the hierarchy filter view rooted
+   *  at this tag-node (§5.3 of tagging-design-doc.md). Cleared by the
+   *  Reset filter button or by deleting the underlying tag-node. */
+  filterTagId: string | null;
   /** Persisted vertical-split ratio between the data canvas (top) and
    *  the tag tree pane (bottom). Clamped to 0.2..0.8 like splitRatio. */
   tagTreeSplitRatio: number;
@@ -71,6 +75,7 @@ export interface UIState {
   setEditingTag: (id: string | null) => void;
   setTagTreeVisible: (v: boolean | null) => void;
   setTagTreeSplitRatio: (ratio: number) => void;
+  setFilterTagId: (id: string | null) => void;
   openContextMenu: (nodeId: string, x: number, y: number) => void;
   closeContextMenu: () => void;
   openTagContextMenu: (tagId: string, x: number, y: number) => void;
@@ -98,6 +103,7 @@ export const useUIStore = create<UIState>((set) => ({
   editingTagId: null,
   tagTreeVisible: null,
   tagTreeSplitRatio: 0.7,
+  filterTagId: null,
   contextMenu: null,
   tagContextMenu: null,
   clipboard: null,
@@ -134,6 +140,7 @@ export const useUIStore = create<UIState>((set) => ({
   setTagTreeVisible: (v) => set({ tagTreeVisible: v }),
   setTagTreeSplitRatio: (ratio) =>
     set({ tagTreeSplitRatio: Math.max(0.2, Math.min(0.8, ratio)) }),
+  setFilterTagId: (id) => set({ filterTagId: id, contextMenu: null, tagContextMenu: null }),
   openContextMenu: (nodeId, x, y) => set({ contextMenu: { nodeId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
   openTagContextMenu: (tagId, x, y) => set({ tagContextMenu: { tagId, x, y } }),

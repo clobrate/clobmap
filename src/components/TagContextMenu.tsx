@@ -15,9 +15,17 @@ interface Props {
   onClose: () => void;
   onRename: () => void;
   onDelete: () => void;
+  onShowHierarchy: () => void;
 }
 
-export function TagContextMenu({ x, y, onClose, onRename, onDelete }: Props) {
+export function TagContextMenu({
+  x,
+  y,
+  onClose,
+  onRename,
+  onDelete,
+  onShowHierarchy,
+}: Props) {
   useEffect(() => {
     const onPointer = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null;
@@ -35,6 +43,7 @@ export function TagContextMenu({ x, y, onClose, onRename, onDelete }: Props) {
       style={{ left: x, top: y }}
     >
       <Item label="Rename" onClick={onRename} />
+      <Item label="Show nodes under this tag's hierarchy" onClick={onShowHierarchy} />
       <Divider />
       <Item label="Delete tag" danger onClick={onDelete} />
     </div>

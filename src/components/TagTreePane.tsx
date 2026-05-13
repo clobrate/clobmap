@@ -55,6 +55,7 @@ function TagTreePaneInner() {
   const resolvedTheme = useUIStore((s) => s.resolvedTheme);
   const tagContextMenu = useUIStore((s) => s.tagContextMenu);
   const closeTagContextMenu = useUIStore((s) => s.closeTagContextMenu);
+  const setFilterTagId = useUIStore((s) => s.setFilterTagId);
 
   // Layout the tag tree fresh on every parsedDoc change; same approach
   // the data canvas uses for the data tree.
@@ -219,6 +220,10 @@ function TagTreePaneInner() {
             closeTagContextMenu();
           }}
           onDelete={() => handleDeleteFromMenu(tagContextMenu.tagId)}
+          onShowHierarchy={() => {
+            setFilterTagId(tagContextMenu.tagId);
+            closeTagContextMenu();
+          }}
         />
       )}
     </div>
