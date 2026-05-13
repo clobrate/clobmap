@@ -76,7 +76,6 @@ export const strings = {
     placeholder: "Optional longer description…",
     save: "Save",
     cancel: "Cancel",
-    note: "Note",
   },
 } as const;
 

@@ -9,6 +9,7 @@ import {
   type LoadedNotes,
 } from "../lib/notes";
 import { isMobile, isTauri } from "../lib/env";
+import { openExternal } from "../lib/openExternal";
 
 type Mode = "edit" | "preview";
 
@@ -71,14 +72,16 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
 
   const node = parsedDoc ? findById(parsedDoc, nodeId) : null;
-  // Persisted geometry, restored on open. The user resizes via the
-  // browser's CSS resize handle (drag bottom-right) and a ResizeObserver
-  // writes the new dims back to localStorage — React state isn't the
-  // source of truth for resize, so we don't need a setter.
-  const [popupWidth] = useState<number>(() =>
+  // Persisted geometry, restored on open. Resize is driven by a custom
+  // handle (see ResizeHandle below) using pointer events — the prior
+  // CSS `resize: both` approach was unreliable: the corner handle was
+  // clipped invisible by the popup's rounded border + overflow:hidden,
+  // and the Save / Cancel buttons sat exactly where the handle should
+  // have been, swallowing pointer events.
+  const [popupWidth, setPopupWidth] = useState<number>(() =>
     readNumberPref(STORAGE_WIDTH, DEFAULT_WIDTH),
   );
-  const [popupHeight] = useState<number>(() =>
+  const [popupHeight, setPopupHeight] = useState<number>(() =>
     readNumberPref(STORAGE_HEIGHT, DEFAULT_HEIGHT),
   );
   const [fontSize, setFontSize] = useState<number>(() => {
@@ -287,28 +290,12 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
     el.focus();
   }, [mode]);
 
-  // Persist user-drag-resize. ResizeObserver fires on every dimension
-  // change; we throttle the localStorage write so a smooth drag doesn't
-  // hammer it. The min/max constraints are enforced via CSS so we just
-  // mirror whatever the browser settled on.
-  useEffect(() => {
-    const el = popupRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    let saveTimer: number | null = null;
-    const observer = new ResizeObserver((entries) => {
-      const r = entries[0]?.contentRect;
-      if (!r) return;
-      if (saveTimer !== null) window.clearTimeout(saveTimer);
-      saveTimer = window.setTimeout(() => {
-        writeNumberPref(STORAGE_WIDTH, Math.round(r.width));
-        writeNumberPref(STORAGE_HEIGHT, Math.round(r.height));
-      }, 200);
-    });
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      if (saveTimer !== null) window.clearTimeout(saveTimer);
-    };
+  // Persist resized dimensions to localStorage. Triggered by the custom
+  // ResizeHandle's onCommit after each drag ends — no need to throttle
+  // because we only write once per drag.
+  const persistSize = useCallback((w: number, h: number) => {
+    writeNumberPref(STORAGE_WIDTH, Math.round(w));
+    writeNumberPref(STORAGE_HEIGHT, Math.round(h));
   }, []);
 
   // Persist font-size changes synchronously (rare event compared to drag).
@@ -364,6 +351,21 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
     goToEdit(cursor ?? undefined);
   };
 
+  // Anchor clicks inside the rendered preview need to escape the in-app
+  // webview and hand off to the system browser — otherwise the URL
+  // navigates this very window, replacing the app. Only honor safe schemes
+  // (http/https/mailto); strip anything else to avoid javascript: URLs
+  // sneaking through micromark.
+  const onPreviewClick = (e: React.MouseEvent<HTMLDivElement>): void => {
+    const target = e.target as HTMLElement | null;
+    const anchor = target?.closest("a");
+    if (!anchor) return;
+    const href = anchor.getAttribute("href");
+    e.preventDefault();
+    if (!href) return;
+    if (/^(https?:|mailto:)/i.test(href)) void openExternal(href);
+  };
+
   if (!node) {
     // Node disappeared (deleted while popup open). Just close.
     close();
@@ -398,12 +400,8 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
           minHeight: "20vh",
           maxWidth: "80vw",
           maxHeight: "80vh",
-          // resize: both gives the user a drag-handle in the bottom-right
-          // corner. overflow:hidden is required for resize to render.
-          resize: "both",
-          overflow: "hidden",
         }}
-        className="flex flex-col rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+        className="relative flex flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
       >
         <header className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-4 py-2 text-sm dark:border-neutral-800">
           <div className="min-w-0 truncate">
@@ -481,6 +479,7 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
           ) : (
             <div
               ref={previewRef}
+              onClick={onPreviewClick}
               onDoubleClick={onPreviewDoubleClick}
               title={readOnly ? undefined : "Double-click to jump back to edit"}
               style={{ fontSize: `${fontSize}px` }}
@@ -525,8 +524,79 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
             </button>
           </div>
         </footer>
+        <ResizeHandle
+          startWidth={popupWidth}
+          startHeight={popupHeight}
+          onResize={(w, h) => {
+            setPopupWidth(w);
+            setPopupHeight(h);
+          }}
+          onCommit={persistSize}
+        />
       </div>
     </div>
+  );
+}
+
+/**
+ * Bottom-right resize grip. Replaces CSS `resize: both`, which was
+ * clipped invisible by the popup's rounded corners and obscured by the
+ * Save / Cancel buttons. Min/max dimensions match the popup's CSS
+ * clamps (20–80% of viewport) so dragging respects the same bounds.
+ */
+function ResizeHandle({
+  startWidth,
+  startHeight,
+  onResize,
+  onCommit,
+}: {
+  startWidth: number;
+  startHeight: number;
+  onResize: (w: number, h: number) => void;
+  onCommit: (w: number, h: number) => void;
+}) {
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const minW = window.innerWidth * 0.2;
+    const minH = window.innerHeight * 0.2;
+    const maxW = window.innerWidth * 0.8;
+    const maxH = window.innerHeight * 0.8;
+    let lastW = startWidth;
+    let lastH = startHeight;
+    const move = (ev: PointerEvent) => {
+      lastW = Math.max(minW, Math.min(maxW, startWidth + (ev.clientX - startX)));
+      lastH = Math.max(minH, Math.min(maxH, startHeight + (ev.clientY - startY)));
+      onResize(lastW, lastH);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      onCommit(lastW, lastH);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
+
+  return (
+    <div
+      role="separator"
+      aria-label="Resize notes popup"
+      aria-orientation="vertical"
+      onPointerDown={onPointerDown}
+      className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
+      style={{
+        // SVG-rendered diagonal grip lines, slightly inset so they sit
+        // just inside the rounded corner.
+        background:
+          "linear-gradient(135deg, transparent 0 55%, currentColor 55% 60%, transparent 60% 70%, currentColor 70% 75%, transparent 75% 85%, currentColor 85% 90%, transparent 90%)",
+        color: "rgba(115, 115, 115, 0.7)",
+      }}
+    />
   );
 }
 

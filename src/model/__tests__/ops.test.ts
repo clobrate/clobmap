@@ -9,6 +9,7 @@ import {
   findById,
   clearAllPositions,
   moveNode,
+  moveSibling,
   setLayoutMode,
   setPositions,
   OpError,
@@ -144,15 +145,13 @@ describe("updateText", () => {
 
 describe("updateNode", () => {
   it("sets and clears optional fields", () => {
-    let doc = updateNode(fixture(), "n3", { note: "hi", color: "#ccc", collapsed: true });
+    let doc = updateNode(fixture(), "n3", { color: "#ccc", collapsed: true });
     let n = findById(doc, "n3");
-    expect(n?.note).toBe("hi");
     expect(n?.color).toBe("#ccc");
     expect(n?.collapsed).toBe(true);
 
-    doc = updateNode(doc, "n3", { note: "", color: "", collapsed: false });
+    doc = updateNode(doc, "n3", { color: "", collapsed: false });
     n = findById(doc, "n3");
-    expect(n?.note).toBeUndefined();
     expect(n?.color).toBeUndefined();
     expect(n?.collapsed).toBeUndefined();
   });
@@ -236,7 +235,6 @@ describe("updateNode", () => {
 
   it("only clears keys actually present in the patch (omitted keys are preserved)", () => {
     let doc = updateNode(fixture(), "n3", {
-      note: "hover",
       color: "#abc",
       maxWidth: 200,
       notes: "long",
@@ -245,7 +243,6 @@ describe("updateNode", () => {
     doc = updateNode(doc, "n3", { text: "renamed" });
     const n = findById(doc, "n3");
     expect(n?.text).toBe("renamed");
-    expect(n?.note).toBe("hover");
     expect(n?.color).toBe("#abc");
     expect(n?.maxWidth).toBe(200);
     expect(n?.notes).toBe("long");
@@ -291,6 +288,61 @@ describe("moveNode", () => {
   });
 });
 
+describe("moveSibling", () => {
+  it("moves a node up among its siblings", () => {
+    const doc = moveSibling(fixture(), "n4", "up");
+    expect(findById(doc, "n2")?.children.map((c) => c.id)).toEqual(["n4", "n3"]);
+  });
+
+  it("moves a node down among its siblings", () => {
+    const doc = moveSibling(fixture(), "n3", "down");
+    expect(findById(doc, "n2")?.children.map((c) => c.id)).toEqual(["n4", "n3"]);
+  });
+
+  it("is a no-op when already at the top", () => {
+    const seed = fixture();
+    const doc = moveSibling(seed, "n3", "up");
+    expect(doc).toBe(seed);
+  });
+
+  it("is a no-op when already at the bottom", () => {
+    const seed = fixture();
+    const doc = moveSibling(seed, "n4", "down");
+    expect(doc).toBe(seed);
+  });
+
+  it("rejects moving the root", () => {
+    expect(() => moveSibling(fixture(), "n1", "up")).toThrow(OpError);
+  });
+
+  it("rejects an unknown id", () => {
+    expect(() => moveSibling(fixture(), "missing", "down")).toThrow(OpError);
+  });
+
+  it("does not mutate the input", () => {
+    const original = fixture();
+    moveSibling(original, "n3", "down");
+    expect(original.root.children[0]?.children.map((c) => c.id)).toEqual(["n3", "n4"]);
+  });
+
+  it("preserves the moved subtree's children", () => {
+    const seed: MindDocument = {
+      title: "T",
+      root: {
+        id: "r",
+        text: "Root",
+        children: [
+          { id: "a", text: "A", children: [{ id: "a1", text: "A1", children: [] }] },
+          { id: "b", text: "B", children: [] },
+        ],
+      },
+    };
+    const doc = moveSibling(seed, "a", "down");
+    expect(doc.root.children.map((c) => c.id)).toEqual(["b", "a"]);
+    expect(findById(doc, "a")?.children.map((c) => c.id)).toEqual(["a1"]);
+  });
+});
+
 describe("cloneWithNewIds", () => {
   it("regenerates ids for the entire subtree", () => {
     const ids = createIdGenerator(100);
@@ -309,14 +361,12 @@ describe("cloneWithNewIds", () => {
     const source = {
       id: "src",
       text: "Hi",
-      note: "n",
       color: "#abc",
       collapsed: true,
       children: [{ id: "c", text: "child", children: [] }],
     };
     const clone = cloneWithNewIds(source, ids);
     expect(clone.text).toBe("Hi");
-    expect(clone.note).toBe("n");
     expect(clone.color).toBe("#abc");
     expect(clone.collapsed).toBe(true);
     expect(clone.children[0]!.text).toBe("child");

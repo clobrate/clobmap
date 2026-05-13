@@ -27,6 +27,7 @@ import {
   findById,
   idGeneratorForDocument,
   moveNode,
+  moveSibling,
   OpError,
   setLayoutMode,
   setPositions,
@@ -186,6 +187,39 @@ function MindMapInner() {
     [reactFlow],
   );
 
+  // Pan only if the node sits outside (or close to the edge of) the
+  // visible canvas. Keystroke-driven navigation stays still as long as
+  // the target is comfortably on-screen; we only re-center when it
+  // would otherwise be clipped. EDGE_MARGIN_PX gives a small breathing
+  // gutter so a node right at the screen edge still triggers a pan.
+  const panToNodeIfOffscreen = useCallback(
+    (nodeId: string, durationMs: number) => {
+      const node = reactFlow.getNode(nodeId);
+      if (!node) return;
+      const canvas = document.querySelector(".react-flow");
+      if (!canvas) {
+        panToNode(nodeId, durationMs);
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const w = node.measured?.width ?? 180;
+      const h = node.measured?.height ?? 44;
+      const topLeft = reactFlow.flowToScreenPosition({ x: node.position.x, y: node.position.y });
+      const bottomRight = reactFlow.flowToScreenPosition({
+        x: node.position.x + w,
+        y: node.position.y + h,
+      });
+      const EDGE_MARGIN_PX = 24;
+      const offscreen =
+        topLeft.x < rect.left + EDGE_MARGIN_PX ||
+        topLeft.y < rect.top + EDGE_MARGIN_PX ||
+        bottomRight.x > rect.right - EDGE_MARGIN_PX ||
+        bottomRight.y > rect.bottom - EDGE_MARGIN_PX;
+      if (offscreen) panToNode(nodeId, durationMs);
+    },
+    [reactFlow, panToNode],
+  );
+
   // For freshly-created nodes: wait one frame for the layout-mirror
   // effect to push the new node into React Flow before we try to read
   // it back via reactFlow.getNode(id).
@@ -198,9 +232,12 @@ function MindMapInner() {
 
   // For arrow-key navigation: nodes already exist, no rAF needed; shorter
   // duration so rapid keypresses chain smoothly instead of stuttering.
+  // Crucially, only pan when the target would otherwise be clipped —
+  // re-centering on every keypress makes the canvas appear to slide
+  // around even when the target was already comfortably in view.
   const revealForNav = useCallback(
-    (nodeId: string) => panToNode(nodeId, 150),
-    [panToNode],
+    (nodeId: string) => panToNodeIfOffscreen(nodeId, 150),
+    [panToNodeIfOffscreen],
   );
 
   const onNodeClick: NodeMouseHandler<Node<MindNodeData>> = useCallback(
@@ -453,6 +490,23 @@ function MindMapInner() {
         }
         case "ArrowUp":
         case "ArrowDown": {
+          if (e.altKey) {
+            // Alt+ArrowUp/Down reorders the selected node among its siblings.
+            // The node is by definition already on-screen (the user just
+            // selected it), so we deliberately skip the pan-to-node that
+            // newly-created nodes get — re-centering would make the whole
+            // canvas appear to jump on every keypress.
+            if (selectedId === tree.root.id) return;
+            e.preventDefault();
+            try {
+              const direction = e.key === "ArrowUp" ? "up" : "down";
+              const next = moveSibling(tree, selectedId, direction);
+              if (next !== tree) applyTreeChange(next);
+            } catch (err) {
+              if (!(err instanceof OpError)) throw err;
+            }
+            return;
+          }
           const target = navigateSibling(tree, selectedId, e.key === "ArrowUp" ? -1 : 1);
           if (target) {
             e.preventDefault();
@@ -587,7 +641,8 @@ function MindMapInner() {
             closeContextMenu();
           }}
           onDuplicate={() => handleDuplicate(contextMenu.nodeId)}
-          onEditNote={(note) => handleEditNote(contextMenu.nodeId, note)}
+          onMoveUp={() => handleMoveSibling(contextMenu.nodeId, "up")}
+          onMoveDown={() => handleMoveSibling(contextMenu.nodeId, "down")}
           onEditNotes={() => {
             openNotesEditor(contextMenu.nodeId);
             closeContextMenu();
@@ -668,10 +723,15 @@ function MindMapInner() {
     closeContextMenu();
   }
 
-  function handleEditNote(nodeId: string, note: string) {
+  function handleMoveSibling(nodeId: string, direction: "up" | "down") {
     const tree = useDocumentStore.getState().parsedDoc;
-    if (!tree) return;
-    applyTreeChange(updateNode(tree, nodeId, { note }));
+    if (!tree || nodeId === tree.root.id) return;
+    try {
+      const next = moveSibling(tree, nodeId, direction);
+      if (next !== tree) applyTreeChange(next);
+    } catch (err) {
+      if (!(err instanceof OpError)) throw err;
+    }
     closeContextMenu();
   }
 

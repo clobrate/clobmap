@@ -6,7 +6,6 @@ function nodeToPlain(node: MindNode): Record<string, unknown> {
     id: node.id,
     text: node.text,
   };
-  if (node.note !== undefined) out.note = node.note;
   if (node.color !== undefined) out.color = node.color;
   if (node.collapsed !== undefined) out.collapsed = node.collapsed;
   if (node.maxWidth !== undefined) out.maxWidth = node.maxWidth;

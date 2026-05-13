@@ -101,13 +101,12 @@ describe("applyTreeToDocument", () => {
     expect(live.ok).toBe(true);
     if (!live.ok) return;
 
-    const after = updateNode(live.value.tree, "n1", { note: "", color: "", collapsed: false });
+    const after = updateNode(live.value.tree, "n1", { color: "", collapsed: false });
     applyTreeToDocument(live.value.doc, after);
     const out = serializeLiveYaml(live.value.doc);
     const reparsed = parseYaml(out);
     expect(reparsed.ok).toBe(true);
     if (!reparsed.ok) return;
-    expect(reparsed.value.root.note).toBeUndefined();
     expect(reparsed.value.root.color).toBeUndefined();
     expect(reparsed.value.root.collapsed).toBeUndefined();
   });
@@ -151,7 +150,6 @@ describe("applyTreeToDocument", () => {
             id: "n2",
             text: "Decorated",
             children: [],
-            note: "rich",
             color: "#abcdef",
             collapsed: true,
           },
@@ -164,7 +162,6 @@ describe("applyTreeToDocument", () => {
     expect(reparsed.ok).toBe(true);
     if (!reparsed.ok) return;
     const child = reparsed.value.root.children[0];
-    expect(child?.note).toBe("rich");
     expect(child?.color).toBe("#abcdef");
     expect(child?.collapsed).toBe(true);
   });

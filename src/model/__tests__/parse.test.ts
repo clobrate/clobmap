@@ -32,7 +32,6 @@ describe("parseYaml", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value.version).toBe(1);
-    expect(r.value.root.note).toBe("This is the root node");
     expect(r.value.root.color).toBe("#ff0000");
     expect(r.value.root.collapsed).toBe(false);
     expect(r.value.root.children[0].collapsed).toBe(true);

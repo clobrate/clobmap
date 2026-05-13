@@ -23,11 +23,10 @@ function indexTree(node: MindNode, parentId: string | null, out: Map<string, Ind
   }
 }
 
-type FieldKey = "note" | "color" | "collapsed";
+type FieldKey = "color" | "collapsed";
 
 function fieldsChanged(a: MindNode, b: MindNode): FieldKey[] {
   const changed: FieldKey[] = [];
-  if ((a.note ?? "") !== (b.note ?? "")) changed.push("note");
   if ((a.color ?? "") !== (b.color ?? "")) changed.push("color");
   if (Boolean(a.collapsed) !== Boolean(b.collapsed)) changed.push("collapsed");
   return changed;

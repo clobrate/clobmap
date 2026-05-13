@@ -82,6 +82,10 @@ test.describe("tabs (§3)", () => {
       void d.dismiss();
     });
     await addChild(page, "Venue", "Unsaved edit");
+    // App.tsx mirrors `isDirty` into document.title as a leading "● " prefix.
+    // Waiting for it eliminates the parallel-load race where Cmd+W could
+    // fire before the store's dirty flag has settled (no dirty → no prompt).
+    await expect(page).toHaveTitle(/^●/);
     await closeActiveTab(page);
     // The prompt fired (so the dirty state actually triggered the guard)
     // AND we dismissed it, so the tab stays open with the unsaved node.
@@ -92,9 +96,20 @@ test.describe("tabs (§3)", () => {
   test("3.5 dirty tab + Cmd+W → accept discards and closes the tab", async ({ page }) => {
     // Two tabs so closing one doesn't seed an Untitled.
     await openNewTab(page);
-    // Switch back to tab A and dirty it.
+    // Switch back to tab A and wait for its canvas to finish swapping in
+    // before mutating it. Under parallel load (WebKit), addChild can race
+    // with the tab transition: by the time we press Tab, the node-click
+    // pipeline for tab A's canvas isn't fully wired yet. Wait for both
+    // ROOT and Venue (the parent we're about to mutate) to be visible —
+    // not just present in the DOM — so the canvas's interaction layer has
+    // had a chance to attach.
     await tabs(page).nth(0).click();
+    await expect(nodeByText(page, ROOT)).toBeVisible();
+    await expect(nodeByText(page, "Venue")).toBeVisible();
     await addChild(page, "Venue", "Will be discarded");
+    // Mirror the dirty-state settle from the sibling test — guarantees
+    // Cmd+W reads isDirty=true when it fires.
+    await expect(page).toHaveTitle(/^●/);
     page.once("dialog", (d) => d.accept());
     await closeActiveTab(page);
     // Strip is gone now (only one tab left), and the discarded node isn't visible.
