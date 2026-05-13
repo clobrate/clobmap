@@ -9,6 +9,7 @@ import {
   findById,
   clearAllPositions,
   moveNode,
+  moveSibling,
   setLayoutMode,
   setPositions,
   OpError,
@@ -288,6 +289,61 @@ describe("moveNode", () => {
 
   it("rejects unknown target parent", () => {
     expect(() => moveNode(fixture(), "n3", "missing")).toThrow(OpError);
+  });
+});
+
+describe("moveSibling", () => {
+  it("moves a node up among its siblings", () => {
+    const doc = moveSibling(fixture(), "n4", "up");
+    expect(findById(doc, "n2")?.children.map((c) => c.id)).toEqual(["n4", "n3"]);
+  });
+
+  it("moves a node down among its siblings", () => {
+    const doc = moveSibling(fixture(), "n3", "down");
+    expect(findById(doc, "n2")?.children.map((c) => c.id)).toEqual(["n4", "n3"]);
+  });
+
+  it("is a no-op when already at the top", () => {
+    const seed = fixture();
+    const doc = moveSibling(seed, "n3", "up");
+    expect(doc).toBe(seed);
+  });
+
+  it("is a no-op when already at the bottom", () => {
+    const seed = fixture();
+    const doc = moveSibling(seed, "n4", "down");
+    expect(doc).toBe(seed);
+  });
+
+  it("rejects moving the root", () => {
+    expect(() => moveSibling(fixture(), "n1", "up")).toThrow(OpError);
+  });
+
+  it("rejects an unknown id", () => {
+    expect(() => moveSibling(fixture(), "missing", "down")).toThrow(OpError);
+  });
+
+  it("does not mutate the input", () => {
+    const original = fixture();
+    moveSibling(original, "n3", "down");
+    expect(original.root.children[0]?.children.map((c) => c.id)).toEqual(["n3", "n4"]);
+  });
+
+  it("preserves the moved subtree's children", () => {
+    const seed: MindDocument = {
+      title: "T",
+      root: {
+        id: "r",
+        text: "Root",
+        children: [
+          { id: "a", text: "A", children: [{ id: "a1", text: "A1", children: [] }] },
+          { id: "b", text: "B", children: [] },
+        ],
+      },
+    };
+    const doc = moveSibling(seed, "a", "down");
+    expect(doc.root.children.map((c) => c.id)).toEqual(["b", "a"]);
+    expect(findById(doc, "a")?.children.map((c) => c.id)).toEqual(["a1"]);
   });
 });
 

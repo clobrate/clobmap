@@ -199,6 +199,35 @@ export function updateNode(
   return { ...doc, root: newRoot };
 }
 
+export function moveSibling(
+  doc: MindDocument,
+  id: string,
+  direction: "up" | "down",
+): MindDocument {
+  if (id === doc.root.id) {
+    throw new OpError("moveSibling: cannot move root");
+  }
+  const parentInfo = findParent(doc.root, id);
+  if (!parentInfo) {
+    throw new OpError(`moveSibling: node "${id}" not found`);
+  }
+  const { parent, index } = parentInfo;
+  const swapWith = direction === "up" ? index - 1 : index + 1;
+  if (swapWith < 0 || swapWith >= parent.children.length) return doc;
+  const newRoot = mapTree(doc.root, (n) => {
+    if (n.id !== parent.id) return n;
+    const children = [...n.children];
+    [children[index], children[swapWith]] = [children[swapWith]!, children[index]!];
+    return { ...n, children };
+  });
+  /* v8 ignore start */
+  if (newRoot === null) {
+    throw new OpError(`moveSibling: parent "${parent.id}" disappeared during move`);
+  }
+  /* v8 ignore stop */
+  return { ...doc, root: newRoot };
+}
+
 export function moveNode(
   doc: MindDocument,
   id: string,

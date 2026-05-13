@@ -20,6 +20,7 @@ export {
   updateText,
   updateNode,
   moveNode,
+  moveSibling,
   duplicateNode,
   cloneWithNewIds,
   emptyDocument,

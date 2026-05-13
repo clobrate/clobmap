@@ -171,14 +171,18 @@ test.describe("canvas — pointer & keyboard (§4)", () => {
   test("4.12 Cmd+0 fits the canvas to all nodes after a manual pan", async ({ page }) => {
     const viewport = page.locator(".react-flow__viewport");
     const before = await viewport.getAttribute("style");
-    // Pan via repeated arrow keys after selecting the root — there's no
-    // dedicated pan keystroke, but ArrowDown moves selection south and
-    // the canvas pans to follow it. Walking down the tree gives us a
-    // viewport transform we know diverges from the cold-start fit.
-    await selectNode(page, "Our wedding");
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowDown");
+    // Pan by dragging the canvas background (panOnDrag is enabled). Arrow
+    // keys won't reliably pan any more — they only re-center when the
+    // selected node would otherwise be clipped — so we need a direct drag
+    // to produce a viewport transform that diverges from the cold-start fit.
+    const pane = page.locator(".react-flow__pane");
+    const box = await pane.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 200, box.y + box.height / 2 - 120, { steps: 12 });
+    await page.mouse.up();
     await page.waitForTimeout(200);
     const afterPan = await viewport.getAttribute("style");
     expect(afterPan).not.toBe(before);

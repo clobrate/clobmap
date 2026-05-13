@@ -1,5 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { findById, type MindDocument } from "../model";
+import { findById, type MindDocument, type MindNode } from "../model";
+
+function findSiblingPosition(
+  root: MindNode,
+  id: string,
+): { index: number; siblingCount: number } | null {
+  for (const child of root.children) {
+    if (child.id === id) {
+      return { index: root.children.indexOf(child), siblingCount: root.children.length };
+    }
+    const found = findSiblingPosition(child, id);
+    if (found) return found;
+  }
+  return null;
+}
 
 interface Props {
   nodeId: string;
@@ -14,6 +28,8 @@ interface Props {
   onToggleCollapse: () => void;
   onRename: () => void;
   onDuplicate: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   onEditNote: (note: string) => void;
   onEditNotes: () => void;
   onSetColor: (color: string | null) => void;
@@ -35,6 +51,8 @@ export function ContextMenu(props: Props) {
     onToggleCollapse,
     onRename,
     onDuplicate,
+    onMoveUp,
+    onMoveDown,
     onEditNote,
     onEditNotes,
     onSetColor,
@@ -58,6 +76,9 @@ export function ContextMenu(props: Props) {
   if (!node) return null;
   const isRoot = nodeId === tree.root.id;
   const hasChildren = node.children.length > 0;
+  const siblingPos = isRoot ? null : findSiblingPosition(tree.root, nodeId);
+  const canMoveUp = siblingPos !== null && siblingPos.index > 0;
+  const canMoveDown = siblingPos !== null && siblingPos.index < siblingPos.siblingCount - 1;
 
   if (editingNote) {
     return (
@@ -95,6 +116,8 @@ export function ContextMenu(props: Props) {
         onClick={onToggleCollapse}
       />
       <Item label="Duplicate" disabled={isRoot} onClick={onDuplicate} />
+      <Item label="Move up" shortcut="⌥↑" disabled={!canMoveUp} onClick={onMoveUp} />
+      <Item label="Move down" shortcut="⌥↓" disabled={!canMoveDown} onClick={onMoveDown} />
       <Divider />
       <Item label="Cut" shortcut="⌘X" disabled={isRoot} onClick={onCut} />
       <Item label="Paste here" shortcut="⌘V" disabled={!isClipboardActive} onClick={onPaste} />
