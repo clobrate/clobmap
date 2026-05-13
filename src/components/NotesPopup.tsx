@@ -9,6 +9,7 @@ import {
   type LoadedNotes,
 } from "../lib/notes";
 import { isMobile, isTauri } from "../lib/env";
+import { openExternal } from "../lib/openExternal";
 
 type Mode = "edit" | "preview";
 
@@ -364,6 +365,21 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
     goToEdit(cursor ?? undefined);
   };
 
+  // Anchor clicks inside the rendered preview need to escape the in-app
+  // webview and hand off to the system browser — otherwise the URL
+  // navigates this very window, replacing the app. Only honor safe schemes
+  // (http/https/mailto); strip anything else to avoid javascript: URLs
+  // sneaking through micromark.
+  const onPreviewClick = (e: React.MouseEvent<HTMLDivElement>): void => {
+    const target = e.target as HTMLElement | null;
+    const anchor = target?.closest("a");
+    if (!anchor) return;
+    const href = anchor.getAttribute("href");
+    e.preventDefault();
+    if (!href) return;
+    if (/^(https?:|mailto:)/i.test(href)) void openExternal(href);
+  };
+
   if (!node) {
     // Node disappeared (deleted while popup open). Just close.
     close();
@@ -481,6 +497,7 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
           ) : (
             <div
               ref={previewRef}
+              onClick={onPreviewClick}
               onDoubleClick={onPreviewDoubleClick}
               title={readOnly ? undefined : "Double-click to jump back to edit"}
               style={{ fontSize: `${fontSize}px` }}
