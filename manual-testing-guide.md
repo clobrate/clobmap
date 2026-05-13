@@ -421,6 +421,132 @@ git diffs.
 
 ---
 
+## 17. Tags (per-node + tag tree + filter view + highlight)
+
+Per-node `tags: string[]` plus a parallel tag tree stored under
+`tagRoot`. Pure UI features (autocomplete, selection-driven highlight,
+filter view) are ephemeral; persisted state lives in YAML. Most of the
+behavior here is covered by `e2e/tests/tags.spec.ts`,
+`tag-tree.spec.ts`, `tag-filter.spec.ts`, `tag-polish.spec.ts`, and
+`tag-highlight.spec.ts` — walk this section as a smoke test before
+release and whenever the canvas chrome changes.
+
+### 17.1 Tag editor (per-node)
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.1.1 | Select a node, press `T` | Modal opens with focused "Add tag" input and the node's title in the header. |
+| 17.1.2 | Right-click a node → "Edit tags…" | Same modal opens. |
+| 17.1.3 | Type `urgent` and press Enter | Chip appears in the editor. Re-opening the editor for the same node shows the chip. |
+| 17.1.4 | Type `a, b, c` and press Enter | All three chips appear in one commit. |
+| 17.1.5 | Type `Hello, World` and click **Done** without pressing Enter | Tags are committed before the dialog closes (the pending input doesn't get silently dropped). |
+| 17.1.6 | Click the `×` on a chip | Tag removed from the node; tag-node stays in the tag tree (just unlinked from this node). |
+| 17.1.7 | Try to add a tag that already exists on this node (any casing) | Silent no-op for that name; other names in the batch still commit. |
+| 17.1.8 | Try to add `""` or `"   "` | OpError shows inline below the input; dialog stays open. |
+
+### 17.2 Tag editor autocomplete
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.2.1 | Type a prefix that matches an existing tag-tree entry | Dropdown opens below the input with matching names, case-insensitively. |
+| 17.2.2 | `↓` / `↑` arrow keys | Move the highlight between suggestions. |
+| 17.2.3 | `Tab` or `→` on a highlighted suggestion | Accepts the suggestion into the input WITHOUT committing — user can keep editing. |
+| 17.2.4 | `Enter` with a highlighted suggestion | Accepts the suggestion AND commits in one step. |
+| 17.2.5 | Type `URGENT` when `urgent` exists | Suggestion shows the existing `urgent` with a small **"case differs"** badge. Clicking adopts existing casing. |
+| 17.2.6 | Suggestions for tags already on this node | Excluded from the list. |
+| 17.2.7 | Type after a comma (`alpha, b`) | Autocomplete operates on the active fragment (after the comma), so `b…` suggests `beta` etc. |
+
+### 17.3 Node visuals
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.3.1 | Node has at least one tag | A small tag-shaped icon appears in the node header, sibling to the notes icon. |
+| 17.3.2 | Hover over the icon | Native title tooltip shows `Edit tags (N)` where N is the tag count. |
+| 17.3.3 | Click the icon | Opens the tag editor for that node (same as `T`). |
+| 17.3.4 | Node has zero tags | No icon — tagless nodes look identical to pre-tagging clobmap. |
+
+### 17.4 Tag tree pane
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.4.1 | Add the first tag to any node | Pane appears below the data canvas (vertical split). Header gains a **Hide tags** toggle. |
+| 17.4.2 | Doc has zero tags (delete all of them) | Pane disappears; toggle button no longer rendered. |
+| 17.4.3 | **Hide tags** in the header | Pane goes away; data canvas takes full height; toggle relabels to **Show tags**. |
+| 17.4.4 | **Show tags** in the header | Pane reappears; toggle relabels to **Hide tags**. |
+| 17.4.5 | Drag the divider between the data canvas and the tag tree | Resizes the split; ratio persists across re-open of the doc. |
+| 17.4.6 | Click a tag-node | Tag-node gets the emerald selection ring AND every data-node carrying that tag fills with amber. Header chrome shows a **Highlight: \<tag>** pill with `×` to clear. |
+| 17.4.7 | Click empty space in the tag-tree pane | Selection clears → highlight clears → pill disappears. |
+| 17.4.8 | Click a data-node in the data canvas | Tag selection clears (data and tag selection are mutually exclusive). |
+| 17.4.9 | Right-click a tag-node | Context menu with Rename / Show nodes under this tag's hierarchy / Delete tag. Menu position clamps inside the viewport even when right-clicking near the bottom edge. |
+
+### 17.5 Tag-tree drag, rename, delete
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.5.1 | Drag a tag-node onto another in the pane | Re-parents (uses `moveTagNode`). Drop on empty space snaps back. |
+| 17.5.2 | Drop a tag-node onto a descendant of itself | Rejected (cycle protection); snap back. |
+| 17.5.3 | Double-click a tag-node | Inline rename input opens, focused. |
+| 17.5.4 | `F2` on a selected tag-node | Same as double-click. |
+| 17.5.5 | Rename a tag in use by ≥1 data-node, commit | The data-node `tags` arrays are rewritten in lockstep — chip names follow the rename. Verify in the YAML view. |
+| 17.5.6 | Try to rename to a name already used by a different tag-node (any casing) | Inline error appears; rename rejected; editor stays open. |
+| 17.5.7 | Rename to the same name in different casing | Tag-node display follows; data-node tags untouched (matching is case-insensitive). |
+| 17.5.8 | `Delete` / `Backspace` on a selected tag-node | Tag-node + its descendants are removed; every matching tag name is stripped from every data-node in one atomic undo step. |
+| 17.5.9 | Right-click → Delete tag | Same as the Delete keyboard shortcut. |
+| 17.5.10 | Undo (`Cmd/Ctrl+Z`) after a cascading delete | The tag-node + descendants come back AND every data-node's chips reappear — one undo step covers the whole cascade. |
+
+### 17.6 Hierarchy filter view
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.6.1 | Right-click a tag → **Show nodes under this tag's hierarchy** | Canvas swaps to a read-only filter view rooted at that tag. Header shows a green **Reset filter** button. |
+| 17.6.2 | Filter view structure | Selected tag is the root; descendant tag-nodes preserved; each tag-node has matching data-nodes as children; an **Untagged** pseudo-bucket appears as the last sibling when ≥1 data-node has no tags. |
+| 17.6.3 | A data-node carrying multiple tags from the same subtree | Shows up once under each matching tag-node (intentional duplication). React Flow ids scoped per parent tag — no collisions. |
+| 17.6.4 | Try to add a child / sibling / drag-reparent inside the filter view | All structural edits are disabled. Tab, Enter, drag, Delete are no-ops here. |
+| 17.6.5 | **Reset filter** button | Returns to the regular data canvas + tag-tree pane. Tag selection is cleared on entry but NOT auto-restored on exit. |
+| 17.6.6 | Delete the filtered tag from another path (e.g., undo flow) | Filter view falls back to a stub message pointing the user to **Reset filter**. |
+| 17.6.7 | A11y: enter the filter view | `aria-live="polite"` region announces "Filtering by tag X. Press Reset filter to exit." |
+| 17.6.8 | Exit the filter view | Live region announces "Filter cleared. Back to the full mind map." |
+
+### 17.7 Highlight (selection-driven)
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.7.1 | Click a tag-node | Every data-node carrying that tag (case-insensitively) fills with amber. Header pill shows the active tag. |
+| 17.7.2 | Click a different tag-node | Highlight replaces — only the new tag's matches are filled. Pill updates. Only one pill at a time. |
+| 17.7.3 | Click the pill's `×` | Highlight clears, pill removed. |
+| 17.7.4 | Click a data-node | Tag selection clears → highlight clears. |
+| 17.7.5 | Click empty pane space in the tag-tree pane | Same — highlight clears. |
+| 17.7.6 | Delete the highlighted tag (Delete key or right-click) | Highlight clears (and the tag's gone). |
+| 17.7.7 | Enter filter view while a tag is highlighted | Highlight clears on filter-view entry (the two single-tag-focus modes are mutually exclusive). |
+| 17.7.8 | Reload the page with a highlight active | Highlight is gone — UI state is intentionally ephemeral, not in YAML. |
+| 17.7.9 | A highlighted data-node also has a user-chosen `color` border | Border color stays untouched; highlight is a separate background fill. |
+
+### 17.8 YAML & persistence
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.8.1 | Add a tag, switch to YAML view | The data-node now carries a block-list `tags:` field; a top-level `tagRoot:` block exists. No comma-separated `tags: [a, b]` flow form. |
+| 17.8.2 | Add a tag, reload the page | Tag survives — chip / icon back on the node, tag-node back in the tag tree. |
+| 17.8.3 | Save to a file, reopen | Same. |
+| 17.8.4 | Rename a tag, reload | Renamed tag persists in both `tagRoot` and the data-nodes' `tags[]`. |
+| 17.8.5 | Edit YAML by hand to add a tag-node | After parse, it appears in the tag-tree pane. |
+| 17.8.6 | Open a pre-Phase-20 v1 YAML (no `tags`, no `tagRoot`) | Parses cleanly — backwards-compatible read. After any edit, the saved file is v2; reopen in an older clobmap build will reject unknown fields. |
+| 17.8.7 | Open a doc with empty `tags: []` on a node | Parses fine; the empty array is treated as absent (no chip / icon, and the key is dropped on next save). |
+| 17.8.8 | Open a doc with duplicate tag-node names in `tagRoot` (case-insensitive) | Parse fails with a duplicate-name error. |
+| 17.8.9 | Open a doc with an id collision between a data-node and a tag-node | Parse fails — ids share one namespace. |
+
+### 17.9 Edge cases
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 17.9.1 | Doc with `tagRoot` but its `children` is empty | Tag-tree pane stays hidden (treated as "no tags"). |
+| 17.9.2 | Add a tag, then delete the underlying tag-node, then add the same name elsewhere | A fresh tag-node is created (no leftover identity). |
+| 17.9.3 | Filter view + screen reader running | Announce text reads naturally via the aria-live region (smoke check with VoiceOver / NVDA). |
+| 17.9.4 | Tag-tree pane visible, switch to YAML view, edit `tagRoot` to add a tag-node, switch back | New tag-node appears in the pane without reload. |
+| 17.9.5 | Multiple tabs open, each with different tags | Each tab tracks its own tag tree. Switching tabs swaps the pane content. |
+
+---
+
 ## What's excluded from manual testing
 
 - The pure model layer (parse / serialize / apply / ops / diff /

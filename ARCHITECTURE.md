@@ -26,7 +26,8 @@ Two consequences worth knowing up front:
 │                         React UI (src/components, src/App.tsx)     │
 │                                                                    │
 │  YamlEditor (CodeMirror 6) ◄──┐         ┌──► MindMap (React Flow) │
-│                               │         │                          │
+│                               │         │      + TagTreePane      │
+│                               │         │      + FilterCanvas     │
 │                          subscribes  subscribes                    │
 └────────────────────────────────┼─────────┼─────────────────────────┘
                                  ▼         ▼
@@ -44,8 +45,17 @@ Two consequences worth knowing up front:
 │                Model (src/model) — no React, no I/O                │
 │                                                                    │
 │  parse        — yamlText  → MindDocument tree + yaml.Document AST  │
+│                  (validates per-node `tags` and the parallel       │
+│                   `tagRoot` tree; SCHEMA_VERSION = 2)               │
 │  apply        — mutate the AST in place to match a new tree        │
-│  ops          — addChild, addSibling, moveNode, duplicateNode, ... │
+│                  (syncs `tags` lists + `tagRoot` subtree)          │
+│  ops          — addChild, addSibling, moveNode, duplicateNode,     │
+│                  tagsAdd, tagsRemove, tagDelete (cascading),       │
+│                  updateTagName (linked-rename cascade),            │
+│                  moveTagNode, moveTagSibling — generic helpers     │
+│                  (mapTree / findInTree / isDescendant) work over   │
+│                  both MindNode and TagNode via the                 │
+│                  `{ id, children }` shape constraint               │
 │  diff         — used by tests and the property-test harness        │
 │  serialize    — MindDocument → yamlText (for the no-AST path)      │
 └────────────────────────────────────────────────────────────────────┘
@@ -99,15 +109,16 @@ explicit `syncActive()` call after Save / Save As.
 
 | Concern | Lives in |
 |---|---|
-| YAML parse + AST | `src/model/parse.ts` |
-| Tree ops (add/move/delete) | `src/model/ops.ts` |
-| Apply tree changes back to YAML AST | `src/model/apply.ts` |
+| YAML parse + AST (incl. tags + tagRoot validation) | `src/model/parse.ts` |
+| Tree ops (data + tag) — add/move/delete, tagsAdd/Remove, tagDelete, updateTagName, moveTagNode/moveTagSibling | `src/model/ops.ts` |
+| Apply tree changes back to YAML AST (incl. `tags` lists + `tagRoot` subtree) | `src/model/apply.ts` |
 | Pure-text re-serialize (no AST) | `src/model/serialize.ts` |
-| ID generator | `src/model/ids.ts` |
-| Layout (depth × subtree-row) | `src/lib/layout.ts` |
+| ID generator (shared namespace across both trees) | `src/model/ids.ts` |
+| Layout — data tree (`layout.ts`), tag tree (`tagLayout.ts`), filter view (inline in `FilterCanvas.tsx`) | `src/lib/` |
+| Tag helpers (`hasAnyTag`, filter-tree builder) | `src/lib/tags.ts`, `src/lib/tagFilter.ts` |
 | Document store | `src/store/document.ts` |
 | Tabs (snapshot+swap) | `src/store/tabs.ts` |
-| UI state (view mode, selection, …) | `src/store/ui.ts` |
+| UI state (view mode, selection, tag-tree visibility, filter id, …) | `src/store/ui.ts` |
 | File actions (open / save / new) | `src/lib/fileActions.ts` |
 | Storage adapter | `src/lib/storage/` |
 | Telemetry (Sentry, opt-in) | `src/lib/telemetry.ts` |

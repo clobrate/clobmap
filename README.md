@@ -6,7 +6,7 @@ A minimalistic, cross-platform mind-mapping app where the **YAML view and the mi
 
 Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web, and (later) iOS / Android.
 
-> **Status:** **v1.1.5** is published — install from https://github.com/clobrate/clobmap/releases/latest. Live at https://clobmap.com. 1.1.5 ships the first-launch **Wedding planning** seed in canonical auto layout (no `layoutMode` key, no per-node `position` blocks) so fresh installs see the current measurement-driven tidy-tree spacing instead of positions hand-placed against the pre-1.1.2 layout constants. 1.1.4 replaces "Markdown outline" with **All notes (Markdown)** under File → Export — one `# Node title (id)` heading per node followed by that node's long-form notes body, with `__ no notes found __` placeholders so the document covers the whole tree, and ATX headings inside each note demoted by one `#` so they nest under the per-node heading. Filename uses a `<doc>.notes.YYYYMMDDHHmm.md` pattern so successive exports don't clobber each other. Internally the e2e test suite grew by 50+ Playwright tests across the previously-manual surfaces (notes popup, tabs, layout-mode drag, perf, file menu, boot, rapid-rename stress) and unit-test coverage hit 100% on `model/ops.ts`, `lib/navigation.ts`, and `store/document.ts`. 1.1.3 added a "Reset to Auto (clear saved positions)" button under ⚙ → Layout that wipes every stored `position` field and flips the document back to canonical auto in one click — useful when a manual session has gone sideways and you want a true clean slate. Switching to Manual afterward also now snapshots the current measurement-driven render so the visual no longer jumps to a wide cap-sized layout. 1.1.2 shipped canvas-feel improvements (Ctrl/Cmd-drag to translate a whole subtree, normal drag freezes implicit-position children, symmetric north/south sibling distribution, measurement-driven layout for tight visible gaps, ROW_GAP=10 / COLUMN_GAP=50). 1.1.1 fixed a draft-restore bug on the web build (unsaved YAML now survives reload, including a second reload). 1.1 adds variable-size text nodes (word-wrap + max-width / max-height), running notes per node (Markdown popup with edit/preview toggle, auto-save, font zoom, sidecar `.md` files on desktop), free-form / manual layout (drag nodes anywhere, auto-switches from auto on first drag, per-doc layout mode, manual positions preserved across mode toggles), per-edge connector position (drag the endpoint dots to any of the 4 sides on either node, each child configurable independently), and arrow markers for direction. Exports to PNG / SVG / PDF / Markdown.
+> **Status:** **v1.1.5** is published — install from https://github.com/clobrate/clobmap/releases/latest. Live at https://clobmap.com. The next release ships **per-node tags + a tag tree + hierarchy filter view + selection-driven highlight** (Phase 20 — see the Roadmap below). 1.1.5 ships the first-launch **Wedding planning** seed in canonical auto layout (no `layoutMode` key, no per-node `position` blocks) so fresh installs see the current measurement-driven tidy-tree spacing instead of positions hand-placed against the pre-1.1.2 layout constants. 1.1.4 replaces "Markdown outline" with **All notes (Markdown)** under File → Export — one `# Node title (id)` heading per node followed by that node's long-form notes body, with `__ no notes found __` placeholders so the document covers the whole tree, and ATX headings inside each note demoted by one `#` so they nest under the per-node heading. Filename uses a `<doc>.notes.YYYYMMDDHHmm.md` pattern so successive exports don't clobber each other. Internally the e2e test suite grew by 50+ Playwright tests across the previously-manual surfaces (notes popup, tabs, layout-mode drag, perf, file menu, boot, rapid-rename stress) and unit-test coverage hit 100% on `model/ops.ts`, `lib/navigation.ts`, and `store/document.ts`. 1.1.3 added a "Reset to Auto (clear saved positions)" button under ⚙ → Layout that wipes every stored `position` field and flips the document back to canonical auto in one click — useful when a manual session has gone sideways and you want a true clean slate. Switching to Manual afterward also now snapshots the current measurement-driven render so the visual no longer jumps to a wide cap-sized layout. 1.1.2 shipped canvas-feel improvements (Ctrl/Cmd-drag to translate a whole subtree, normal drag freezes implicit-position children, symmetric north/south sibling distribution, measurement-driven layout for tight visible gaps, ROW_GAP=10 / COLUMN_GAP=50). 1.1.1 fixed a draft-restore bug on the web build (unsaved YAML now survives reload, including a second reload). 1.1 adds variable-size text nodes (word-wrap + max-width / max-height), running notes per node (Markdown popup with edit/preview toggle, auto-save, font zoom, sidecar `.md` files on desktop), free-form / manual layout (drag nodes anywhere, auto-switches from auto on first drag, per-doc layout mode, manual positions preserved across mode toggles), per-edge connector position (drag the endpoint dots to any of the 4 sides on either node, each child configurable independently), and arrow markers for direction. Exports to PNG / SVG / PDF / Markdown.
 
 ---
 
@@ -22,6 +22,7 @@ Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web
 - **Split orientation:** side-by-side (default) or stacked, switchable from the ⚙ menu — preference persists across launches.
 - **Theme:** system / light / dark, follows OS by default; **font size:** slider in ⚙ menu (10–24 px); both persist across launches.
 - **Keyboard-only operable:** arrow keys navigate the canvas (Up/Down siblings, Right child, Left parent); the tree is announced to screen readers via ARIA `role="tree"` / `treeitem`.
+- **Tags** (Phase 20): attach free-form tag names to any data-node, organize them in a separate **tag tree** below the canvas (drag-to-reparent, rename, delete cascades globally), filter the canvas to one tag's hierarchy, and click a tag to fill matching data-nodes with a highlight color. See the Mind-map shortcuts table for `T` and details.
 - Runs **as a web app** too — `npm run build:web` outputs a static `dist-web/`. Save uses the File System Access API on Chromium and falls back to download elsewhere; Tauri-only features (file watcher, native dialogs) downgrade gracefully.
 
 ---
@@ -128,12 +129,30 @@ Invalid YAML keeps the **last valid mind-map** rendered — your work isn't lost
 | Reparent (drag)                  | Drag a node onto another (illegal drops snap back)                           |
 | Move subtree (drag with modifier)| Hold `Ctrl` / `Cmd` while dragging — the whole subtree translates with the parent (manual layout) |
 | Reparent (cut/paste, long range) | `Cmd/Ctrl + X` on source, select target, `Cmd/Ctrl + V`                      |
-| Context menu                     | Right-click — Rename, Edit note, Set color, Add/Duplicate, Cut/Paste, Delete |
+| Context menu                     | Right-click — Rename, Edit notes…, Edit tags…, Set color, Add/Duplicate, Cut/Paste, Delete |
+| Open long-form notes popup       | `N` on a selected node                                                       |
+| Open tag editor                  | `T` on a selected node — autocomplete against existing tag names             |
 | Fit to view                      | `Cmd/Ctrl + 0`                                                               |
 | Undo / redo                      | `Cmd/Ctrl + Z` / `Cmd/Ctrl + Shift + Z` (or `Cmd/Ctrl + Y`)                  |
 | Cancel edit / clear clipboard    | `Esc`                                                                        |
 
 Mind-map mutations preserve YAML comments and field ordering wherever possible (via in-place AST surgery, not full re-serialization).
+
+### Tags & tag tree
+
+Adding the first tag to any data-node (via `T` or right-click → **Edit tags…**) materializes a **tag tree** below the canvas. The pane stays hidden when the document has no tags; once it appears, the header gains a **Hide tags / Show tags** toggle.
+
+| Action                              | Where                                            |
+| ----------------------------------- | ------------------------------------------------ |
+| Add tags to a data-node             | `T` on a selected node, or right-click → Edit tags… |
+| Remove a tag from a data-node       | `×` on its chip in the tag editor                |
+| Reparent a tag                      | Drag a tag-node onto another in the tag tree    |
+| Rename a tag                        | Double-click in the tag tree, or `F2` when selected — propagates to every data-node carrying that name |
+| Delete a tag                        | Right-click → Delete tag, or `Delete` when selected — cascades global removal across all data-nodes |
+| Filter the canvas to a tag's hierarchy | Right-click → "Show nodes under this tag's hierarchy" — read-only filter view, reset via the **Reset filter** chrome button |
+| Highlight matching data-nodes       | Click a tag-node — every matching data-node fills with an amber background; clicking another tag replaces, clicking empty space or a data-node clears |
+
+Tag identity is matched **case-insensitively** but display preserves the casing you typed. A node tagged with multiple tags appears once per matching tag in the filter view (intentional duplication). The **"Untagged"** pseudo-bucket in the filter view collects every data-node with no tags. Tag highlight is ephemeral UI state — never persisted to YAML.
 
 ---
 
@@ -149,22 +168,34 @@ Mind maps are saved as **`.clobmap.yaml`**:
 
 ```yaml
 title: My mind map
-version: 1
+version: 2
 root:
   id: n1
   text: Central idea
   children:
     - id: n2
       text: Branch A
+      tags:
+        - urgent
+        - logistics
       children:
         - id: n3
           text: Leaf
           children: []
     - id: n4
       text: Branch B
-      note: An optional longer description
       color: "#3b82f6"
       collapsed: false
+      children: []
+tagRoot:
+  id: t1
+  name: tags
+  children:
+    - id: t2
+      name: urgent
+      children: []
+    - id: t3
+      name: logistics
       children: []
 ```
 
@@ -173,15 +204,21 @@ root:
 | `id`            | yes                   | Stable identity. Auto-generated as `n` + base36 counter for new nodes. |
 | `text`          | yes                   | The label shown on the node.                                           |
 | `children`      | no (defaults to `[]`) | Array of child nodes.                                                  |
-| `note`          | no                    | Hover tooltip on the canvas.                                           |
+| `tags`          | no                    | Free-form string list of tags attached to this node. Block list form; empty / absent are equivalent. Matched case-insensitively against the tag tree. |
 | `color`         | no                    | Hex string used as the node's border color.                            |
 | `collapsed`     | no                    | When `true`, descendants are hidden in the mind-map view.              |
+| `notes`         | no                    | Long-form Markdown notes (or a path to a sidecar `.md`).               |
+| `maxWidth` / `maxHeight` | no           | Per-node overrides of the default node-size caps.                      |
+| `position`      | no                    | `{x, y}` in canvas coords — only meaningful in manual layout mode.     |
+| `edgeFrom` / `edgeTo` | no              | Which side each side's incoming/outgoing edge attaches to.             |
 
 Top-level fields:
 
 - `title` (required) — document title
 - `root` (required) — the single root node
-- `version` (optional) — schema version, currently `1`
+- `version` (optional) — schema version, currently `2` (bumped from `1` when tags shipped; older docs still parse cleanly)
+- `layoutMode` (optional) — `"auto"` (default, runs tidy-tree) or `"manual"` (honors stored `position` fields)
+- `tagRoot` (optional) — root of the tag tree, only present once the user adds at least one tag
 
 ---
 
@@ -190,10 +227,10 @@ Top-level fields:
 ```
 clobmap/
 ├── src/                      # React frontend (TypeScript)
-│   ├── components/           # YamlEditor, MindMap, MindMapNode, ViewToggle, FileMenu, ...
-│   ├── lib/                  # Layout (Dagre), storage adapter, recentFiles, file actions
-│   ├── model/                # YAML serde, tree ops, diff, AST apply (95% test coverage)
-│   ├── store/                # Zustand stores (document, ui) + parse hook
+│   ├── components/           # YamlEditor, MindMap, MindMapNode, NotesPopup, TagEditor, TagTreePane, TagMapNode, TagContextMenu, FilterCanvas, ViewToggle, FileMenu, ...
+│   ├── lib/                  # layout (data tree), tagLayout, tagFilter, tags helper, storage adapter, recentFiles, file actions
+│   ├── model/                # YAML serde, tree ops (data + tag), diff, AST apply (95% test coverage)
+│   ├── store/                # Zustand stores (document, ui — incl. tag tree state + filter state) + parse hook
 │   ├── App.tsx
 │   └── main.tsx
 ├── src-tauri/                # Rust backend (Tauri commands, plugins)
@@ -257,6 +294,7 @@ Implementation plan in [`implementation-plan.md`](./implementation-plan.md). One
 | 17    | ✅     | **1.1.1** — fix(web): unsaved YAML draft survives reload (and a second reload). Two-stage race fixed in App.tsx (bootstrap-completion gate + tighter clearDraft condition). Test infra landed alongside: Playwright web E2E (42 specs × 3 engines), RTL component tests for NotesPopup, and CI gating.                                                                       |
 | 18    | ✅     | **1.1.2** — Ctrl/Cmd-drag translates a whole subtree (delta applied to dragged node + every descendant). Plain drag no longer pulls implicit-position children with the parent: `onNodeDragStart` snapshots every visible node and `onNodeDragStop` writes the snapshot back, freezing siblings in place. New no-position siblings spread symmetrically (north + south) around the parent instead of stacking south. Layout uses React Flow's measured node sizes for slot allocation while keeping the user-set `maxWidth` / `maxHeight` as the CSS display cap, so visible gaps shrink to ROW_GAP without clipping text. Tightened defaults: ROW_GAP=10, COLUMN_GAP=50.|
 | 19    | ✅     | **1.1.3** — "Reset to Auto (clear saved positions)" button under ⚙ → Layout: one click wipes every stored `position` field AND removes `layoutMode` from the YAML, leaving a clean canonical-auto doc with no memory of prior manual coords. Auto → Manual toggle now snapshots React Flow's measurement-driven rendered positions instead of re-running auto-layout with cap-sized slots, so the visual no longer jumps to a wide layout. Removed the older "Reset positions" button (redundant — same end state via "Reset to Auto" + toggle Manual).|
+| 20    | ✅     | **Tags** (per [`tagging-design-doc.md`](./tagging-design-doc.md)) — five-phase rollout. **A:** model + YAML (per-node `tags: string[]`, `tagRoot` block, `SCHEMA_VERSION` bumped 1→2, `tagsAdd`/`tagsRemove`/`tagDelete` ops). **B:** per-node tag editor (`T` shortcut, right-click → Edit tags…, comma-batch input, removable chips). **C:** tag-tree pane (auto-shown when ≥1 tag, vertical split below the canvas, drag-to-reparent via `moveTagNode`, inline rename with linked-rename cascade across data-node `tags[]`, `Delete`/right-click delete cascades globally). **D:** hierarchy filter view (right-click → "Show nodes under this tag's hierarchy" — replaces canvas with a read-only tree rooted at the selected tag + descendants + an "Untagged" bucket; Reset filter chrome button to exit). **E:** polish (autocomplete in the tag editor with case-only-difference badge, F2/Delete tag-tree shortcuts, aria-live announcement on filter-view enter/exit). **Highlight extension:** clicking a tag-node in the pane auto-fills every matching data-node with an amber background; selection drives highlight. 387 unit tests + 378 e2e tests across chromium/firefox/webkit. |
 
 ---
 

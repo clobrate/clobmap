@@ -6,6 +6,67 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Tags feature (Phase 20)
+
+- **Per-node tags.** Every data-node can carry a free-form list of tag
+  names via `tags: ["a", "b"]` in YAML (block-list form, not comma-
+  separated). Tag matching is case-insensitive; the user-typed casing
+  is preserved per data-node. A small tag-shaped icon appears on
+  every node that carries at least one tag (parallel to the existing
+  notes icon).
+- **Tag editor.** Open via `T` on a selected node or right-click →
+  **Edit tags…**. Comma-separated batches, removable chips,
+  autocomplete against existing tag-tree entries (suggestion list
+  filtered case-insensitively by the input fragment after the last
+  comma; arrow keys to navigate; Tab / → to accept without
+  committing; Enter accepts-and-commits). A **case differs** badge
+  appears when typing would reuse an existing tag with different
+  casing — clicking the suggestion adopts the existing casing.
+- **Tag tree** stored under a new top-level `tagRoot` block in YAML.
+  Materialized lazily on the first `tagsAdd` and rendered as a
+  second React Flow surface below the data canvas (vertical split,
+  resizable). The pane is hidden entirely when the document has no
+  tags. Header chrome: a **Hide tags / Show tags** toggle (only
+  visible when the document has tags).
+- **Tag-tree editing.** Drag a tag-node onto another to re-parent.
+  Double-click or `F2` opens inline rename — renames cascade through
+  every data-node's `tags[]` so chips don't go stale. `Delete` /
+  right-click → **Delete tag** cascades globally: the tag (and its
+  descendants in the tag tree) is removed AND every matching name
+  is stripped from every data-node in one atomic undo step.
+- **Hierarchy filter view.** Right-click a tag → **Show nodes under
+  this tag's hierarchy** swaps the canvas for a read-only tree rooted
+  at that tag, with each descendant tag-node carrying the matching
+  data-nodes as its children. A data-node appearing under multiple
+  tags is rendered once per tag (intentional duplication). An
+  **Untagged** pseudo-bucket lists data-nodes with no tags. **Reset
+  filter** button in the header returns to the data canvas.
+- **Tag highlight fill.** Clicking a tag-node in the pane fills
+  every matching data-node with an amber background — selection
+  drives highlight automatically (no menu step). Clicking another
+  tag replaces; clicking empty pane / a data-node clears. Composes
+  cleanly with the existing per-node border `color` (border stays
+  untouched). Ephemeral UI state, never persisted to YAML.
+- **Accessibility.** `aria-live` announcement on filter-view enter
+  and exit; tag-tree pane is `role="tree"` with `role="treeitem"`
+  entries; tag editor input has `role="listbox"` + `aria-selected`
+  on suggestions.
+- **Schema version** bumped to `2`. Older clobmap builds parse v2
+  docs that don't yet carry `tags` / `tagRoot` cleanly; once a v2
+  build *saves* a doc with tag data, opening it in a build older
+  than this release will reject the unknown fields. Tag data
+  round-trips deterministically — YAML comments and field ordering
+  for unrelated fields are preserved.
+
+### Tests
+- 387 unit tests pass (model ops, YAML round-trip, layout, UI
+  store, filter tree, tag layout, autocomplete behavior, store
+  setters).
+- 378 e2e tests pass across chromium / firefox / webkit covering
+  tag editor flow, tag-tree drag/rename/delete, filter view
+  enter/reset, selection-driven highlight, autocomplete, polish
+  (F2 / Delete tag-tree keyboard shortcuts).
+
 ## [1.1.5] - 2026-05-09
 
 ### Changed
