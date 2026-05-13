@@ -23,6 +23,7 @@ import { useTabsStore } from "./store/tabs";
 import { TabStrip } from "./components/TabStrip";
 import { WelcomeBanner } from "./components/WelcomeBanner";
 import { NotesPopup } from "./components/NotesPopup";
+import { TagEditor } from "./components/TagEditor";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -268,9 +269,11 @@ function App() {
   // App-wide keyboard shortcuts (capture phase to beat CodeMirror).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't compete with the notes popup or any text input that owns
-      // focus — Cmd+T inside the notes editor shouldn't open a new tab.
+      // Don't compete with the notes popup, the tag editor, or any text
+      // input that owns focus — Cmd+T inside those shouldn't open a new
+      // browser tab.
       if (useUIStore.getState().notesEditorNodeId !== null) return;
+      if (useUIStore.getState().tagEditorNodeId !== null) return;
       const cmd = e.metaKey || e.ctrlKey;
       if (!cmd) return;
 
@@ -499,6 +502,7 @@ function App() {
       </div>
       <StatusBar />
       <NotesPopup />
+      <TagEditor />
       <div
         role="status"
         aria-live="polite"

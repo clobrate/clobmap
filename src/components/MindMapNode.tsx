@@ -21,6 +21,7 @@ export function MindMapNode({ id, data, selected }: Props) {
     maxWidth,
     maxHeight,
     hasNotes,
+    tags,
     outgoingSides,
     incomingSide,
   } = data;
@@ -87,19 +88,22 @@ export function MindMapNode({ id, data, selected }: Props) {
           maxHeight={maxHeight}
         />
       ) : (
-        <div className="flex items-start gap-1.5">
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
-          <NoteIndicator
-            hasNotes={hasNotes}
-            onActivate={() => {
-              setSelected(id);
-              openNotesEditor(id);
-            }}
-          />
-          {hasChildren && (
-            <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
-          )}
-        </div>
+        <>
+          <div className="flex items-start gap-1.5">
+            <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
+            <NoteIndicator
+              hasNotes={hasNotes}
+              onActivate={() => {
+                setSelected(id);
+                openNotesEditor(id);
+              }}
+            />
+            {hasChildren && (
+              <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
+            )}
+          </div>
+          {tags && tags.length > 0 && <TagChipRow tags={tags} />}
+        </>
       )}
       {hasChildren && <HandleSet role="source" activeSides={outgoingSides} />}
     </div>
@@ -153,6 +157,26 @@ function HandleSet({
         );
       })}
     </>
+  );
+}
+
+/**
+ * Compact read-only chip row rendered below the node's main row when
+ * the data-node carries at least one tag. Phase B is display-only; in
+ * Phase D these chips become clickable to enter the hierarchy filter.
+ */
+function TagChipRow({ tags }: { tags: string[] }) {
+  return (
+    <div className="mt-1 flex flex-wrap gap-1" aria-label="Tags">
+      {tags.map((t, i) => (
+        <span
+          key={`${t}-${i}`}
+          className="inline-flex items-center rounded-full bg-neutral-200/70 px-1.5 text-[10px] leading-4 text-neutral-700 dark:bg-neutral-700/70 dark:text-neutral-200"
+        >
+          {t}
+        </span>
+      ))}
+    </div>
   );
 }
 

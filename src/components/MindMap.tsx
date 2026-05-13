@@ -69,6 +69,8 @@ function MindMapInner() {
   const setEditing = useUIStore((s) => s.setEditing);
   const openNotesEditor = useUIStore((s) => s.openNotesEditor);
   const notesEditorNodeId = useUIStore((s) => s.notesEditorNodeId);
+  const openTagEditor = useUIStore((s) => s.openTagEditor);
+  const tagEditorNodeId = useUIStore((s) => s.tagEditorNodeId);
   const contextMenu = useUIStore((s) => s.contextMenu);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
@@ -372,6 +374,7 @@ function MindMapInner() {
       // view). Short-circuit if any of those are present.
       if (editingId !== null) return;
       if (notesEditorNodeId !== null) return;
+      if (tagEditorNodeId !== null) return;
       const target = e.target as HTMLElement | null;
       if (target) {
         const tag = target.tagName;
@@ -470,6 +473,14 @@ function MindMapInner() {
           openNotesEditor(selectedId);
           return;
         }
+        case "t":
+        case "T": {
+          // Open the tag editor for the selected node. Mirrors N/notes.
+          if (e.metaKey || e.ctrlKey || e.altKey) return;
+          e.preventDefault();
+          openTagEditor(selectedId);
+          return;
+        }
         case "Delete":
         case "Backspace": {
           if (selectedId === tree.root.id) return;
@@ -548,6 +559,7 @@ function MindMapInner() {
     closeContextMenu,
     editingId,
     notesEditorNodeId,
+    tagEditorNodeId,
     redo,
     reactFlow,
     revealNode,
@@ -556,6 +568,7 @@ function MindMapInner() {
     setEditing,
     setSelected,
     openNotesEditor,
+    openTagEditor,
     undo,
   ]);
 
@@ -645,6 +658,10 @@ function MindMapInner() {
           onMoveDown={() => handleMoveSibling(contextMenu.nodeId, "down")}
           onEditNotes={() => {
             openNotesEditor(contextMenu.nodeId);
+            closeContextMenu();
+          }}
+          onEditTags={() => {
+            openTagEditor(contextMenu.nodeId);
             closeContextMenu();
           }}
           onSetColor={(color) => handleSetColor(contextMenu.nodeId, color)}
