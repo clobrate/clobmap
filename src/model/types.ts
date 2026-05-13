@@ -2,8 +2,6 @@ export interface MindNode {
   id: string;
   text: string;
   children: MindNode[];
-  /** Short tooltip shown on hover. */
-  note?: string;
   color?: string;
   collapsed?: boolean;
   /** Per-node override of the default max-width in pixels. */

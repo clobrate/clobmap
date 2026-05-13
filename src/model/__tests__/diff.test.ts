@@ -70,9 +70,9 @@ describe("diffTrees", () => {
 
   it("detects field changes", () => {
     const before = fixture();
-    const after = updateNode(before, "n3", { note: "x", collapsed: true });
+    const after = updateNode(before, "n3", { color: "#abc", collapsed: true });
     const changes = diffTrees(before, after).changes;
     const f = changes.find((c) => c.type === "fields");
-    expect(f && "changed" in f && f.changed).toEqual(expect.arrayContaining(["note", "collapsed"]));
+    expect(f && "changed" in f && f.changed).toEqual(expect.arrayContaining(["color", "collapsed"]));
   });
 });

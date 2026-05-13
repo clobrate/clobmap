@@ -15,7 +15,6 @@ export function MindMapNode({ id, data, selected }: Props) {
     text,
     isRoot,
     color,
-    note,
     hasChildren,
     collapsed,
     hiddenChildCount,
@@ -73,7 +72,6 @@ export function MindMapNode({ id, data, selected }: Props) {
         userSelect: "none",
         touchAction: "manipulation",
       }}
-      title={note}
       role="treeitem"
       aria-level={data.depth + 1}
       aria-selected={selected}

@@ -60,7 +60,6 @@ function validateNode(value: unknown, path: string): Result<MindNode> {
     text: value.text,
     children,
   };
-  if (typeof value.note === "string") node.note = value.note;
   if (typeof value.color === "string") node.color = value.color;
   if (typeof value.collapsed === "boolean") node.collapsed = value.collapsed;
   if (typeof value.maxWidth === "number" && value.maxWidth > 0) {

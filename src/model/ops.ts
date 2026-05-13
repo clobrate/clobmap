@@ -137,7 +137,6 @@ export function updateNode(
     Pick<
       MindNode,
       | "text"
-      | "note"
       | "color"
       | "collapsed"
       | "maxWidth"
@@ -155,10 +154,6 @@ export function updateNode(
     updated = true;
     const next: MindNode = { ...n };
     if (patch.text !== undefined) next.text = patch.text;
-    if (patch.note !== undefined) {
-      if (patch.note === "") delete next.note;
-      else next.note = patch.note;
-    }
     if (patch.color !== undefined) {
       if (patch.color === "") delete next.color;
       else next.color = patch.color;
@@ -285,7 +280,6 @@ export function cloneWithNewIds(node: MindNode, ids: IdGenerator): MindNode {
     text: node.text,
     children: node.children.map((c) => cloneWithNewIds(c, ids)),
   };
-  if (node.note !== undefined) cloned.note = node.note;
   if (node.color !== undefined) cloned.color = node.color;
   if (node.collapsed !== undefined) cloned.collapsed = node.collapsed;
   return cloned;

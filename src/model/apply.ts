@@ -65,7 +65,6 @@ function getIdValue(map: YAMLMap): string | null {
 function syncNode(target: YAMLMap, source: MindNode, index: Map<string, YAMLMap>): void {
   setScalarValue(target, "id", source.id);
   setScalarValue(target, "text", source.text);
-  setOrDelete(target, "note", source.note);
   setOrDelete(target, "color", source.color);
   setOrDelete(target, "collapsed", source.collapsed);
   setOrDelete(target, "maxWidth", source.maxWidth);
@@ -124,7 +123,6 @@ function syncOrCreate(source: MindNode, index: Map<string, YAMLMap>): YAMLMap {
     map = new YAMLMap();
     map.set("id", new Scalar(source.id));
     map.set("text", new Scalar(source.text));
-    if (source.note !== undefined) map.set("note", new Scalar(source.note));
     if (source.color !== undefined) map.set("color", new Scalar(source.color));
     if (source.collapsed !== undefined) {
       map.set("collapsed", new Scalar(source.collapsed));

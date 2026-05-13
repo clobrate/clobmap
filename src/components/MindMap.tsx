@@ -643,7 +643,6 @@ function MindMapInner() {
           onDuplicate={() => handleDuplicate(contextMenu.nodeId)}
           onMoveUp={() => handleMoveSibling(contextMenu.nodeId, "up")}
           onMoveDown={() => handleMoveSibling(contextMenu.nodeId, "down")}
-          onEditNote={(note) => handleEditNote(contextMenu.nodeId, note)}
           onEditNotes={() => {
             openNotesEditor(contextMenu.nodeId);
             closeContextMenu();
@@ -733,13 +732,6 @@ function MindMapInner() {
     } catch (err) {
       if (!(err instanceof OpError)) throw err;
     }
-    closeContextMenu();
-  }
-
-  function handleEditNote(nodeId: string, note: string) {
-    const tree = useDocumentStore.getState().parsedDoc;
-    if (!tree) return;
-    applyTreeChange(updateNode(tree, nodeId, { note }));
     closeContextMenu();
   }
 

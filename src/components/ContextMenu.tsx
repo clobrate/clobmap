@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { findById, type MindDocument, type MindNode } from "../model";
 
 function findSiblingPosition(
@@ -30,7 +30,6 @@ interface Props {
   onDuplicate: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
-  onEditNote: (note: string) => void;
   onEditNotes: () => void;
   onSetColor: (color: string | null) => void;
   onCut: () => void;
@@ -53,24 +52,20 @@ export function ContextMenu(props: Props) {
     onDuplicate,
     onMoveUp,
     onMoveDown,
-    onEditNote,
     onEditNotes,
     onSetColor,
     onCut,
     onPaste,
   } = props;
 
-  const [editingNote, setEditingNote] = useState(false);
-
   useEffect(() => {
-    if (editingNote) return;
     const onPointer = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null;
       if (!t?.closest("[data-context-menu]")) onClose();
     };
     window.addEventListener("mousedown", onPointer);
     return () => window.removeEventListener("mousedown", onPointer);
-  }, [onClose, editingNote]);
+  }, [onClose]);
 
   const node = findById(tree, nodeId);
   if (!node) return null;
@@ -79,21 +74,6 @@ export function ContextMenu(props: Props) {
   const siblingPos = isRoot ? null : findSiblingPosition(tree.root, nodeId);
   const canMoveUp = siblingPos !== null && siblingPos.index > 0;
   const canMoveDown = siblingPos !== null && siblingPos.index < siblingPos.siblingCount - 1;
-
-  if (editingNote) {
-    return (
-      <NoteEditor
-        x={x}
-        y={y}
-        initial={node.note ?? ""}
-        onCommit={(value) => {
-          onEditNote(value);
-          setEditingNote(false);
-        }}
-        onCancel={() => setEditingNote(false)}
-      />
-    );
-  }
 
   return (
     <div
@@ -104,7 +84,6 @@ export function ContextMenu(props: Props) {
     >
       <Item label="Rename" shortcut="F2" onClick={onRename} />
       <Item label="Edit notes…" shortcut="N" onClick={onEditNotes} />
-      <Item label="Edit tooltip…" onClick={() => setEditingNote(true)} />
       <ColorRow current={node.color} onPick={onSetColor} />
       <Divider />
       <Item label="Add child" shortcut="Tab" onClick={onAddChild} />
@@ -123,72 +102,6 @@ export function ContextMenu(props: Props) {
       <Item label="Paste here" shortcut="⌘V" disabled={!isClipboardActive} onClick={onPaste} />
       <Divider />
       <Item label="Delete" shortcut="⌫" disabled={isRoot} danger onClick={onDelete} />
-    </div>
-  );
-}
-
-function NoteEditor({
-  x,
-  y,
-  initial,
-  onCommit,
-  onCancel,
-}: {
-  x: number;
-  y: number;
-  initial: string;
-  onCommit: (value: string) => void;
-  onCancel: () => void;
-}) {
-  const [value, setValue] = useState(initial);
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
-  }, []);
-
-  return (
-    <div
-      data-context-menu
-      className="fixed z-50 w-[280px] rounded-md border border-neutral-200 bg-white p-3 text-sm shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
-      style={{ left: x, top: y }}
-    >
-      <label className="mb-1 block text-xs uppercase tracking-wider text-neutral-500">Note</label>
-      <textarea
-        ref={ref}
-        rows={4}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          e.stopPropagation();
-          if (e.key === "Escape") {
-            e.preventDefault();
-            onCancel();
-          } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            onCommit(value);
-          }
-        }}
-        className="w-full rounded border border-neutral-300 bg-white p-2 text-neutral-900 outline-none focus:border-emerald-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
-        placeholder="Optional longer description…"
-      />
-      <div className="mt-2 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={() => onCommit(value)}
-          className="rounded bg-emerald-500/80 px-2 py-1 text-xs text-white hover:bg-emerald-500 dark:text-emerald-50"
-        >
-          Save
-        </button>
-      </div>
     </div>
   );
 }

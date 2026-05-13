@@ -18,7 +18,6 @@ export interface MindNodeData extends Record<string, unknown> {
   depth: number;
   isRoot: boolean;
   color?: string;
-  note?: string;
   collapsed: boolean;
   hasChildren: boolean;
   hiddenChildCount: number;
@@ -210,7 +209,6 @@ function emitNode(
       depth,
       isRoot,
       color: node.color,
-      note: node.note,
       collapsed,
       hasChildren: node.children.length > 0,
       hiddenChildCount: collapsed ? m.descendantCount : 0,
