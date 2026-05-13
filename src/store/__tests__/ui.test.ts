@@ -281,5 +281,17 @@ describe("useUIStore", () => {
       useUIStore.getState().setFilterTagId(null);
       expect(useUIStore.getState().filterTagId).toBeNull();
     });
+
+    it("setFilterTagId(non-null) clears the tag selection (which drives highlight)", () => {
+      useUIStore.getState().setSelectedTag("t-sel");
+      useUIStore.getState().setFilterTagId("t-filter");
+      expect(useUIStore.getState().selectedTagId).toBeNull();
+    });
+
+    it("setFilterTagId(null) leaves the tag selection alone", () => {
+      useUIStore.getState().setSelectedTag("t-sel");
+      useUIStore.getState().setFilterTagId(null);
+      expect(useUIStore.getState().selectedTagId).toBe("t-sel");
+    });
   });
 });

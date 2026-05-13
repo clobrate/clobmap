@@ -140,7 +140,16 @@ export const useUIStore = create<UIState>((set) => ({
   setTagTreeVisible: (v) => set({ tagTreeVisible: v }),
   setTagTreeSplitRatio: (ratio) =>
     set({ tagTreeSplitRatio: Math.max(0.2, Math.min(0.8, ratio)) }),
-  setFilterTagId: (id) => set({ filterTagId: id, contextMenu: null, tagContextMenu: null }),
+  setFilterTagId: (id) =>
+    // Entering the filter view clears the tag-tree selection (and
+    // therefore the per-tag highlight) — both are "focused-on-one-tag"
+    // modes and combining them visually muddles the canvas.
+    set((s) => ({
+      filterTagId: id,
+      contextMenu: null,
+      tagContextMenu: null,
+      selectedTagId: id !== null ? null : s.selectedTagId,
+    })),
   openContextMenu: (nodeId, x, y) => set({ contextMenu: { nodeId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
   openTagContextMenu: (tagId, x, y) => set({ tagContextMenu: { tagId, x, y } }),

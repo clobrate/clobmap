@@ -1,12 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Node } from "@xyflow/react";
 import { handleId, type MindNodeData } from "../lib/layout";
-import type { HandleSide } from "../model";
+import type { HandleSide, TagNode } from "../model";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
 import { useLongPress } from "../lib/useLongPress";
 import { updateNode, updateText } from "../model";
+
+function findTagNameById(root: TagNode | undefined, id: string): string | null {
+  if (!root) return null;
+  if (root.id === id) return root.name;
+  for (const c of root.children) {
+    const found = findTagNameById(c, id);
+    if (found) return found;
+  }
+  return null;
+}
 
 type Props = NodeProps<Node<MindNodeData>>;
 
@@ -33,6 +43,20 @@ export function MindMapNode({ id, data, selected }: Props) {
   const openNotesEditor = useUIStore((s) => s.openNotesEditor);
   const openTagEditor = useUIStore((s) => s.openTagEditor);
   const clipboard = useUIStore((s) => s.clipboard);
+  // Selection of a tag in the tag-tree pane drives the per-data-node
+  // highlight automatically — no separate highlight toggle. Subscribe
+  // to the tagRoot reference (changes only on tag-tree edits, see
+  // ops.ts spread pattern) so we don't churn re-renders on data edits.
+  const selectedTagId = useUIStore((s) => s.selectedTagId);
+  const tagRoot = useDocumentStore((s) => s.parsedDoc?.tagRoot);
+  const highlightedTagName = useMemo(
+    () => (selectedTagId ? findTagNameById(tagRoot, selectedTagId) : null),
+    [selectedTagId, tagRoot],
+  );
+  const isHighlighted =
+    !!highlightedTagName &&
+    !!tags &&
+    tags.some((t) => t.toLowerCase() === highlightedTagName.toLowerCase());
   const isEditing = editingNodeId === id;
   const isClipped = clipboard?.nodeId === id;
 
@@ -55,11 +79,20 @@ export function MindMapNode({ id, data, selected }: Props) {
 
   const dimClass = isClipped ? "opacity-40 outline-dashed outline-1 outline-amber-400/60" : "";
 
+  // Fill the node background when the highlight is active on a tag we
+  // carry. Distinct from the border `color` field (which the user owns
+  // — left untouched). Picked an amber tone so it doesn't clash with
+  // the emerald used for selection / root.
+  const highlightClass = isHighlighted
+    ? "!bg-amber-100 dark:!bg-amber-900/40"
+    : "";
+
   const colorBorderStyle = color && !selected ? { borderColor: color } : undefined;
 
   return (
     <div
-      className={`${baseClass} ${borderClass} ${dimClass}`}
+      className={`${baseClass} ${borderClass} ${dimClass} ${highlightClass}`}
+      data-highlighted={isHighlighted ? "true" : undefined}
       style={{
         ...colorBorderStyle,
         // Cap node visual size to its resolved max dimensions; the layout

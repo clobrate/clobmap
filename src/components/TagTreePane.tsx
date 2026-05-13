@@ -159,8 +159,12 @@ function TagTreePaneInner() {
   );
 
   const onPaneClick = useCallback(() => {
+    // Clicking empty space in the pane both dismisses the right-click
+    // menu and clears the tag selection — which in turn clears the
+    // per-data-node fill highlight (highlight follows selection).
     closeTagContextMenu();
-  }, [closeTagContextMenu]);
+    setSelectedTag(null);
+  }, [closeTagContextMenu, setSelectedTag]);
 
   const handleDeleteFromMenu = useCallback(
     (tagId: string) => {

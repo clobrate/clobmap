@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { YamlEditor } from "./components/YamlEditor";
 import { MindMap } from "./components/MindMap";
@@ -119,10 +119,29 @@ function App() {
   const setTagTreeSplitRatio = useUIStore((s) => s.setTagTreeSplitRatio);
   const filterTagId = useUIStore((s) => s.filterTagId);
   const setFilterTagId = useUIStore((s) => s.setFilterTagId);
+  const selectedTagId = useUIStore((s) => s.selectedTagId);
+  const setSelectedTag = useUIStore((s) => s.setSelectedTag);
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
   const docHasTags = hasAnyTag(parsedDoc);
   const showTagTree = docHasTags && tagTreeVisible !== false;
   const inFilterView = filterTagId !== null;
+  // Look up the selected tag's display name once for the header pill;
+  // selecting a tag in the tag-tree pane is what activates the
+  // per-data-node fill highlight, so the pill mirrors the selection.
+  const tagRootRef = parsedDoc?.tagRoot;
+  const highlightedTagName = useMemo(() => {
+    if (!selectedTagId || !tagRootRef) return null;
+    type TR = NonNullable<typeof tagRootRef>;
+    function walk(n: TR): string | null {
+      if (n.id === selectedTagId) return n.name;
+      for (const c of n.children) {
+        const found = walk(c);
+        if (found) return found;
+      }
+      return null;
+    }
+    return walk(tagRootRef);
+  }, [selectedTagId, tagRootRef]);
   const setAutoSave = useUIStore((s) => s.setAutoSave);
   const setSplitOrientation = useUIStore((s) => s.setSplitOrientation);
   const setThemePreference = useUIStore((s) => s.setThemePreference);
@@ -493,6 +512,24 @@ function App() {
             >
               Reset filter
             </button>
+          )}
+          {highlightedTagName && !inFilterView && (
+            <span
+              data-highlight-pill
+              className="inline-flex items-center gap-1 rounded-full border border-amber-400 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-400 dark:bg-amber-900/40 dark:text-amber-100"
+            >
+              <span aria-hidden="true">⬤</span>
+              <span>Highlight: {highlightedTagName}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedTag(null)}
+                aria-label="Clear tag highlight"
+                title="Clear highlight"
+                className="rounded text-amber-700 hover:text-amber-900 dark:text-amber-200 dark:hover:text-amber-50"
+              >
+                ×
+              </button>
+            </span>
           )}
           {docHasTags && !inFilterView && (
             <button

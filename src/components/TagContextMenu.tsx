@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 /**
  * Right-click menu for tag-tree nodes. Deliberately separate from the
@@ -35,12 +35,30 @@ export function TagContextMenu({
     return () => window.removeEventListener("mousedown", onPointer);
   }, [onClose]);
 
+  // Clamp the menu to stay within the viewport — right-clicking near
+  // the bottom-right of the screen would otherwise put the menu's
+  // bottom rows below the fold, where they're untestable in headless
+  // and confusing for real users.
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number }>({ left: x, top: y });
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = Math.max(4, Math.min(x, vw - rect.width - 4));
+    const top = Math.max(4, Math.min(y, vh - rect.height - 4));
+    if (left !== pos.left || top !== pos.top) setPos({ left, top });
+  }, [x, y, pos.left, pos.top]);
+
   return (
     <div
+      ref={menuRef}
       data-tag-context-menu
       role="menu"
       className="fixed z-50 min-w-[180px] rounded-md border border-neutral-200 bg-white py-1 text-sm text-neutral-900 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-      style={{ left: x, top: y }}
+      style={{ left: pos.left, top: pos.top }}
     >
       <Item label="Rename" onClick={onRename} />
       <Item label="Show nodes under this tag's hierarchy" onClick={onShowHierarchy} />
