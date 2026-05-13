@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { YamlEditor } from "./components/YamlEditor";
 import { MindMap } from "./components/MindMap";
@@ -23,6 +23,10 @@ import { useTabsStore } from "./store/tabs";
 import { TabStrip } from "./components/TabStrip";
 import { WelcomeBanner } from "./components/WelcomeBanner";
 import { NotesPopup } from "./components/NotesPopup";
+import { TagEditor } from "./components/TagEditor";
+import { TagTreePane } from "./components/TagTreePane";
+import { hasAnyTag } from "./lib/tags";
+import { FilterCanvas } from "./components/FilterCanvas";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -110,6 +114,35 @@ function App() {
   const splitOrientation = useUIStore((s) => s.splitOrientation);
   const splitRatio = useUIStore((s) => s.splitRatio);
   const setSplitRatio = useUIStore((s) => s.setSplitRatio);
+  const tagTreeVisible = useUIStore((s) => s.tagTreeVisible);
+  const setTagTreeVisible = useUIStore((s) => s.setTagTreeVisible);
+  const tagTreeSplitRatio = useUIStore((s) => s.tagTreeSplitRatio);
+  const setTagTreeSplitRatio = useUIStore((s) => s.setTagTreeSplitRatio);
+  const filterTagId = useUIStore((s) => s.filterTagId);
+  const setFilterTagId = useUIStore((s) => s.setFilterTagId);
+  const selectedTagId = useUIStore((s) => s.selectedTagId);
+  const setSelectedTag = useUIStore((s) => s.setSelectedTag);
+  const parsedDoc = useDocumentStore((s) => s.parsedDoc);
+  const docHasTags = hasAnyTag(parsedDoc);
+  const showTagTree = docHasTags && tagTreeVisible !== false;
+  const inFilterView = filterTagId !== null;
+  // Look up the selected tag's display name once for the header pill;
+  // selecting a tag in the tag-tree pane is what activates the
+  // per-data-node fill highlight, so the pill mirrors the selection.
+  const tagRootRef = parsedDoc?.tagRoot;
+  const highlightedTagName = useMemo(() => {
+    if (!selectedTagId || !tagRootRef) return null;
+    type TR = NonNullable<typeof tagRootRef>;
+    function walk(n: TR): string | null {
+      if (n.id === selectedTagId) return n.name;
+      for (const c of n.children) {
+        const found = walk(c);
+        if (found) return found;
+      }
+      return null;
+    }
+    return walk(tagRootRef);
+  }, [selectedTagId, tagRootRef]);
   const setAutoSave = useUIStore((s) => s.setAutoSave);
   const setSplitOrientation = useUIStore((s) => s.setSplitOrientation);
   const setThemePreference = useUIStore((s) => s.setThemePreference);
@@ -268,9 +301,11 @@ function App() {
   // App-wide keyboard shortcuts (capture phase to beat CodeMirror).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't compete with the notes popup or any text input that owns
-      // focus — Cmd+T inside the notes editor shouldn't open a new tab.
+      // Don't compete with the notes popup, the tag editor, or any text
+      // input that owns focus — Cmd+T inside those shouldn't open a new
+      // browser tab.
       if (useUIStore.getState().notesEditorNodeId !== null) return;
+      if (useUIStore.getState().tagEditorNodeId !== null) return;
       const cmd = e.metaKey || e.ctrlKey;
       if (!cmd) return;
 
@@ -469,6 +504,45 @@ function App() {
               Install
             </a>
           )}
+          {inFilterView && (
+            <button
+              type="button"
+              onClick={() => setFilterTagId(null)}
+              title="Return to the full mind map"
+              className="rounded border border-emerald-500 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-500/20 dark:border-emerald-400 dark:text-emerald-200"
+            >
+              Reset filter
+            </button>
+          )}
+          {highlightedTagName && !inFilterView && (
+            <span
+              data-highlight-pill
+              className="inline-flex items-center gap-1 rounded-full border border-amber-400 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-400 dark:bg-amber-900/40 dark:text-amber-100"
+            >
+              <span aria-hidden="true">⬤</span>
+              <span>Highlight: {highlightedTagName}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedTag(null)}
+                aria-label="Clear tag highlight"
+                title="Clear highlight"
+                className="rounded text-amber-700 hover:text-amber-900 dark:text-amber-200 dark:hover:text-amber-50"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {docHasTags && !inFilterView && (
+            <button
+              type="button"
+              onClick={() => setTagTreeVisible(showTagTree ? false : true)}
+              aria-pressed={showTagTree}
+              title={showTagTree ? "Hide tag tree" : "Show tag tree"}
+              className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+            >
+              {showTagTree ? "Hide tags" : "Show tags"}
+            </button>
+          )}
           <ViewToggle />
           <SettingsMenu />
         </div>
@@ -483,7 +557,19 @@ function App() {
         )}
         {viewMode === "mindmap" && (
           <div className="flex-1">
-            <MindMap />
+            {inFilterView ? (
+              <FilterCanvas />
+            ) : showTagTree ? (
+              <SplitPanes
+                orientation="vertical"
+                ratio={tagTreeSplitRatio}
+                onRatioChange={setTagTreeSplitRatio}
+                first={<MindMap />}
+                second={<TagTreePane />}
+              />
+            ) : (
+              <MindMap />
+            )}
           </div>
         )}
         {viewMode === "split" && (
@@ -493,12 +579,27 @@ function App() {
             onRatioChange={setSplitRatio}
             onRatioCommit={(r) => void saveSplitRatioPref(r)}
             first={<YamlEditor />}
-            second={<MindMap />}
+            second={
+              inFilterView ? (
+                <FilterCanvas />
+              ) : showTagTree ? (
+                <SplitPanes
+                  orientation="vertical"
+                  ratio={tagTreeSplitRatio}
+                  onRatioChange={setTagTreeSplitRatio}
+                  first={<MindMap />}
+                  second={<TagTreePane />}
+                />
+              ) : (
+                <MindMap />
+              )
+            }
           />
         )}
       </div>
       <StatusBar />
       <NotesPopup />
+      <TagEditor />
       <div
         role="status"
         aria-live="polite"

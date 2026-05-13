@@ -467,4 +467,87 @@ describe("layoutMindMap", () => {
       expect(nodes[0]?.data.hasNotes).toBe(false);
     });
   });
+
+  describe("tags pass-through to MindNodeData", () => {
+    function withTags(tags?: string[]): MindDocument {
+      return {
+        title: "T",
+        root: { id: "n1", text: "Root", children: [], tags },
+      };
+    }
+
+    it("emits the data-node's tags array verbatim", () => {
+      const { nodes } = layoutMindMap(withTags(["alpha", "beta"]));
+      expect(nodes[0]?.data.tags).toEqual(["alpha", "beta"]);
+    });
+
+    it("emits undefined when tags is absent or an empty array", () => {
+      expect(layoutMindMap(withTags(undefined)).nodes[0]?.data.tags).toBeUndefined();
+      expect(layoutMindMap(withTags([])).nodes[0]?.data.tags).toBeUndefined();
+    });
+
+    it("returns a copy (not the same array reference) so caller-side mutation is safe", () => {
+      const tags = ["alpha"];
+      const { nodes } = layoutMindMap(withTags(tags));
+      expect(nodes[0]?.data.tags).not.toBe(tags);
+      expect(nodes[0]?.data.tags).toEqual(["alpha"]);
+    });
+  });
+
+  describe("placeManual with children missing position", () => {
+    // Manual-mode docs where some children have no `position` field
+    // exercise the allotment / stacking branch in placeManual. This is
+    // the auto→manual auto-switch case before positions are materialized.
+    function mixedDoc(): MindDocument {
+      return {
+        title: "T",
+        layoutMode: "manual",
+        root: {
+          id: "n1",
+          text: "Root",
+          position: { x: 0, y: 0 },
+          children: [
+            { id: "n2", text: "A", children: [] }, // no position
+            { id: "n3", text: "B", children: [] }, // no position
+          ],
+        },
+      };
+    }
+
+    it("stacks position-less children vertically to the right of the parent", () => {
+      const { nodes } = layoutMindMap(mixedDoc());
+      const a = nodes.find((n) => n.id === "n2");
+      const b = nodes.find((n) => n.id === "n3");
+      expect(a).toBeDefined();
+      expect(b).toBeDefined();
+      // Both children get the same X (one column right of the parent).
+      expect(a!.position.x).toBe(b!.position.x);
+      // And different Y values (stacked).
+      expect(a!.position.y).not.toBe(b!.position.y);
+    });
+
+    it("honors mixed positioned + position-less children", () => {
+      const doc: MindDocument = {
+        title: "T",
+        layoutMode: "manual",
+        root: {
+          id: "n1",
+          text: "Root",
+          position: { x: 0, y: 0 },
+          children: [
+            { id: "n2", text: "A", position: { x: 500, y: 100 }, children: [] },
+            { id: "n3", text: "B", children: [] }, // position-less
+          ],
+        },
+      };
+      const { nodes } = layoutMindMap(doc);
+      const a = nodes.find((n) => n.id === "n2");
+      const b = nodes.find((n) => n.id === "n3");
+      // Positioned child keeps its stored coords verbatim.
+      expect(a?.position).toEqual({ x: 500, y: 100 });
+      // Position-less child sits to the right of the parent, not at the
+      // positioned sibling's coords.
+      expect(b?.position.x).not.toBe(500);
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import type { IdGenerator } from "./ids";
-import { SCHEMA_VERSION, type MindDocument, type MindNode } from "./types";
+import { SCHEMA_VERSION, type MindDocument, type MindNode, type TagNode } from "./types";
 
 export class OpError extends Error {
   constructor(message: string) {
@@ -8,25 +8,39 @@ export class OpError extends Error {
   }
 }
 
-export function findById(doc: MindDocument, id: string): MindNode | null {
-  return findNode(doc.root, id);
+/**
+ * Minimal shape of any tree node operated on by the generic helpers
+ * below. Both `MindNode` and `TagNode` satisfy this.
+ */
+interface TreeShape {
+  id: string;
+  children: TreeShape[];
 }
 
-function findNode(node: MindNode, id: string): MindNode | null {
+export function findById(doc: MindDocument, id: string): MindNode | null {
+  return findInTree(doc.root, id);
+}
+
+export function findTagById(doc: MindDocument, id: string): TagNode | null {
+  if (!doc.tagRoot) return null;
+  return findInTree(doc.tagRoot, id);
+}
+
+function findInTree<T extends TreeShape>(node: T, id: string): T | null {
   if (node.id === id) return node;
   for (const child of node.children) {
-    const found = findNode(child, id);
+    const found = findInTree(child as T, id);
     if (found) return found;
   }
   return null;
 }
 
-function findParent(
-  node: MindNode,
+function findParent<T extends TreeShape>(
+  node: T,
   id: string,
-): { parent: MindNode; index: number } | null {
+): { parent: T; index: number } | null {
   for (let i = 0; i < node.children.length; i += 1) {
-    const child = node.children[i]!;
+    const child = node.children[i] as T;
     if (child.id === id) return { parent: node, index: i };
     const found = findParent(child, id);
     if (found) return found;
@@ -34,23 +48,23 @@ function findParent(
   return null;
 }
 
-function isDescendant(node: MindNode, candidateAncestorId: string): boolean {
+function isDescendant<T extends TreeShape>(node: T, candidateAncestorId: string): boolean {
   if (node.id === candidateAncestorId) return true;
   for (const child of node.children) {
-    if (isDescendant(child, candidateAncestorId)) return true;
+    if (isDescendant(child as T, candidateAncestorId)) return true;
   }
   return false;
 }
 
-function mapTree(node: MindNode, fn: (n: MindNode) => MindNode | null): MindNode | null {
-  const newChildren: MindNode[] = [];
+function mapTree<T extends TreeShape>(node: T, fn: (n: T) => T | null): T | null {
+  const newChildren: T[] = [];
   let childrenChanged = false;
-  for (const child of node.children) {
+  for (const child of node.children as T[]) {
     const mapped = mapTree(child, fn);
     if (mapped !== child) childrenChanged = true;
     if (mapped !== null) newChildren.push(mapped);
   }
-  const candidate = childrenChanged ? { ...node, children: newChildren } : node;
+  const candidate = (childrenChanged ? { ...node, children: newChildren } : node) as T;
   return fn(candidate);
 }
 
@@ -388,3 +402,363 @@ function stripPosition(n: MindNode): MindNode {
   return rest;
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Tag operations
+// ─────────────────────────────────────────────────────────────────────
+
+const TAG_ROOT_DEFAULT_NAME = "tags";
+
+function normalizeTagKey(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+/**
+ * Walk the entire tag tree (including the synthetic root) and collect
+ * every tag-node's name keyed by its normalized form.
+ */
+function collectTagNamesByKey(tagRoot: TagNode): Map<string, TagNode> {
+  const out = new Map<string, TagNode>();
+  function walk(node: TagNode, isRoot: boolean): void {
+    if (!isRoot) out.set(normalizeTagKey(node.name), node);
+    for (const c of node.children) walk(c, false);
+  }
+  walk(tagRoot, true);
+  return out;
+}
+
+function ensureTagRoot(doc: MindDocument, ids: IdGenerator): MindDocument {
+  if (doc.tagRoot) return doc;
+  return {
+    ...doc,
+    tagRoot: { id: ids.next(), name: TAG_ROOT_DEFAULT_NAME, children: [] },
+  };
+}
+
+/**
+ * Attach one or more tags to a data-node. New tag names (case-insensitive,
+ * not already present in the tag tree) get a fresh top-level tag-node
+ * created under `tagRoot`; existing names are reused as-is. The tag tree
+ * itself is materialized lazily on the first call.
+ *
+ * Throws OpError on:
+ *  - missing data-node
+ *  - empty / whitespace-only name
+ *  - duplicate name within the input array (case-insensitive)
+ *
+ * Adding a name that already exists on the same data-node is a silent
+ * no-op for that specific name — the rest of the patch still applies.
+ */
+export function tagsAdd(
+  doc: MindDocument,
+  nodeId: string,
+  names: string[],
+  ids: IdGenerator,
+): MindDocument {
+  const target = findById(doc, nodeId);
+  if (!target) throw new OpError(`tagsAdd: node "${nodeId}" not found`);
+
+  const cleaned: string[] = [];
+  const seenInput = new Set<string>();
+  for (const raw of names) {
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) {
+      throw new OpError("tagsAdd: tag name cannot be empty");
+    }
+    const key = normalizeTagKey(trimmed);
+    if (seenInput.has(key)) {
+      throw new OpError(`tagsAdd: duplicate tag "${trimmed}" in input`);
+    }
+    seenInput.add(key);
+    cleaned.push(trimmed);
+  }
+  if (cleaned.length === 0) return doc;
+
+  let next = ensureTagRoot(doc, ids);
+  const existingByKey = collectTagNamesByKey(next.tagRoot!);
+  const tagsToAppendToTree: TagNode[] = [];
+  for (const name of cleaned) {
+    const key = normalizeTagKey(name);
+    if (!existingByKey.has(key)) {
+      const newTag: TagNode = { id: ids.next(), name, children: [] };
+      tagsToAppendToTree.push(newTag);
+      existingByKey.set(key, newTag);
+    }
+  }
+
+  if (tagsToAppendToTree.length > 0) {
+    next = {
+      ...next,
+      tagRoot: {
+        ...next.tagRoot!,
+        children: [...next.tagRoot!.children, ...tagsToAppendToTree],
+      },
+    };
+  }
+
+  const existingOnNodeByKey = new Set(
+    (target.tags ?? []).map((t) => normalizeTagKey(t)),
+  );
+  const additions = cleaned.filter((n) => !existingOnNodeByKey.has(normalizeTagKey(n)));
+  if (additions.length === 0) return next;
+
+  const updatedRoot = mapTree(next.root, (n) => {
+    if (n.id !== nodeId) return n;
+    return { ...n, tags: [...(n.tags ?? []), ...additions] };
+  });
+  if (!updatedRoot) {
+    throw new OpError(`tagsAdd: node "${nodeId}" disappeared during update`);
+  }
+  return { ...next, root: updatedRoot };
+}
+
+/**
+ * Detach one or more tag names from a data-node. Names are matched
+ * case-insensitively. Missing names are silently ignored (not an error
+ * — the call is idempotent). The tag tree is NOT touched: the tag
+ * still exists in the user's hierarchy, just no longer on this node.
+ */
+export function tagsRemove(
+  doc: MindDocument,
+  nodeId: string,
+  names: string[],
+): MindDocument {
+  const target = findById(doc, nodeId);
+  if (!target) throw new OpError(`tagsRemove: node "${nodeId}" not found`);
+  if (!target.tags || target.tags.length === 0) return doc;
+
+  const removeKeys = new Set(names.map((n) => normalizeTagKey(n)));
+  const filtered = target.tags.filter((t) => !removeKeys.has(normalizeTagKey(t)));
+  if (filtered.length === target.tags.length) return doc;
+
+  const updatedRoot = mapTree(doc.root, (n) => {
+    if (n.id !== nodeId) return n;
+    if (filtered.length === 0) {
+      const { tags: _drop, ...rest } = n;
+      void _drop;
+      return rest;
+    }
+    return { ...n, tags: filtered };
+  });
+  if (!updatedRoot) {
+    throw new OpError(`tagsRemove: node "${nodeId}" disappeared during update`);
+  }
+  return { ...doc, root: updatedRoot };
+}
+
+/**
+ * Cascading delete of a tag-node: removes it (and its descendants) from
+ * the tag tree, and strips every matching tag name from every data-node
+ * in the document. Single atomic operation — the caller's undo stack
+ * sees it as one step.
+ */
+export function tagDelete(doc: MindDocument, tagNodeId: string): MindDocument {
+  if (!doc.tagRoot) {
+    throw new OpError(`tagDelete: no tag tree`);
+  }
+  if (doc.tagRoot.id === tagNodeId) {
+    throw new OpError("tagDelete: cannot delete the tag-tree root");
+  }
+  const subtree = findInTree(doc.tagRoot, tagNodeId);
+  if (!subtree) {
+    throw new OpError(`tagDelete: tag-node "${tagNodeId}" not found`);
+  }
+
+  // Collect every tag name we need to strip from data-nodes.
+  const namesToStrip = new Set<string>();
+  function collect(n: TagNode): void {
+    namesToStrip.add(normalizeTagKey(n.name));
+    for (const c of n.children) collect(c);
+  }
+  collect(subtree);
+
+  // 1. Remove the subtree from the tag tree.
+  const newTagRoot = mapTree(doc.tagRoot, (n) => (n.id === tagNodeId ? null : n));
+  if (!newTagRoot) {
+    // Unreachable: the tag-root is never the target (checked above).
+    throw new OpError("tagDelete: tag tree collapsed during delete");
+  }
+
+  // 2. Strip matching names from every data-node.
+  const newRoot = mapTree(doc.root, (n) => {
+    if (!n.tags || n.tags.length === 0) return n;
+    const filtered = n.tags.filter((t) => !namesToStrip.has(normalizeTagKey(t)));
+    if (filtered.length === n.tags.length) return n;
+    if (filtered.length === 0) {
+      const { tags: _drop, ...rest } = n;
+      void _drop;
+      return rest;
+    }
+    return { ...n, tags: filtered };
+  });
+  if (!newRoot) {
+    throw new OpError("tagDelete: data tree collapsed during delete");
+  }
+
+  return { ...doc, root: newRoot, tagRoot: newTagRoot };
+}
+
+/**
+ * Rename a tag-node. Renames cascade into every data-node whose `tags`
+ * include the old name (case-insensitive match) — without renaming
+ * cascading, data-nodes would silently "lose" their tag because tag
+ * identity for matching is by name string (see types.ts).
+ *
+ * Rejects on:
+ *  - the tag-tree root itself (no user-facing rename)
+ *  - missing tag-node
+ *  - blank / whitespace-only new name
+ *  - case-insensitive name collision with a *different* existing
+ *    tag-node (renaming to your own current name is a silent no-op).
+ */
+export function updateTagName(
+  doc: MindDocument,
+  tagNodeId: string,
+  newName: string,
+): MindDocument {
+  if (!doc.tagRoot) {
+    throw new OpError("updateTagName: no tag tree");
+  }
+  if (doc.tagRoot.id === tagNodeId) {
+    throw new OpError("updateTagName: cannot rename the tag-tree root");
+  }
+  const target = findInTree(doc.tagRoot, tagNodeId);
+  if (!target) {
+    throw new OpError(`updateTagName: tag-node "${tagNodeId}" not found`);
+  }
+  const trimmed = newName.trim();
+  if (trimmed.length === 0) {
+    throw new OpError("updateTagName: name cannot be empty");
+  }
+  if (trimmed === target.name) return doc;
+  const newKey = normalizeTagKey(trimmed);
+  if (newKey !== normalizeTagKey(target.name)) {
+    // Reject if a *different* tag-node already carries this name.
+    const existingByKey = collectTagNamesByKey(doc.tagRoot);
+    const conflicting = existingByKey.get(newKey);
+    if (conflicting && conflicting.id !== tagNodeId) {
+      throw new OpError(`updateTagName: a tag named "${trimmed}" already exists`);
+    }
+  }
+
+  // Rename the tag-node in the tag tree.
+  const newTagRoot = mapTree(doc.tagRoot, (n) =>
+    n.id === tagNodeId ? { ...n, name: trimmed } : n,
+  );
+  if (!newTagRoot) {
+    throw new OpError("updateTagName: tag tree collapsed during rename");
+  }
+
+  // Rewrite every matching name on data-nodes so the linkage survives.
+  const oldKey = normalizeTagKey(target.name);
+  if (oldKey === newKey) {
+    // Only casing changed — data-nodes still match either way (matching
+    // is case-insensitive), so leave them alone.
+    return { ...doc, tagRoot: newTagRoot };
+  }
+  const newRoot = mapTree(doc.root, (n) => {
+    if (!n.tags || n.tags.length === 0) return n;
+    let changed = false;
+    const next = n.tags.map((t) => {
+      if (normalizeTagKey(t) === oldKey) {
+        changed = true;
+        return trimmed;
+      }
+      return t;
+    });
+    if (!changed) return n;
+    return { ...n, tags: next };
+  });
+  if (!newRoot) {
+    throw new OpError("updateTagName: data tree collapsed during rename");
+  }
+  return { ...doc, root: newRoot, tagRoot: newTagRoot };
+}
+
+/**
+ * Re-parent a tag-node to a new parent within the tag tree. Mirrors
+ * `moveNode` for the data tree: prevents moving the tag-tree root,
+ * prevents moving into self, prevents creating cycles. `index` is the
+ * insertion position within the new parent's children (defaults to
+ * append).
+ */
+export function moveTagNode(
+  doc: MindDocument,
+  tagNodeId: string,
+  newParentId: string,
+  index?: number,
+): MindDocument {
+  if (!doc.tagRoot) {
+    throw new OpError("moveTagNode: no tag tree");
+  }
+  if (tagNodeId === doc.tagRoot.id) {
+    throw new OpError("moveTagNode: cannot move the tag-tree root");
+  }
+  if (tagNodeId === newParentId) {
+    throw new OpError("moveTagNode: cannot move node into itself");
+  }
+  const moving = findInTree(doc.tagRoot, tagNodeId);
+  if (!moving) {
+    throw new OpError(`moveTagNode: tag-node "${tagNodeId}" not found`);
+  }
+  if (isDescendant(moving, newParentId)) {
+    throw new OpError("moveTagNode: cannot move node under one of its descendants");
+  }
+  const targetParent = findInTree(doc.tagRoot, newParentId);
+  if (!targetParent) {
+    throw new OpError(`moveTagNode: target parent "${newParentId}" not found`);
+  }
+
+  // Remove the moving node from its current location, then re-insert
+  // it under the new parent.
+  const removed = mapTree(doc.tagRoot, (n) => (n.id === tagNodeId ? null : n));
+  if (!removed) {
+    throw new OpError("moveTagNode: tag tree collapsed during move");
+  }
+  const reinserted = mapTree(removed, (n) => {
+    if (n.id !== newParentId) return n;
+    const insertAt =
+      index === undefined ? n.children.length : Math.max(0, Math.min(index, n.children.length));
+    const children = [...n.children];
+    children.splice(insertAt, 0, moving);
+    return { ...n, children };
+  });
+  if (!reinserted) {
+    throw new OpError("moveTagNode: tag tree collapsed during re-insert");
+  }
+  return { ...doc, tagRoot: reinserted };
+}
+
+/**
+ * Reorder a tag-node among its current siblings. Mirrors `moveSibling`
+ * for the data tree. No-op when already at the boundary; throws on
+ * tag-tree root or missing node.
+ */
+export function moveTagSibling(
+  doc: MindDocument,
+  tagNodeId: string,
+  direction: "up" | "down",
+): MindDocument {
+  if (!doc.tagRoot) {
+    throw new OpError("moveTagSibling: no tag tree");
+  }
+  if (tagNodeId === doc.tagRoot.id) {
+    throw new OpError("moveTagSibling: cannot move the tag-tree root");
+  }
+  const parentInfo = findParent(doc.tagRoot, tagNodeId);
+  if (!parentInfo) {
+    throw new OpError(`moveTagSibling: tag-node "${tagNodeId}" not found`);
+  }
+  const { parent, index } = parentInfo;
+  const swapWith = direction === "up" ? index - 1 : index + 1;
+  if (swapWith < 0 || swapWith >= parent.children.length) return doc;
+  const newTagRoot = mapTree(doc.tagRoot, (n) => {
+    if (n.id !== parent.id) return n;
+    const children = [...n.children];
+    [children[index], children[swapWith]] = [children[swapWith]!, children[index]!];
+    return { ...n, children };
+  });
+  if (!newTagRoot) {
+    throw new OpError("moveTagSibling: tag tree collapsed during reorder");
+  }
+  return { ...doc, tagRoot: newTagRoot };
+}

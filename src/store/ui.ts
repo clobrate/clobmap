@@ -30,7 +30,26 @@ export interface UIState {
   editingNodeId: string | null;
   /** Node whose long-form Markdown notes popup is open, or null. */
   notesEditorNodeId: string | null;
+  /** Node whose tag editor popup is open, or null. */
+  tagEditorNodeId: string | null;
+  /** Selected tag-node in the tag tree pane, or null. */
+  selectedTagId: string | null;
+  /** Tag-node currently in inline-rename mode, or null. */
+  editingTagId: string | null;
+  /** Tag-tree pane visibility — `null` follows the auto rule (show when
+   *  the doc has any tags); `true` / `false` are user overrides. */
+  tagTreeVisible: boolean | null;
+  /** When non-null, the canvas swaps to the hierarchy filter view rooted
+   *  at this tag-node (§5.3 of tagging-design-doc.md). Cleared by the
+   *  Reset filter button or by deleting the underlying tag-node. */
+  filterTagId: string | null;
+  /** Persisted vertical-split ratio between the data canvas (top) and
+   *  the tag tree pane (bottom). Clamped to 0.2..0.8 like splitRatio. */
+  tagTreeSplitRatio: number;
   contextMenu: { nodeId: string; x: number; y: number } | null;
+  /** Right-click menu for the tag tree pane, separate from the data
+   *  canvas's contextMenu so the two can't accidentally collide. */
+  tagContextMenu: { tagId: string; x: number; y: number } | null;
   clipboard: ClipboardEntry | null;
   liveAnnouncement: string;
   availableUpdate: UpdatePayload | null;
@@ -50,8 +69,17 @@ export interface UIState {
   setEditing: (id: string | null) => void;
   openNotesEditor: (id: string) => void;
   closeNotesEditor: () => void;
+  openTagEditor: (id: string) => void;
+  closeTagEditor: () => void;
+  setSelectedTag: (id: string | null) => void;
+  setEditingTag: (id: string | null) => void;
+  setTagTreeVisible: (v: boolean | null) => void;
+  setTagTreeSplitRatio: (ratio: number) => void;
+  setFilterTagId: (id: string | null) => void;
   openContextMenu: (nodeId: string, x: number, y: number) => void;
   closeContextMenu: () => void;
+  openTagContextMenu: (tagId: string, x: number, y: number) => void;
+  closeTagContextMenu: () => void;
   setClipboard: (entry: ClipboardEntry | null) => void;
   announce: (message: string) => void;
   setAvailableUpdate: (u: UpdatePayload | null) => void;
@@ -70,7 +98,14 @@ export const useUIStore = create<UIState>((set) => ({
   selectedNodeId: null,
   editingNodeId: null,
   notesEditorNodeId: null,
+  tagEditorNodeId: null,
+  selectedTagId: null,
+  editingTagId: null,
+  tagTreeVisible: null,
+  tagTreeSplitRatio: 0.7,
+  filterTagId: null,
   contextMenu: null,
+  tagContextMenu: null,
   clipboard: null,
   liveAnnouncement: "",
   availableUpdate: null,
@@ -98,8 +133,27 @@ export const useUIStore = create<UIState>((set) => ({
   setEditing: (id) => set({ editingNodeId: id }),
   openNotesEditor: (id) => set({ notesEditorNodeId: id, contextMenu: null }),
   closeNotesEditor: () => set({ notesEditorNodeId: null }),
+  openTagEditor: (id) => set({ tagEditorNodeId: id, contextMenu: null }),
+  closeTagEditor: () => set({ tagEditorNodeId: null }),
+  setSelectedTag: (id) => set({ selectedTagId: id }),
+  setEditingTag: (id) => set({ editingTagId: id }),
+  setTagTreeVisible: (v) => set({ tagTreeVisible: v }),
+  setTagTreeSplitRatio: (ratio) =>
+    set({ tagTreeSplitRatio: Math.max(0.2, Math.min(0.8, ratio)) }),
+  setFilterTagId: (id) =>
+    // Entering the filter view clears the tag-tree selection (and
+    // therefore the per-tag highlight) — both are "focused-on-one-tag"
+    // modes and combining them visually muddles the canvas.
+    set((s) => ({
+      filterTagId: id,
+      contextMenu: null,
+      tagContextMenu: null,
+      selectedTagId: id !== null ? null : s.selectedTagId,
+    })),
   openContextMenu: (nodeId, x, y) => set({ contextMenu: { nodeId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
+  openTagContextMenu: (tagId, x, y) => set({ tagContextMenu: { tagId, x, y } }),
+  closeTagContextMenu: () => set({ tagContextMenu: null }),
   setClipboard: (entry) => set({ clipboard: entry }),
   announce: (message) => set({ liveAnnouncement: message }),
   setAvailableUpdate: (u) => set({ availableUpdate: u }),

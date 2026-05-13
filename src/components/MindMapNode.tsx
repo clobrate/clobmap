@@ -1,12 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Node } from "@xyflow/react";
 import { handleId, type MindNodeData } from "../lib/layout";
-import type { HandleSide } from "../model";
+import type { HandleSide, TagNode } from "../model";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
 import { useLongPress } from "../lib/useLongPress";
 import { updateNode, updateText } from "../model";
+
+function findTagNameById(root: TagNode | undefined, id: string): string | null {
+  if (!root) return null;
+  if (root.id === id) return root.name;
+  for (const c of root.children) {
+    const found = findTagNameById(c, id);
+    if (found) return found;
+  }
+  return null;
+}
 
 type Props = NodeProps<Node<MindNodeData>>;
 
@@ -21,6 +31,7 @@ export function MindMapNode({ id, data, selected }: Props) {
     maxWidth,
     maxHeight,
     hasNotes,
+    tags,
     outgoingSides,
     incomingSide,
   } = data;
@@ -30,7 +41,22 @@ export function MindMapNode({ id, data, selected }: Props) {
   const setSelected = useUIStore((s) => s.setSelected);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
   const openNotesEditor = useUIStore((s) => s.openNotesEditor);
+  const openTagEditor = useUIStore((s) => s.openTagEditor);
   const clipboard = useUIStore((s) => s.clipboard);
+  // Selection of a tag in the tag-tree pane drives the per-data-node
+  // highlight automatically — no separate highlight toggle. Subscribe
+  // to the tagRoot reference (changes only on tag-tree edits, see
+  // ops.ts spread pattern) so we don't churn re-renders on data edits.
+  const selectedTagId = useUIStore((s) => s.selectedTagId);
+  const tagRoot = useDocumentStore((s) => s.parsedDoc?.tagRoot);
+  const highlightedTagName = useMemo(
+    () => (selectedTagId ? findTagNameById(tagRoot, selectedTagId) : null),
+    [selectedTagId, tagRoot],
+  );
+  const isHighlighted =
+    !!highlightedTagName &&
+    !!tags &&
+    tags.some((t) => t.toLowerCase() === highlightedTagName.toLowerCase());
   const isEditing = editingNodeId === id;
   const isClipped = clipboard?.nodeId === id;
 
@@ -53,11 +79,20 @@ export function MindMapNode({ id, data, selected }: Props) {
 
   const dimClass = isClipped ? "opacity-40 outline-dashed outline-1 outline-amber-400/60" : "";
 
+  // Fill the node background when the highlight is active on a tag we
+  // carry. Distinct from the border `color` field (which the user owns
+  // — left untouched). Picked an amber tone so it doesn't clash with
+  // the emerald used for selection / root.
+  const highlightClass = isHighlighted
+    ? "!bg-amber-100 dark:!bg-amber-900/40"
+    : "";
+
   const colorBorderStyle = color && !selected ? { borderColor: color } : undefined;
 
   return (
     <div
-      className={`${baseClass} ${borderClass} ${dimClass}`}
+      className={`${baseClass} ${borderClass} ${dimClass} ${highlightClass}`}
+      data-highlighted={isHighlighted ? "true" : undefined}
       style={{
         ...colorBorderStyle,
         // Cap node visual size to its resolved max dimensions; the layout
@@ -89,6 +124,15 @@ export function MindMapNode({ id, data, selected }: Props) {
       ) : (
         <div className="flex items-start gap-1.5">
           <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
+          {tags && tags.length > 0 && (
+            <TagIndicator
+              tagCount={tags.length}
+              onActivate={() => {
+                setSelected(id);
+                openTagEditor(id);
+              }}
+            />
+          )}
           <NoteIndicator
             hasNotes={hasNotes}
             onActivate={() => {
@@ -153,6 +197,48 @@ function HandleSet({
         );
       })}
     </>
+  );
+}
+
+/**
+ * Tiny tag affordance — same shape as NoteIndicator, only rendered when
+ * the node has at least one tag. Click opens the tag editor (same as
+ * pressing `T` on the selected node). Hidden when the node has no tags
+ * to keep tagless nodes visually identical to pre-tagging clobmap and
+ * to avoid shifting the node's center click-target away from the text.
+ */
+function TagIndicator({ tagCount, onActivate }: { tagCount: number; onActivate: () => void }) {
+  const stateClass =
+    "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/60 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-neutral-700/60";
+  const label = `Edit tags (${tagCount})`;
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onActivate();
+      }}
+      className={`shrink-0 rounded p-0.5 ${stateClass}`}
+      title={label}
+      aria-label={label}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="10"
+        height="10"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M2.5 7L7 2.5h6.5V9L9 13.5z" />
+        <circle cx="10.5" cy="5.5" r="0.8" fill="currentColor" stroke="none" />
+      </svg>
+    </button>
   );
 }
 

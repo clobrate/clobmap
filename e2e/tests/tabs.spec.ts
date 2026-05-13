@@ -67,8 +67,12 @@ test.describe("tabs (§3)", () => {
     await openNewTab(page);
     // We're now on tab B — the new node from tab A shouldn't be here.
     await expect(nodeByText(page, "Survives switch")).toHaveCount(0);
-    // Switch back to tab A.
+    // Switch back to tab A. Wait for the welcome-doc root to be visible
+    // before asserting on the specific node — under parallel-load,
+    // WebKit can otherwise check before tab A's canvas finishes swapping
+    // in. (Same fix pattern as the dirty-tab tests below.)
     await tabs(page).nth(0).click();
+    await expect(nodeByText(page, ROOT)).toBeVisible();
     await expect(nodeByText(page, "Survives switch")).toBeVisible();
   });
 

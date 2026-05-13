@@ -31,6 +31,7 @@ interface Props {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onEditNotes: () => void;
+  onEditTags: () => void;
   onSetColor: (color: string | null) => void;
   onCut: () => void;
   onPaste: () => void;
@@ -53,6 +54,7 @@ export function ContextMenu(props: Props) {
     onMoveUp,
     onMoveDown,
     onEditNotes,
+    onEditTags,
     onSetColor,
     onCut,
     onPaste,
@@ -84,6 +86,7 @@ export function ContextMenu(props: Props) {
     >
       <Item label="Rename" shortcut="F2" onClick={onRename} />
       <Item label="Edit notes…" shortcut="N" onClick={onEditNotes} />
+      <Item label="Edit tags…" shortcut="T" onClick={onEditTags} />
       <ColorRow current={node.color} onPick={onSetColor} />
       <Divider />
       <Item label="Add child" shortcut="Tab" onClick={onAddChild} />

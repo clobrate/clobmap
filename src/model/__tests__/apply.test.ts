@@ -377,4 +377,169 @@ describe("applyTreeToDocument", () => {
     if (!reparsed.ok) return;
     expect(reparsed.value.title).toBe("Renamed");
   });
+
+  it("writes tags to a node and rewrites them in the live AST", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    const after: MindDocument = {
+      ...live.value.tree,
+      root: { ...live.value.tree.root, tags: ["urgent", "logistics"] },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.root.tags).toEqual(["urgent", "logistics"]);
+  });
+
+  it("drops the tags key when set back to empty", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    // First add tags…
+    let after: MindDocument = {
+      ...live.value.tree,
+      root: { ...live.value.tree.root, tags: ["x"] },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    // …then clear them.
+    after = { ...after, root: { ...after.root, tags: undefined } };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.root.tags).toBeUndefined();
+    // And the YAML text shouldn't carry a stale "tags:" key.
+    expect(out).not.toMatch(/^\s*tags:/m);
+  });
+
+  it("creates a tagRoot subtree from scratch when the AST has none", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    const after: MindDocument = {
+      ...live.value.tree,
+      tagRoot: {
+        id: "t1",
+        name: "tags",
+        children: [{ id: "t2", name: "urgent", children: [] }],
+      },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.tagRoot?.name).toBe("tags");
+    expect(reparsed.value.tagRoot?.children.map((c) => c.name)).toEqual(["urgent"]);
+  });
+
+  it("deletes tagRoot from the AST when the tree no longer has one", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    let after: MindDocument = {
+      ...live.value.tree,
+      tagRoot: {
+        id: "t1",
+        name: "tags",
+        children: [],
+      },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    after = { ...after, tagRoot: undefined };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    expect(out).not.toMatch(/^tagRoot:/m);
+  });
+
+  it("freshly-created data-nodes carry their initial tags into the AST", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    // Add a brand-new child node that already has tags — the syncOrCreate
+    // fresh-create path needs to emit the `tags` sub-sequence on the
+    // newly-built YAMLMap (not just the syncNode sync path).
+    const after: MindDocument = {
+      ...live.value.tree,
+      root: {
+        ...live.value.tree.root,
+        children: [
+          ...live.value.tree.root.children,
+          { id: "newchild", text: "Fresh", children: [], tags: ["alpha", "beta"] },
+        ],
+      },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    // Re-parse so format (block vs flow) doesn't matter — we just want
+    // to confirm the data made it through the fresh-create path.
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    const fresh = reparsed.value.root.children.find((c) => c.id === "newchild");
+    expect(fresh?.text).toBe("Fresh");
+    expect(fresh?.tags).toEqual(["alpha", "beta"]);
+  });
+
+  it("a second apply walks nested tag-nodes via the AST index (re-walk path)", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    // First apply: create a tag tree with one nested grandchild.
+    let after: MindDocument = {
+      ...live.value.tree,
+      tagRoot: {
+        id: "t1",
+        name: "tags",
+        children: [
+          {
+            id: "t2",
+            name: "parent",
+            children: [{ id: "t3", name: "child", children: [] }],
+          },
+        ],
+      },
+    };
+    applyTreeToDocument(live.value.doc, after);
+
+    // Second apply: rename the nested child. This is what forces
+    // collectTagMaps to recurse into the tag-tree on the second pass to
+    // find the existing YAMLMap for `t3` in the AST — the path
+    // (buildTagIdIndex → collectTagMaps recursion → syncTagNode update).
+    after = {
+      ...after,
+      tagRoot: {
+        ...after.tagRoot!,
+        children: [
+          {
+            ...after.tagRoot!.children[0]!,
+            children: [{ id: "t3", name: "RENAMED", children: [] }],
+          },
+        ],
+      },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    const child = reparsed.value.tagRoot!.children[0]!.children[0]!;
+    expect(child.name).toBe("RENAMED");
+  });
 });

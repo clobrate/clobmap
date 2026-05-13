@@ -27,6 +27,8 @@ export interface MindNodeData extends Record<string, unknown> {
   maxHeight: number;
   /** True if the node has long-form Markdown notes attached. */
   hasNotes: boolean;
+  /** Tag labels attached to this node (display order preserved). */
+  tags?: string[];
   /**
    * Set of sides this node has at least one outgoing edge leaving from
    * (union of every child's `edgeFrom`). MindMapNode renders a visible
@@ -215,6 +217,7 @@ function emitNode(
       maxWidth: m.capWidth,
       maxHeight: m.capHeight,
       hasNotes: typeof node.notes === "string" && node.notes.trim().length > 0,
+      tags: node.tags && node.tags.length > 0 ? [...node.tags] : undefined,
       outgoingSides,
       incomingSide: node.edgeTo ?? DEFAULT_TO_SIDE,
     },
