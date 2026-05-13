@@ -4,6 +4,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirro
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { yaml } from "@codemirror/lang-yaml";
 import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
+import { search, searchKeymap, openSearchPanel } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { parseYaml } from "../model";
 import { useDocumentStore } from "../store/document";
@@ -77,7 +78,24 @@ export function YamlEditor() {
         lineNumbers(),
         history(),
         highlightActiveLine(),
-        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+        search({ top: true }),
+        // The keymap facet doesn't dispatch Mod-f reliably in this setup
+        // (something in our DOM ancestry seems to swallow it before the
+        // editor's keydown handler can run). Wire it via a dom-event
+        // handler at the editor level, which fires directly off the
+        // contentDOM keydown — same firing point CodeMirror's keymap
+        // uses, but unambiguous about precedence.
+        EditorView.domEventHandlers({
+          keydown(event, view) {
+            if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "f") {
+              event.preventDefault();
+              openSearchPanel(view);
+              return true;
+            }
+            return false;
+          },
+        }),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
         yaml(),
         yamlLinter,
         lintGutter(),

@@ -56,6 +56,30 @@ test.describe("view modes & split (§9)", () => {
     await expect(page.locator(".cm-activeLine")).toContainText("id: n4");
   });
 
+  test("Cmd+F opens the YAML editor's search panel and finds matches", async ({ page }) => {
+    await page.getByRole("tab", { name: "YAML" }).click();
+    const editor = page.locator(".cm-content");
+    await editor.click();
+    // No search panel before the shortcut fires.
+    await expect(page.locator(".cm-search.cm-panel")).toHaveCount(0);
+    await page.keyboard.press("Meta+f");
+    const panel = page.locator(".cm-search.cm-panel");
+    await expect(panel).toBeVisible();
+    // Typing in the panel's input highlights matches in the doc; the
+    // selected match gets the .cm-searchMatch-selected class.
+    const input = panel.locator('input[main-field="true"]');
+    await input.click();
+    await page.keyboard.type("Venue");
+    // CodeMirror's search highlight is keyed off the input's value via
+    // a CodeMirror-internal listener; pressing Enter commits the query
+    // and selects the first match so it's visible in the editor's DOM.
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".cm-searchMatch").first()).toBeVisible();
+    // Escape closes the panel.
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+  });
+
   test("9.4 inline parse errors don't blank the canvas — last-good tree stays", async ({
     page,
   }) => {
