@@ -32,7 +32,20 @@ export interface UIState {
   notesEditorNodeId: string | null;
   /** Node whose tag editor popup is open, or null. */
   tagEditorNodeId: string | null;
+  /** Selected tag-node in the tag tree pane, or null. */
+  selectedTagId: string | null;
+  /** Tag-node currently in inline-rename mode, or null. */
+  editingTagId: string | null;
+  /** Tag-tree pane visibility — `null` follows the auto rule (show when
+   *  the doc has any tags); `true` / `false` are user overrides. */
+  tagTreeVisible: boolean | null;
+  /** Persisted vertical-split ratio between the data canvas (top) and
+   *  the tag tree pane (bottom). Clamped to 0.2..0.8 like splitRatio. */
+  tagTreeSplitRatio: number;
   contextMenu: { nodeId: string; x: number; y: number } | null;
+  /** Right-click menu for the tag tree pane, separate from the data
+   *  canvas's contextMenu so the two can't accidentally collide. */
+  tagContextMenu: { tagId: string; x: number; y: number } | null;
   clipboard: ClipboardEntry | null;
   liveAnnouncement: string;
   availableUpdate: UpdatePayload | null;
@@ -54,8 +67,14 @@ export interface UIState {
   closeNotesEditor: () => void;
   openTagEditor: (id: string) => void;
   closeTagEditor: () => void;
+  setSelectedTag: (id: string | null) => void;
+  setEditingTag: (id: string | null) => void;
+  setTagTreeVisible: (v: boolean | null) => void;
+  setTagTreeSplitRatio: (ratio: number) => void;
   openContextMenu: (nodeId: string, x: number, y: number) => void;
   closeContextMenu: () => void;
+  openTagContextMenu: (tagId: string, x: number, y: number) => void;
+  closeTagContextMenu: () => void;
   setClipboard: (entry: ClipboardEntry | null) => void;
   announce: (message: string) => void;
   setAvailableUpdate: (u: UpdatePayload | null) => void;
@@ -75,7 +94,12 @@ export const useUIStore = create<UIState>((set) => ({
   editingNodeId: null,
   notesEditorNodeId: null,
   tagEditorNodeId: null,
+  selectedTagId: null,
+  editingTagId: null,
+  tagTreeVisible: null,
+  tagTreeSplitRatio: 0.7,
   contextMenu: null,
+  tagContextMenu: null,
   clipboard: null,
   liveAnnouncement: "",
   availableUpdate: null,
@@ -105,8 +129,15 @@ export const useUIStore = create<UIState>((set) => ({
   closeNotesEditor: () => set({ notesEditorNodeId: null }),
   openTagEditor: (id) => set({ tagEditorNodeId: id, contextMenu: null }),
   closeTagEditor: () => set({ tagEditorNodeId: null }),
+  setSelectedTag: (id) => set({ selectedTagId: id }),
+  setEditingTag: (id) => set({ editingTagId: id }),
+  setTagTreeVisible: (v) => set({ tagTreeVisible: v }),
+  setTagTreeSplitRatio: (ratio) =>
+    set({ tagTreeSplitRatio: Math.max(0.2, Math.min(0.8, ratio)) }),
   openContextMenu: (nodeId, x, y) => set({ contextMenu: { nodeId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
+  openTagContextMenu: (tagId, x, y) => set({ tagContextMenu: { tagId, x, y } }),
+  closeTagContextMenu: () => set({ tagContextMenu: null }),
   setClipboard: (entry) => set({ clipboard: entry }),
   announce: (message) => set({ liveAnnouncement: message }),
   setAvailableUpdate: (u) => set({ availableUpdate: u }),

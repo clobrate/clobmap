@@ -24,6 +24,7 @@ import { TabStrip } from "./components/TabStrip";
 import { WelcomeBanner } from "./components/WelcomeBanner";
 import { NotesPopup } from "./components/NotesPopup";
 import { TagEditor } from "./components/TagEditor";
+import { TagTreePane, hasAnyTag } from "./components/TagTreePane";
 import { storage } from "./lib/storage";
 import { loadLastOpenFile, loadSettings, saveSplitRatioPref } from "./lib/settings";
 import { isMobile, isTauri } from "./lib/env";
@@ -111,6 +112,13 @@ function App() {
   const splitOrientation = useUIStore((s) => s.splitOrientation);
   const splitRatio = useUIStore((s) => s.splitRatio);
   const setSplitRatio = useUIStore((s) => s.setSplitRatio);
+  const tagTreeVisible = useUIStore((s) => s.tagTreeVisible);
+  const setTagTreeVisible = useUIStore((s) => s.setTagTreeVisible);
+  const tagTreeSplitRatio = useUIStore((s) => s.tagTreeSplitRatio);
+  const setTagTreeSplitRatio = useUIStore((s) => s.setTagTreeSplitRatio);
+  const parsedDoc = useDocumentStore((s) => s.parsedDoc);
+  const docHasTags = hasAnyTag(parsedDoc);
+  const showTagTree = docHasTags && tagTreeVisible !== false;
   const setAutoSave = useUIStore((s) => s.setAutoSave);
   const setSplitOrientation = useUIStore((s) => s.setSplitOrientation);
   const setThemePreference = useUIStore((s) => s.setThemePreference);
@@ -472,6 +480,17 @@ function App() {
               Install
             </a>
           )}
+          {docHasTags && (
+            <button
+              type="button"
+              onClick={() => setTagTreeVisible(showTagTree ? false : true)}
+              aria-pressed={showTagTree}
+              title={showTagTree ? "Hide tag tree" : "Show tag tree"}
+              className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+            >
+              {showTagTree ? "Hide tags" : "Show tags"}
+            </button>
+          )}
           <ViewToggle />
           <SettingsMenu />
         </div>
@@ -486,7 +505,17 @@ function App() {
         )}
         {viewMode === "mindmap" && (
           <div className="flex-1">
-            <MindMap />
+            {showTagTree ? (
+              <SplitPanes
+                orientation="vertical"
+                ratio={tagTreeSplitRatio}
+                onRatioChange={setTagTreeSplitRatio}
+                first={<MindMap />}
+                second={<TagTreePane />}
+              />
+            ) : (
+              <MindMap />
+            )}
           </div>
         )}
         {viewMode === "split" && (
@@ -496,7 +525,19 @@ function App() {
             onRatioChange={setSplitRatio}
             onRatioCommit={(r) => void saveSplitRatioPref(r)}
             first={<YamlEditor />}
-            second={<MindMap />}
+            second={
+              showTagTree ? (
+                <SplitPanes
+                  orientation="vertical"
+                  ratio={tagTreeSplitRatio}
+                  onRatioChange={setTagTreeSplitRatio}
+                  first={<MindMap />}
+                  second={<TagTreePane />}
+                />
+              ) : (
+                <MindMap />
+              )
+            }
           />
         )}
       </div>

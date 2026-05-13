@@ -17,6 +17,9 @@ import {
   tagsAdd,
   tagsRemove,
   tagDelete,
+  updateTagName,
+  moveTagNode,
+  moveTagSibling,
   updateNode,
   updateText,
 } from "../ops";
@@ -706,5 +709,176 @@ describe("idGeneratorForDocument with tagRoot", () => {
     const ids = idGeneratorForDocument(doc);
     // Next id should be n10 (the next base36 step after n9).
     expect(ids.next()).toBe("na");
+  });
+});
+
+/**
+ * Build a doc with a tag tree populated for the move/rename tests.
+ * Tag-tree shape:
+ *   tagRoot (synthetic)
+ *     ├── parent
+ *     │     └── child
+ *     └── other
+ */
+function docWithTags(): MindDocument {
+  let doc = fixture();
+  const ids = idGeneratorForDocument(doc);
+  doc = tagsAdd(doc, "n3", ["parent", "other"], ids);
+  doc = tagsAdd(doc, "n4", ["child"], ids);
+  // Manually nest "child" under "parent" to make a 2-deep tag tree.
+  const parent = doc.tagRoot!.children.find((c) => c.name === "parent")!;
+  const child = doc.tagRoot!.children.find((c) => c.name === "child")!;
+  const other = doc.tagRoot!.children.find((c) => c.name === "other")!;
+  return {
+    ...doc,
+    tagRoot: {
+      ...doc.tagRoot!,
+      children: [{ ...parent, children: [child] }, other],
+    },
+  };
+}
+
+describe("updateTagName", () => {
+  it("renames a tag-node and rewrites every matching data-node tag", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    const next = updateTagName(doc, parent.id, "renamed");
+    const found = next.tagRoot!.children.find((c) => c.id === parent.id);
+    expect(found?.name).toBe("renamed");
+    expect(findById(next, "n3")?.tags).toEqual(["renamed", "other"]);
+  });
+
+  it("case-only rename leaves data-node tags alone (match is case-insensitive)", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    const next = updateTagName(doc, parent.id, "PARENT");
+    expect(next.tagRoot!.children.find((c) => c.id === parent.id)?.name).toBe("PARENT");
+    // Data-node tags untouched (still match either way).
+    expect(findById(next, "n3")?.tags).toEqual(["parent", "other"]);
+  });
+
+  it("no-op when the name is identical", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    expect(updateTagName(doc, parent.id, "parent")).toBe(doc);
+  });
+
+  it("rejects blank names", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    expect(() => updateTagName(doc, parent.id, "   ")).toThrow(OpError);
+  });
+
+  it("rejects collisions with another existing tag-node (case-insensitive)", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    expect(() => updateTagName(doc, parent.id, "OTHER")).toThrow(OpError);
+  });
+
+  it("rejects on the tag-tree root", () => {
+    const doc = docWithTags();
+    expect(() => updateTagName(doc, doc.tagRoot!.id, "anything")).toThrow(OpError);
+  });
+
+  it("rejects on missing tag-node", () => {
+    const doc = docWithTags();
+    expect(() => updateTagName(doc, "missing", "x")).toThrow(OpError);
+  });
+
+  it("rejects when there is no tag tree", () => {
+    expect(() => updateTagName(fixture(), "anything", "x")).toThrow(OpError);
+  });
+});
+
+describe("moveTagNode", () => {
+  it("re-parents a tag-node from one parent to another", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    const child = parent.children[0]!;
+    const other = doc.tagRoot!.children[1]!;
+    const next = moveTagNode(doc, child.id, other.id);
+    // child no longer under parent
+    const newParent = next.tagRoot!.children.find((c) => c.id === parent.id);
+    expect(newParent?.children.length).toBe(0);
+    // child now under other
+    const newOther = next.tagRoot!.children.find((c) => c.id === other.id);
+    expect(newOther?.children.map((c) => c.name)).toEqual(["child"]);
+  });
+
+  it("re-parents to the tag-tree root (top-level)", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    const child = parent.children[0]!;
+    const next = moveTagNode(doc, child.id, doc.tagRoot!.id);
+    // Tag-tree root now has 3 top-level children.
+    expect(next.tagRoot!.children.map((c) => c.name)).toContain("child");
+  });
+
+  it("honors the index argument for ordered insertion", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    const child = parent.children[0]!;
+    const next = moveTagNode(doc, child.id, doc.tagRoot!.id, 0);
+    // child was inserted at index 0 of tag-tree root.
+    expect(next.tagRoot!.children[0]?.name).toBe("child");
+  });
+
+  it("rejects moving the tag-tree root", () => {
+    const doc = docWithTags();
+    expect(() => moveTagNode(doc, doc.tagRoot!.id, doc.tagRoot!.id)).toThrow(OpError);
+  });
+
+  it("rejects moving into self", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    expect(() => moveTagNode(doc, parent.id, parent.id)).toThrow(OpError);
+  });
+
+  it("rejects moving into one of its own descendants (cycle)", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    const child = parent.children[0]!;
+    expect(() => moveTagNode(doc, parent.id, child.id)).toThrow(OpError);
+  });
+
+  it("rejects unknown source or target", () => {
+    const doc = docWithTags();
+    expect(() => moveTagNode(doc, "missing", doc.tagRoot!.id)).toThrow(OpError);
+    const parent = doc.tagRoot!.children[0]!;
+    expect(() => moveTagNode(doc, parent.id, "missing")).toThrow(OpError);
+  });
+
+  it("rejects when there is no tag tree", () => {
+    expect(() => moveTagNode(fixture(), "a", "b")).toThrow(OpError);
+  });
+});
+
+describe("moveTagSibling", () => {
+  it("swaps with the previous sibling on up", () => {
+    const doc = docWithTags();
+    const other = doc.tagRoot!.children[1]!;
+    const next = moveTagSibling(doc, other.id, "up");
+    expect(next.tagRoot!.children.map((c) => c.name)).toEqual(["other", "parent"]);
+  });
+
+  it("swaps with the next sibling on down", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    const next = moveTagSibling(doc, parent.id, "down");
+    expect(next.tagRoot!.children.map((c) => c.name)).toEqual(["other", "parent"]);
+  });
+
+  it("is a no-op at the boundary (returns same doc)", () => {
+    const doc = docWithTags();
+    const parent = doc.tagRoot!.children[0]!;
+    expect(moveTagSibling(doc, parent.id, "up")).toBe(doc);
+    const other = doc.tagRoot!.children[1]!;
+    expect(moveTagSibling(doc, other.id, "down")).toBe(doc);
+  });
+
+  it("rejects on the tag-tree root and unknown id", () => {
+    const doc = docWithTags();
+    expect(() => moveTagSibling(doc, doc.tagRoot!.id, "up")).toThrow(OpError);
+    expect(() => moveTagSibling(doc, "missing", "up")).toThrow(OpError);
   });
 });

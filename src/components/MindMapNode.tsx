@@ -31,6 +31,7 @@ export function MindMapNode({ id, data, selected }: Props) {
   const setSelected = useUIStore((s) => s.setSelected);
   const openContextMenu = useUIStore((s) => s.openContextMenu);
   const openNotesEditor = useUIStore((s) => s.openNotesEditor);
+  const openTagEditor = useUIStore((s) => s.openTagEditor);
   const clipboard = useUIStore((s) => s.clipboard);
   const isEditing = editingNodeId === id;
   const isClipped = clipboard?.nodeId === id;
@@ -88,22 +89,28 @@ export function MindMapNode({ id, data, selected }: Props) {
           maxHeight={maxHeight}
         />
       ) : (
-        <>
-          <div className="flex items-start gap-1.5">
-            <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
-            <NoteIndicator
-              hasNotes={hasNotes}
+        <div className="flex items-start gap-1.5">
+          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{text}</span>
+          {tags && tags.length > 0 && (
+            <TagIndicator
+              tagCount={tags.length}
               onActivate={() => {
                 setSelected(id);
-                openNotesEditor(id);
+                openTagEditor(id);
               }}
             />
-            {hasChildren && (
-              <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
-            )}
-          </div>
-          {tags && tags.length > 0 && <TagChipRow tags={tags} />}
-        </>
+          )}
+          <NoteIndicator
+            hasNotes={hasNotes}
+            onActivate={() => {
+              setSelected(id);
+              openNotesEditor(id);
+            }}
+          />
+          {hasChildren && (
+            <Chevron nodeId={id} collapsed={collapsed} hiddenChildCount={hiddenChildCount} />
+          )}
+        </div>
       )}
       {hasChildren && <HandleSet role="source" activeSides={outgoingSides} />}
     </div>
@@ -161,22 +168,44 @@ function HandleSet({
 }
 
 /**
- * Compact read-only chip row rendered below the node's main row when
- * the data-node carries at least one tag. Phase B is display-only; in
- * Phase D these chips become clickable to enter the hierarchy filter.
+ * Tiny tag affordance — same shape as NoteIndicator, only rendered when
+ * the node has at least one tag. Click opens the tag editor (same as
+ * pressing `T` on the selected node). Hidden when the node has no tags
+ * to keep tagless nodes visually identical to pre-tagging clobmap and
+ * to avoid shifting the node's center click-target away from the text.
  */
-function TagChipRow({ tags }: { tags: string[] }) {
+function TagIndicator({ tagCount, onActivate }: { tagCount: number; onActivate: () => void }) {
+  const stateClass =
+    "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/60 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-neutral-700/60";
+  const label = `Edit tags (${tagCount})`;
   return (
-    <div className="mt-1 flex flex-wrap gap-1" aria-label="Tags">
-      {tags.map((t, i) => (
-        <span
-          key={`${t}-${i}`}
-          className="inline-flex items-center rounded-full bg-neutral-200/70 px-1.5 text-[10px] leading-4 text-neutral-700 dark:bg-neutral-700/70 dark:text-neutral-200"
-        >
-          {t}
-        </span>
-      ))}
-    </div>
+    <button
+      type="button"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onActivate();
+      }}
+      className={`shrink-0 rounded p-0.5 ${stateClass}`}
+      title={label}
+      aria-label={label}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="10"
+        height="10"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M2.5 7L7 2.5h6.5V9L9 13.5z" />
+        <circle cx="10.5" cy="5.5" r="0.8" fill="currentColor" stroke="none" />
+      </svg>
+    </button>
   );
 }
 

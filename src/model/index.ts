@@ -32,6 +32,9 @@ export {
   tagsAdd,
   tagsRemove,
   tagDelete,
+  updateTagName,
+  moveTagNode,
+  moveTagSibling,
 } from "./ops";
 export { diffTrees, type NodeChange, type TreeDiff } from "./diff";
 export { applyTreeToDocument } from "./apply";

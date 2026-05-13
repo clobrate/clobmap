@@ -27,7 +27,7 @@ test.describe("tags — Phase B (data-node UI)", () => {
     await expect(nodeByText(page, ROOT)).toBeVisible();
   });
 
-  test("T opens the tag editor; Enter commits a tag; chip appears on the node", async ({
+  test("T opens the tag editor; Enter commits a tag; tag indicator updates on the node", async ({
     page,
   }) => {
     await selectNode(page, "Venue");
@@ -42,11 +42,13 @@ test.describe("tags — Phase B (data-node UI)", () => {
     // Done closes the editor.
     await dialog.getByRole("button", { name: "Done" }).click();
     await expect(dialog).toHaveCount(0);
-    // Chip is now rendered inside the node itself.
+    // The node now shows an "Edit tags (N)" affordance instead of the
+    // empty "Add tags (T)" hint — we surface the count via aria-label
+    // / tooltip rather than rendering the tag text on the node.
     const venue = page
       .locator(".react-flow__node")
       .filter({ has: nodeByText(page, "Venue") });
-    await expect(venue.locator("text=urgent")).toBeVisible();
+    await expect(venue.getByRole("button", { name: /^Edit tags \(1\)/ })).toBeVisible();
   });
 
   test("comma-separated input adds multiple tags in one commit", async ({ page }) => {
@@ -103,5 +105,27 @@ test.describe("tags — Phase B (data-node UI)", () => {
     const yaml = await yamlText(page);
     // Block list under tags:, not inline `tags: [urgent]`.
     expect(yaml).toMatch(/tags:\s*\n\s+- urgent/);
+  });
+
+  test("clicking Done with unsaved input commits before closing", async ({ page }) => {
+    // Regression: previously, typing "Hello, World" then clicking Done
+    // (without pressing Enter first) silently dropped the input. Now
+    // Done flushes pending text, so the tags persist.
+    await selectNode(page, "Venue");
+    await page.keyboard.press("t");
+    const dialog = page.getByRole("dialog", { name: /^Edit tags for/ });
+    const input = dialog.getByRole("textbox", { name: "Add tag" });
+    await input.fill("Hello, World");
+    // No Enter — go straight to Done.
+    await dialog.getByRole("button", { name: "Done" }).click();
+    await expect(dialog).toHaveCount(0);
+
+    // Re-open the editor and confirm both tags are persisted.
+    await selectNode(page, "Venue");
+    await page.keyboard.press("t");
+    const dialog2 = page.getByRole("dialog", { name: /^Edit tags for/ });
+    await expect(dialog2.locator("text=Hello").first()).toBeVisible();
+    await expect(dialog2.locator("text=World").first()).toBeVisible();
+    await expect(dialog2.locator("text=No tags yet.")).toHaveCount(0);
   });
 });
