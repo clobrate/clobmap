@@ -44,93 +44,54 @@ import { disableTelemetry, enableTelemetry } from "./lib/telemetry";
 // to demonstrate that. Positions are picked to mimic what the auto-
 // layout would produce for a balanced LR tree, with tighter row
 // spacing (~80 px) since these labels are short.
+// No `layoutMode` and no per-node `position` blocks — the canonical
+// auto layout (tidy-tree with measurement-driven sizing, ROW_GAP=10,
+// COLUMN_GAP=50) computes everything fresh on every load. Users can
+// switch to manual via Settings → Layout if they want to drag.
 const DEFAULT_YAML = `title: Wedding planning
 version: 1
-layoutMode: manual
 root:
   id: n1
   text: Our wedding
-  position:
-    x: 24
-    y: 420
   children:
     - id: n2
       text: Venue
-      position:
-        x: 380
-        y: 80
       children:
         - id: n3
           text: Ceremony
-          position:
-            x: 720
-            y: 40
           children: []
         - id: n4
           text: Reception
-          position:
-            x: 720
-            y: 120
           children: []
     - id: n5
       text: Guests
-      position:
-        x: 380
-        y: 280
       children:
         - id: n6
           text: Family
-          position:
-            x: 720
-            y: 240
           children: []
         - id: n7
           text: Friends
-          position:
-            x: 720
-            y: 320
           children: []
     - id: n8
       text: Vendors
-      position:
-        x: 380
-        y: 520
       children:
         - id: n9
           text: Catering
-          position:
-            x: 720
-            y: 440
           children: []
         - id: n10
           text: Photographer
-          position:
-            x: 720
-            y: 520
           children: []
         - id: n11
           text: Florist
-          position:
-            x: 720
-            y: 600
           children: []
     - id: n12
       text: Schedule
-      position:
-        x: 380
-        y: 760
       children:
         - id: n13
           text: Save the date
-          position:
-            x: 720
-            y: 720
           children: []
         - id: n14
           text: Send invites
-          position:
-            x: 720
-            y: 800
           children: []
 `;
 

@@ -1,9 +1,35 @@
 import { expect, test, type Page } from "@playwright/test";
+import YAML from "yaml";
 import { addChild, nodeByText, selectNode } from "../helpers/mindmap";
 
-// The welcome doc ships in `layoutMode: manual` with explicit positions
-// for every node. These tests start from that state and exercise the
-// toggle in both directions.
+interface YamlNode {
+  id: string;
+  text: string;
+  position?: { x: number; y: number };
+  children: YamlNode[];
+}
+interface YamlDoc {
+  root: YamlNode;
+  layoutMode?: string;
+}
+
+/** Find a node by its `text` field, depth-first from the root. */
+function findByText(node: YamlNode, text: string): YamlNode | null {
+  if (node.text === text) return node;
+  for (const c of node.children ?? []) {
+    const f = findByText(c, text);
+    if (f) return f;
+  }
+  return null;
+}
+
+async function readDoc(page: Page): Promise<YamlDoc> {
+  return YAML.parse(await yamlText(page)) as YamlDoc;
+}
+
+// The welcome doc ships in canonical auto layout (no `layoutMode` key,
+// no per-node positions) — tests that need manual mode flip via the
+// Settings → Layout segmented control.
 
 async function openSettings(page: Page) {
   await page.getByRole("button", { name: "Settings" }).click();
@@ -14,6 +40,21 @@ async function closeSettings(page: Page) {
   // Click on the canvas (anywhere outside the menu) to dismiss.
   await page.getByRole("heading", { name: "clobmap" }).click();
   await expect(page.getByRole("menu")).toHaveCount(0);
+}
+
+/**
+ * Switch the document into manual mode via the Settings UI. Materializes
+ * positions for every node from the current auto layout (so subsequent
+ * drag tests have positions to compare against).
+ */
+async function enterManualMode(page: Page) {
+  await openSettings(page);
+  await page.getByRole("button", { name: "Manual", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Manual", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await closeSettings(page);
 }
 
 /**
@@ -49,12 +90,12 @@ test.describe("layout mode (§16)", () => {
 
   test("16.1.1 Layout segmented control reflects the document's mode", async ({ page }) => {
     await openSettings(page);
-    // Welcome doc starts in Manual.
-    await expect(page.getByRole("button", { name: "Manual", exact: true })).toHaveAttribute(
+    // Welcome doc ships in canonical Auto.
+    await expect(page.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(page.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("button", { name: "Manual", exact: true })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
@@ -66,12 +107,11 @@ test.describe("layout mode (§16)", () => {
     // The implementation deliberately keeps `position` fields across
     // mode toggles so a Manual → Auto → Manual round-trip restores
     // exactly the manual layout (see `setLayoutMode` comment). Only the
-    // `layoutMode` key itself flips.
+    // `layoutMode` key itself flips. Step into manual first so the
+    // welcome doc has positions to round-trip.
+    await enterManualMode(page);
     await openSettings(page);
     await page.getByRole("button", { name: "Auto", exact: true }).click();
-    // Wait for the toggle to settle through the debounced parse before
-    // closing the menu and switching tabs — otherwise the second
-    // assertion races with stale state.
     await expect(page.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -84,13 +124,9 @@ test.describe("layout mode (§16)", () => {
   });
 
   test("16.1.2 / 16.1.3 Auto → Manual writes layoutMode back into YAML", async ({ page }) => {
+    // Welcome doc starts in Auto. Click Manual; layoutMode + materialized
+    // positions appear in the YAML.
     await openSettings(page);
-    await page.getByRole("button", { name: "Auto", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-
     await page.getByRole("button", { name: "Manual", exact: true }).click();
     await expect(page.getByRole("button", { name: "Manual", exact: true })).toHaveAttribute(
       "aria-pressed",
@@ -101,38 +137,33 @@ test.describe("layout mode (§16)", () => {
     const text = await yamlText(page);
     expect(text).toMatch(/layoutMode:\s*manual/);
     expect(text.match(/\bposition:/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
-    expect(text).toMatch(/\bx:\s*\d/);
-    expect(text).toMatch(/\by:\s*\d/);
+    expect(text).toMatch(/\bx:\s*-?\d/);
+    expect(text).toMatch(/\by:\s*-?\d/);
   });
 
   test("16.7.1 Tab in manual mode adds a child without breaking other positions", async ({
     page,
   }) => {
-    // Snapshot one existing position before the mutation.
-    const before = await yamlText(page);
-    const venuePos = before.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
-    expect(venuePos).not.toBeNull();
+    await enterManualMode(page);
+    const before = await readDoc(page);
+    const venueBefore = findByText(before.root, "Venue");
+    expect(venueBefore?.position).toBeDefined();
 
     await addChild(page, "Vendors", "DJ");
 
-    const after = await yamlText(page);
-    expect(after).toMatch(/text: DJ/);
-    expect(after).toMatch(/layoutMode:\s*manual/);
+    const after = await readDoc(page);
+    expect(after.layoutMode).toBe("manual");
+    expect(findByText(after.root, "DJ")).not.toBeNull();
     // Venue's coordinates are byte-for-byte unchanged.
-    if (venuePos) {
-      const [, vx, vy] = venuePos;
-      expect(after).toMatch(
-        new RegExp(`text: Venue\\s+position:\\s+x: ${vx}\\s+y: ${vy}`),
-      );
-    }
+    expect(findByText(after.root, "Venue")?.position).toEqual(venueBefore?.position);
   });
 
   test("'Reset to Auto' wipes every saved position and flips layoutMode back to auto", async ({
     page,
   }) => {
-    // Welcome doc starts in Manual with positions; clicking the reset
-    // button should clear *both* the position fields and the
-    // layoutMode key, leaving a clean canonical-auto YAML.
+    // Step into Manual first so there are positions + a layoutMode key
+    // for the reset to actually wipe.
+    await enterManualMode(page);
     await openSettings(page);
     await page.getByRole("button", { name: "Reset to Auto (clear saved positions)" }).click();
     const text = await yamlText(page);
@@ -140,65 +171,60 @@ test.describe("layout mode (§16)", () => {
     expect(text).not.toMatch(/\bposition:/);
   });
 
-  test("16.3 dragging a node in auto mode snaps it back; YAML stays free of position fields", async ({
+  test("16.3 first drag in auto mode auto-switches to manual and persists positions", async ({
     page,
   }) => {
-    // Switch to auto first.
-    await openSettings(page);
-    await page.getByRole("button", { name: "Reset to Auto (clear saved positions)" }).click();
-    // 'Reset to Auto' closes the menu itself.
-    let yaml = await yamlText(page);
-    expect(yaml).not.toMatch(/\bposition:/);
+    // Welcome doc starts in canonical Auto (no `layoutMode`, no positions).
+    const before = await readDoc(page);
+    expect(before.layoutMode).toBeUndefined();
+    expect(findByText(before.root, "Venue")?.position).toBeUndefined();
 
-    // Drag Venue 200px to the right and 100px down.
+    // Drag Venue.
     const venueWrapper = page.locator(".react-flow__node").filter({ has: nodeByText(page, "Venue") });
-    const before = await venueWrapper.boundingBox();
-    expect(before).not.toBeNull();
-    if (!before) return;
+    const box = await venueWrapper.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
     await venueWrapper.hover();
     await page.mouse.down();
-    await page.mouse.move(before.x + 200, before.y + 100, { steps: 12 });
+    await page.mouse.move(box.x + 200, box.y + 100, { steps: 12 });
     await page.mouse.up();
 
-    // Auto mode re-runs the tidy-tree algorithm — Venue snaps back.
-    // Verify by reading the YAML: still no `position:` keys anywhere.
-    yaml = await yamlText(page);
-    expect(yaml).not.toMatch(/\bposition:/);
-    expect(yaml).not.toMatch(/\blayoutMode:/);
+    // Auto-switch: layoutMode flips to manual, every visible node freezes
+    // at its rendered position (so the rest of the layout doesn't reflow).
+    const after = await readDoc(page);
+    expect(after.layoutMode).toBe("manual");
+    expect(findByText(after.root, "Venue")?.position).toBeDefined();
   });
 
   test("16.2 dragging a node in manual mode persists the new position to YAML", async ({
     page,
   }) => {
-    // Welcome doc is already manual. Drag Venue to a new spot.
+    await enterManualMode(page);
     const venueWrapper = page.locator(".react-flow__node").filter({ has: nodeByText(page, "Venue") });
-    const before = await venueWrapper.boundingBox();
-    expect(before).not.toBeNull();
-    if (!before) return;
+    const box = await venueWrapper.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
 
-    const yamlBefore = await yamlText(page);
-    const venuePosBefore = yamlBefore.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
-    expect(venuePosBefore).not.toBeNull();
+    const before = await readDoc(page);
+    const venueBefore = findByText(before.root, "Venue")?.position;
+    expect(venueBefore).toBeDefined();
 
     await venueWrapper.hover();
     await page.mouse.down();
-    await page.mouse.move(before.x + 250, before.y + 150, { steps: 12 });
+    await page.mouse.move(box.x + 250, box.y + 150, { steps: 12 });
     await page.mouse.up();
 
-    const yamlAfter = await yamlText(page);
-    const venuePosAfter = yamlAfter.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
-    expect(venuePosAfter).not.toBeNull();
-    if (!venuePosBefore || !venuePosAfter) return;
-    // Coords actually moved.
-    expect(venuePosAfter[1]).not.toBe(venuePosBefore[1]);
-    expect(venuePosAfter[2]).not.toBe(venuePosBefore[2]);
-    // Mode is still manual.
-    expect(yamlAfter).toMatch(/layoutMode:\s*manual/);
+    const after = await readDoc(page);
+    const venueAfter = findByText(after.root, "Venue")?.position;
+    expect(venueAfter).toBeDefined();
+    expect(venueAfter).not.toEqual(venueBefore);
+    expect(after.layoutMode).toBe("manual");
   });
 
   test("16.4 a new child added in manual mode has no `position` field until dragged", async ({
     page,
   }) => {
+    await enterManualMode(page);
     await addChild(page, "Vendors", "BrandNewChild");
     const yaml = await yamlText(page);
     // The new child sits in the YAML…
@@ -211,48 +237,40 @@ test.describe("layout mode (§16)", () => {
   });
 
   test("16.6 manual-mode dragged positions survive a full reload", async ({ page }) => {
+    await enterManualMode(page);
     // Drag Venue to a recognisable spot.
     const venueWrapper = page.locator(".react-flow__node").filter({ has: nodeByText(page, "Venue") });
-    const before = await venueWrapper.boundingBox();
-    expect(before).not.toBeNull();
-    if (!before) return;
+    const box = await venueWrapper.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
     await venueWrapper.hover();
     await page.mouse.down();
-    await page.mouse.move(before.x + 180, before.y + 90, { steps: 12 });
+    await page.mouse.move(box.x + 180, box.y + 90, { steps: 12 });
     await page.mouse.up();
 
-    const yamlBefore = await yamlText(page);
-    const venuePosBefore = yamlBefore.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
-    expect(venuePosBefore).not.toBeNull();
+    const before = await readDoc(page);
+    const venueBefore = findByText(before.root, "Venue")?.position;
+    expect(venueBefore).toBeDefined();
 
     await page.reload();
     await expect(nodeByText(page, "Our wedding")).toBeVisible();
 
-    const yamlAfter = await yamlText(page);
-    const venuePosAfter = yamlAfter.match(/text: Venue\s+position:\s+x: (-?\d+(?:\.\d+)?)\s+y: (-?\d+(?:\.\d+)?)/);
-    expect(venuePosAfter).not.toBeNull();
-    if (!venuePosBefore || !venuePosAfter) return;
-    // Coords are byte-identical pre/post reload.
-    expect(venuePosAfter[1]).toBe(venuePosBefore[1]);
-    expect(venuePosAfter[2]).toBe(venuePosBefore[2]);
+    const after = await readDoc(page);
+    expect(findByText(after.root, "Venue")?.position).toEqual(venueBefore);
   });
 
   test("16.7.2 deleting a node in manual mode preserves remaining positions", async ({ page }) => {
-    const before = await yamlText(page);
-    const guestsPos = before.match(/text: Guests\s+position:\s+x: (\d+)\s+y: (\d+)/);
-    expect(guestsPos).not.toBeNull();
+    await enterManualMode(page);
+    const before = await readDoc(page);
+    const guestsBefore = findByText(before.root, "Guests")?.position;
+    expect(guestsBefore).toBeDefined();
 
     await selectNode(page, "Reception");
     await page.keyboard.press("Delete");
     await expect(nodeByText(page, "Reception")).toHaveCount(0);
 
-    const after = await yamlText(page);
-    expect(after).not.toMatch(/text: Reception/);
-    if (guestsPos) {
-      const [, gx, gy] = guestsPos;
-      expect(after).toMatch(
-        new RegExp(`text: Guests\\s+position:\\s+x: ${gx}\\s+y: ${gy}`),
-      );
-    }
+    const after = await readDoc(page);
+    expect(findByText(after.root, "Reception")).toBeNull();
+    expect(findByText(after.root, "Guests")?.position).toEqual(guestsBefore);
   });
 });

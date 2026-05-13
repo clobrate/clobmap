@@ -6,6 +6,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-05-09
+
+### Changed
+- The first-launch **Wedding planning** seed now ships in canonical
+  auto layout (no `layoutMode` key, no per-node `position` blocks).
+  Previously the seed carried positions hand-placed against the
+  pre-1.1.2 layout constants, so first-launch users saw the older,
+  looser spacing instead of the current measurement-driven tidy-tree
+  (ROW_GAP=10, COLUMN_GAP=50). Returning users with an existing
+  draft are unaffected — only fresh installs / cleared localStorage
+  see the new defaults.
+
+## [1.1.4] - 2026-05-09
+
+### Changed
+- **File → Export → "All notes (Markdown)"** replaces the prior
+  "Markdown outline" item. Output is one `# Node Title (node-id)`
+  heading per node followed by that node's long-form notes body.
+  Nodes without notes show `__ no notes found __` so the document
+  covers the whole tree. Filename is `<doc>.notes.YYYYMMDDHHmm.md`.
+  ATX headings inside each note are demoted by one `#` (skipping
+  fenced code blocks) so they nest under the per-node heading.
+
+### Internal
+- 50+ new Playwright e2e tests covering manual-guide §1 (welcome
+  banner), §2 (file menu basics), §3 (tabs), §4 (Cmd+0 / drag-reparent
+  / cut-paste), §5.6 (rapid-rename stress), §6 (notes popup), §7
+  (all-notes export), §9.5 (canvas → YAML cursor sync), §14 (50-node
+  perf budget), §16.2/16.3/16.4/16.6 (manual-mode drag, persistence,
+  auto-mode regression).
+- Unit-test coverage to 100% on `model/ops.ts`, `lib/navigation.ts`,
+  `store/document.ts`; >98% on `lib/layout.ts`.
+
 ## [1.0.0] - 2026-05-08
 
 First stable release. Semver commitment to backwards compatibility on the
