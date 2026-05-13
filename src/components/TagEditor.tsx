@@ -1,22 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
-import { findById, idGeneratorForDocument, OpError, tagsAdd, tagsRemove } from "../model";
+import {
+  findById,
+  idGeneratorForDocument,
+  OpError,
+  tagsAdd,
+  tagsRemove,
+  type TagNode,
+} from "../model";
 
 /**
  * Compact modal for editing the tags on a single data-node. Opened from
  * either the context-menu item ("Edit tags…") or the `T` keyboard
- * shortcut. Free-text input, with commit-on-Enter so the user can keep
- * typing tags in one session; existing tags show as removable chips.
+ * shortcut. Free-text input with autocomplete against existing
+ * tag-tree entries; existing tags on the node show as removable chips.
  *
- * The editor commits each tags-add / tags-remove eagerly via the model
- * ops — there's no separate "Save" step. The Close button just dismisses
- * the popup; the underlying changes are already on the document.
+ * Commits eagerly via `tagsAdd` / `tagsRemove` — there's no separate
+ * "Save" step. All close paths (Done, ×, Esc, backdrop) flush any
+ * pending input first so a typed-but-not-Enter value isn't lost.
  */
 export function TagEditor() {
   const nodeId = useUIStore((s) => s.tagEditorNodeId);
   if (!nodeId) return null;
   return <TagEditorInner key={nodeId} nodeId={nodeId} />;
+}
+
+function collectTagNames(root: TagNode | undefined): string[] {
+  if (!root) return [];
+  const out: string[] = [];
+  function walk(n: TagNode, isRoot: boolean): void {
+    if (!isRoot) out.push(n.name);
+    for (const c of n.children) walk(c, false);
+  }
+  walk(root, true);
+  return out;
 }
 
 function TagEditorInner({ nodeId }: { nodeId: string }) {
@@ -26,14 +44,43 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
 
   const node = parsedDoc ? findById(parsedDoc, nodeId) : null;
   const currentTags = useMemo(() => node?.tags ?? [], [node]);
+  const allTagNames = useMemo(() => collectTagNames(parsedDoc?.tagRoot), [parsedDoc]);
 
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // What's the "active fragment" the user is currently typing? With
+  // comma-separated batches we autocomplete against the slice AFTER
+  // the last comma — that way typing "alpha, b" suggests "beta" etc.
+  const activeFragment = useMemo(() => {
+    const lastComma = input.lastIndexOf(",");
+    const fragment = lastComma === -1 ? input : input.slice(lastComma + 1);
+    return fragment.trim();
+  }, [input]);
+
+  const suggestions = useMemo(() => {
+    if (activeFragment.length === 0) return [];
+    const key = activeFragment.toLowerCase();
+    const onNode = new Set(currentTags.map((t) => t.toLowerCase()));
+    return allTagNames
+      .filter((name) => {
+        const nameKey = name.toLowerCase();
+        if (onNode.has(nameKey)) return false; // already on this node
+        return nameKey.includes(key);
+      })
+      .slice(0, 8);
+  }, [activeFragment, allTagNames, currentTags]);
+
+  // Keep the highlight index in range as suggestions change.
+  useEffect(() => {
+    if (highlight >= suggestions.length) setHighlight(0);
+  }, [suggestions.length, highlight]);
 
   if (!node) {
     close();
@@ -41,15 +88,11 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
   }
 
   /**
-   * Commits the current input field as a batch of tags. Returns `true` if
-   * the input was empty or the commit succeeded, `false` if it errored
-   * (so callers can decide whether to also close the dialog). On error,
-   * the dialog stays open and the inline message points the user at the
-   * problem.
+   * Commits the current input field as a batch of tags. Returns `true`
+   * on empty input or success, `false` on validation error.
    */
   const commitInput = (): boolean => {
     setError(null);
-    // Split on commas (and trim) so users can type "a, b, c" in one go.
     const names = input
       .split(",")
       .map((s) => s.trim())
@@ -72,11 +115,18 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
   };
 
   /**
-   * "Close" paths (Done button, × header, Esc, backdrop click) all flush
-   * any pending input first, so "type then click Done" doesn't silently
-   * drop what the user typed. If the flush errors (duplicate / blank),
-   * we keep the dialog open so the inline error is actionable.
+   * Replace the active fragment in the input with the selected
+   * suggestion, preserving any earlier comma-separated entries the
+   * user already typed.
    */
+  const acceptSuggestion = (name: string): void => {
+    const lastComma = input.lastIndexOf(",");
+    const prefix = lastComma === -1 ? "" : input.slice(0, lastComma + 1);
+    setInput(`${prefix}${prefix.length ? " " : ""}${name}`);
+    setHighlight(0);
+    inputRef.current?.focus();
+  };
+
   const commitAndClose = (): void => {
     if (commitInput()) close();
   };
@@ -151,22 +201,98 @@ function TagEditorInner({ nodeId }: { nodeId: string }) {
           )}
         </div>
 
-        <div>
+        <div className="relative">
           <input
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setHighlight(0);
+            }}
             onKeyDown={(e) => {
+              if (e.key === "ArrowDown" && suggestions.length > 0) {
+                e.preventDefault();
+                setHighlight((h) => (h + 1) % suggestions.length);
+                return;
+              }
+              if (e.key === "ArrowUp" && suggestions.length > 0) {
+                e.preventDefault();
+                setHighlight((h) => (h - 1 + suggestions.length) % suggestions.length);
+                return;
+              }
+              if ((e.key === "Tab" || e.key === "ArrowRight") && suggestions.length > 0) {
+                // Tab / Right-arrow accept the current highlight without
+                // committing — the user can keep editing afterwards.
+                e.preventDefault();
+                const pick = suggestions[highlight];
+                if (pick) acceptSuggestion(pick);
+                return;
+              }
               if (e.key === "Enter") {
                 e.preventDefault();
+                // If the autocomplete dropdown is open AND has a
+                // suggestion the user has highlighted that doesn't
+                // exactly match the active fragment, accept it then
+                // commit. Otherwise treat Enter as a plain commit so
+                // the user can type a brand-new tag and confirm with
+                // one keypress.
+                const pick = suggestions[highlight];
+                if (
+                  pick &&
+                  pick.toLowerCase() !== activeFragment.toLowerCase()
+                ) {
+                  acceptSuggestion(pick);
+                  return;
+                }
                 commitInput();
               }
             }}
             placeholder="Type tag(s), commas for batch — Enter or Done to save"
             aria-label="Add tag"
+            aria-autocomplete="list"
+            aria-expanded={suggestions.length > 0}
             className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 outline-none focus:border-emerald-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:focus:border-emerald-400"
           />
+          {suggestions.length > 0 && (
+            <ul
+              role="listbox"
+              aria-label="Tag suggestions"
+              className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-auto rounded-md border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+            >
+              {suggestions.map((name, i) => {
+                const exactMatch = name.toLowerCase() === activeFragment.toLowerCase();
+                const caseOnly = exactMatch && name !== activeFragment;
+                return (
+                  <li
+                    key={name}
+                    role="option"
+                    aria-selected={i === highlight}
+                    onMouseDown={(e) => {
+                      // mousedown not click — click fires after blur, by
+                      // which time the input has already lost focus and
+                      // the dropdown could have dismissed.
+                      e.preventDefault();
+                      acceptSuggestion(name);
+                    }}
+                    onMouseEnter={() => setHighlight(i)}
+                    className={`flex cursor-pointer items-center justify-between gap-2 px-2 py-1 text-sm ${
+                      i === highlight
+                        ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100"
+                        : "text-neutral-800 dark:text-neutral-200"
+                    }`}
+                  >
+                    <span>{name}</span>
+                    {caseOnly && (
+                      <span className="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                        case differs
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           {error && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>
           )}

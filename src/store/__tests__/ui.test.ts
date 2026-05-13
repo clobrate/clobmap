@@ -207,4 +207,79 @@ describe("useUIStore", () => {
       expect(useUIStore.getState().tagEditorNodeId).toBe("n2");
     });
   });
+
+  describe("tag-tree selection + inline rename", () => {
+    it("setSelectedTag sets and clears", () => {
+      useUIStore.getState().setSelectedTag("t1");
+      expect(useUIStore.getState().selectedTagId).toBe("t1");
+      useUIStore.getState().setSelectedTag(null);
+      expect(useUIStore.getState().selectedTagId).toBeNull();
+    });
+
+    it("setEditingTag sets and clears", () => {
+      useUIStore.getState().setEditingTag("t1");
+      expect(useUIStore.getState().editingTagId).toBe("t1");
+      useUIStore.getState().setEditingTag(null);
+      expect(useUIStore.getState().editingTagId).toBeNull();
+    });
+  });
+
+  describe("tag tree visibility + split ratio", () => {
+    it("setTagTreeVisible accepts the three-state value", () => {
+      useUIStore.getState().setTagTreeVisible(true);
+      expect(useUIStore.getState().tagTreeVisible).toBe(true);
+      useUIStore.getState().setTagTreeVisible(false);
+      expect(useUIStore.getState().tagTreeVisible).toBe(false);
+      useUIStore.getState().setTagTreeVisible(null);
+      expect(useUIStore.getState().tagTreeVisible).toBeNull();
+    });
+
+    it("setTagTreeSplitRatio writes ratios within bounds verbatim", () => {
+      useUIStore.getState().setTagTreeSplitRatio(0.4);
+      expect(useUIStore.getState().tagTreeSplitRatio).toBe(0.4);
+    });
+
+    it("setTagTreeSplitRatio clamps to [0.2, 0.8]", () => {
+      useUIStore.getState().setTagTreeSplitRatio(-1);
+      expect(useUIStore.getState().tagTreeSplitRatio).toBe(0.2);
+      useUIStore.getState().setTagTreeSplitRatio(5);
+      expect(useUIStore.getState().tagTreeSplitRatio).toBe(0.8);
+    });
+  });
+
+  describe("tag context menu", () => {
+    it("openTagContextMenu records id and position", () => {
+      useUIStore.getState().openTagContextMenu("t7", 120, 240);
+      expect(useUIStore.getState().tagContextMenu).toEqual({ tagId: "t7", x: 120, y: 240 });
+    });
+
+    it("closeTagContextMenu clears the menu", () => {
+      useUIStore.getState().openTagContextMenu("t7", 120, 240);
+      useUIStore.getState().closeTagContextMenu();
+      expect(useUIStore.getState().tagContextMenu).toBeNull();
+    });
+  });
+
+  describe("filterTagId", () => {
+    it("setFilterTagId sets the active filter", () => {
+      useUIStore.getState().setFilterTagId("t1");
+      expect(useUIStore.getState().filterTagId).toBe("t1");
+    });
+
+    it("setFilterTagId closes any open context menus (both data and tag)", () => {
+      useUIStore.getState().openContextMenu("n7", 10, 20);
+      useUIStore.getState().openTagContextMenu("t7", 10, 20);
+      expect(useUIStore.getState().contextMenu).not.toBeNull();
+      expect(useUIStore.getState().tagContextMenu).not.toBeNull();
+      useUIStore.getState().setFilterTagId("t1");
+      expect(useUIStore.getState().contextMenu).toBeNull();
+      expect(useUIStore.getState().tagContextMenu).toBeNull();
+    });
+
+    it("setFilterTagId(null) exits the filter view", () => {
+      useUIStore.getState().setFilterTagId("t1");
+      useUIStore.getState().setFilterTagId(null);
+      expect(useUIStore.getState().filterTagId).toBeNull();
+    });
+  });
 });

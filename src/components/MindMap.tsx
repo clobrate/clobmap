@@ -245,6 +245,10 @@ function MindMapInner() {
   const onNodeClick: NodeMouseHandler<Node<MindNodeData>> = useCallback(
     (_e, node) => {
       setSelected(node.id);
+      // Clearing any tag-tree selection keeps pane-level keyboard
+      // shortcuts (F2, Delete) from firing on a stale tag selection
+      // while focus has effectively returned to the data canvas.
+      useUIStore.getState().setSelectedTag(null);
       closeContextMenu();
     },
     [setSelected, closeContextMenu],

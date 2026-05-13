@@ -103,6 +103,9 @@ function TagTreePaneInner() {
   const onNodeClick: NodeMouseHandler<Node<TagMapNodeData>> = useCallback(
     (_e, node) => {
       setSelectedTag(node.id);
+      // Clear any data-node selection so pane-level keyboard shortcuts
+      // (F2, Delete) don't race against the data-canvas handler.
+      useUIStore.getState().setSelected(null);
       closeTagContextMenu();
     },
     [setSelectedTag, closeTagContextMenu],
@@ -121,6 +124,7 @@ function TagTreePaneInner() {
       e.preventDefault();
       if (node.data.isRoot) return;
       setSelectedTag(node.id);
+      useUIStore.getState().setSelected(null);
       useUIStore.getState().openTagContextMenu(node.id, e.clientX, e.clientY);
     },
     [setSelectedTag],
@@ -172,6 +176,53 @@ function TagTreePaneInner() {
     },
     [applyTreeChange, setSelectedTag, closeTagContextMenu],
   );
+
+  // Pane-level keyboard shortcuts. Window-listener (so node-level
+  // focus doesn't matter), but guarded so it only fires when the tag
+  // tree has a selected node AND no other editing surface is active.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't compete with the inline rename input, the tag-tree
+      // context menu, or other editors that own focus.
+      const ui = useUIStore.getState();
+      if (ui.editingTagId !== null) return;
+      if (ui.editingNodeId !== null) return;
+      if (ui.notesEditorNodeId !== null) return;
+      if (ui.tagEditorNodeId !== null) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      }
+      const id = selectedTagId;
+      if (!id) return;
+      const tree = useDocumentStore.getState().parsedDoc;
+      if (!tree?.tagRoot || tree.tagRoot.id === id) return;
+      if (e.key === "F2") {
+        e.preventDefault();
+        setEditingTag(id);
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        try {
+          applyTreeChange(tagDelete(tree, id));
+          setSelectedTag(null);
+        } catch (err) {
+          if (!(err instanceof OpError)) throw err;
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        // Clear selection so the user can dismiss without a destructive
+        // action. Doesn't preventDefault — other handlers may want it
+        // (the modal layer also listens for Escape).
+        setSelectedTag(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedTagId, applyTreeChange, setEditingTag, setSelectedTag]);
 
   if (!parsedDoc || !parsedDoc.tagRoot || parsedDoc.tagRoot.children.length === 0) {
     // Nothing to render — caller (App.tsx) is responsible for not mounting

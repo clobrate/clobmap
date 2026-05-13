@@ -56,6 +56,20 @@ function FilterCanvasInner() {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
   const filterTagId = useUIStore((s) => s.filterTagId);
   const resolvedTheme = useUIStore((s) => s.resolvedTheme);
+  const announce = useUIStore((s) => s.announce);
+
+  // Live-region announcement when entering / leaving the filter view.
+  // Helps screen-reader users orient — the visual swap of the entire
+  // canvas would otherwise be silent.
+  useEffect(() => {
+    if (!parsedDoc || !filterTagId) return;
+    const root = buildFilterTree(parsedDoc, filterTagId);
+    if (!root || root.kind !== "tag") return;
+    announce(`Filtering by tag ${root.name}. Press Reset filter to exit.`);
+    return () => {
+      announce("Filter cleared. Back to the full mind map.");
+    };
+  }, [parsedDoc, filterTagId, announce]);
 
   const layoutResult = useMemo(() => {
     if (!parsedDoc || !filterTagId) return { nodes: [], edges: [] };
