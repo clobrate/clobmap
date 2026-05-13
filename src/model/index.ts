@@ -5,6 +5,7 @@ export type {
   Result,
   LayoutMode,
   HandleSide,
+  TagNode,
 } from "./types";
 export { SCHEMA_VERSION } from "./types";
 export type { IdGenerator } from "./ids";
@@ -14,6 +15,7 @@ export { serializeYaml, serializeLiveYaml } from "./serialize";
 export {
   OpError,
   findById,
+  findTagById,
   addChild,
   addSibling,
   deleteNode,
@@ -27,6 +29,9 @@ export {
   setLayoutMode,
   setPositions,
   clearAllPositions,
+  tagsAdd,
+  tagsRemove,
+  tagDelete,
 } from "./ops";
 export { diffTrees, type NodeChange, type TreeDiff } from "./diff";
 export { applyTreeToDocument } from "./apply";

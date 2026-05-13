@@ -406,3 +406,135 @@ describe("parseLiveYaml + serializeLiveYaml round-trips text", () => {
     });
   }
 });
+
+describe("parseYaml — tags", () => {
+  const YAML_WITH_TAGS = `title: T
+version: 2
+root:
+  id: n1
+  text: Root
+  tags:
+    - urgent
+    - logistics
+  children: []
+tagRoot:
+  id: n2
+  name: tags
+  children:
+    - id: n3
+      name: urgent
+      children: []
+    - id: n4
+      name: logistics
+      children:
+        - id: n5
+          name: vendors
+          children: []
+`;
+
+  it("parses a node's tags as a list of strings", () => {
+    const r = parseYaml(YAML_WITH_TAGS);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.root.tags).toEqual(["urgent", "logistics"]);
+  });
+
+  it("parses tagRoot with nested children", () => {
+    const r = parseYaml(YAML_WITH_TAGS);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.tagRoot?.name).toBe("tags");
+    expect(r.value.tagRoot?.children.map((c) => c.name)).toEqual([
+      "urgent",
+      "logistics",
+    ]);
+    const logistics = r.value.tagRoot!.children[1];
+    expect(logistics?.children.map((c) => c.name)).toEqual(["vendors"]);
+  });
+
+  it("rejects non-list tags", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  tags: notalist
+  children: []
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects empty / non-string tag entries", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  tags:
+    - ""
+  children: []
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects duplicate tag-node names within tagRoot (case-insensitive)", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  children: []
+tagRoot:
+  id: n2
+  name: tags
+  children:
+    - id: n3
+      name: Urgent
+      children: []
+    - id: n4
+      name: URGENT
+      children: []
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects an id colliding between the data tree and the tag tree", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  children: []
+tagRoot:
+  id: n1
+  name: tags
+  children: []
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+  });
+
+  it("parses a doc with no tagRoot cleanly (tagRoot undefined)", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  children: []
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.tagRoot).toBeUndefined();
+    expect(r.value.root.tags).toBeUndefined();
+  });
+
+  it("round-trips tags + tagRoot via serializeYaml", () => {
+    const r = parseYaml(YAML_WITH_TAGS);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const out = serializeYaml(r.value);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value).toEqual(r.value);
+  });
+});

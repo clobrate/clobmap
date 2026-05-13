@@ -1,4 +1,4 @@
-import type { MindDocument, MindNode } from "./types";
+import type { MindDocument, MindNode, TagNode } from "./types";
 
 export interface IdGenerator {
   next(): string;
@@ -16,7 +16,7 @@ function parseSequentialId(id: string): number | null {
   return n;
 }
 
-function maxSequentialId(node: MindNode): number {
+function maxSequentialId(node: MindNode | TagNode): number {
   let max = parseSequentialId(node.id) ?? -1;
   for (const child of node.children) {
     const childMax = maxSequentialId(child);
@@ -36,6 +36,9 @@ export function createIdGenerator(seed = 0): IdGenerator {
 }
 
 export function idGeneratorForDocument(doc: MindDocument): IdGenerator {
-  const seed = Math.max(0, maxSequentialId(doc.root));
+  let seed = Math.max(0, maxSequentialId(doc.root));
+  if (doc.tagRoot) {
+    seed = Math.max(seed, maxSequentialId(doc.tagRoot));
+  }
   return createIdGenerator(seed);
 }

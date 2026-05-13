@@ -377,4 +377,90 @@ describe("applyTreeToDocument", () => {
     if (!reparsed.ok) return;
     expect(reparsed.value.title).toBe("Renamed");
   });
+
+  it("writes tags to a node and rewrites them in the live AST", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    const after: MindDocument = {
+      ...live.value.tree,
+      root: { ...live.value.tree.root, tags: ["urgent", "logistics"] },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.root.tags).toEqual(["urgent", "logistics"]);
+  });
+
+  it("drops the tags key when set back to empty", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    // First add tags…
+    let after: MindDocument = {
+      ...live.value.tree,
+      root: { ...live.value.tree.root, tags: ["x"] },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    // …then clear them.
+    after = { ...after, root: { ...after.root, tags: undefined } };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.root.tags).toBeUndefined();
+    // And the YAML text shouldn't carry a stale "tags:" key.
+    expect(out).not.toMatch(/^\s*tags:/m);
+  });
+
+  it("creates a tagRoot subtree from scratch when the AST has none", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    const after: MindDocument = {
+      ...live.value.tree,
+      tagRoot: {
+        id: "t1",
+        name: "tags",
+        children: [{ id: "t2", name: "urgent", children: [] }],
+      },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    const reparsed = parseYaml(out);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.tagRoot?.name).toBe("tags");
+    expect(reparsed.value.tagRoot?.children.map((c) => c.name)).toEqual(["urgent"]);
+  });
+
+  it("deletes tagRoot from the AST when the tree no longer has one", () => {
+    const text = loadFixture("01-minimal.yaml");
+    const live = parseLiveYaml(text);
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
+    let after: MindDocument = {
+      ...live.value.tree,
+      tagRoot: {
+        id: "t1",
+        name: "tags",
+        children: [],
+      },
+    };
+    applyTreeToDocument(live.value.doc, after);
+    after = { ...after, tagRoot: undefined };
+    applyTreeToDocument(live.value.doc, after);
+    const out = serializeLiveYaml(live.value.doc);
+    expect(out).not.toMatch(/^tagRoot:/m);
+  });
 });

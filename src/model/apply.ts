@@ -1,5 +1,5 @@
 import { isMap, isScalar, isSeq, type Document, Scalar, YAMLMap, YAMLSeq } from "yaml";
-import type { MindDocument, MindNode } from "./types";
+import type { MindDocument, MindNode, TagNode } from "./types";
 
 export function applyTreeToDocument(doc: Document, after: MindDocument): void {
   let top: YAMLMap;
@@ -26,6 +26,15 @@ export function applyTreeToDocument(doc: Document, after: MindDocument): void {
   const rootMap = ensureRootMap(doc);
   syncNode(rootMap, after.root, index);
   index.set(after.root.id, rootMap);
+
+  if (after.tagRoot !== undefined) {
+    const tagIndex = buildTagIdIndex(doc);
+    const tagRootMap = ensureTagRootMap(doc);
+    syncTagNode(tagRootMap, after.tagRoot, tagIndex);
+    tagIndex.set(after.tagRoot.id, tagRootMap);
+  } else if (top.has("tagRoot")) {
+    top.delete("tagRoot");
+  }
 }
 
 function ensureRootMap(doc: Document): YAMLMap {
@@ -73,7 +82,18 @@ function syncNode(target: YAMLMap, source: MindNode, index: Map<string, YAMLMap>
   setOrDelete(target, "edgeFrom", source.edgeFrom);
   setOrDelete(target, "edgeTo", source.edgeTo);
   syncPosition(target, source.position);
+  syncTags(target, source.tags);
   syncChildren(target, source.children, index);
+}
+
+function syncTags(map: YAMLMap, tags: MindNode["tags"]): void {
+  if (tags === undefined || tags.length === 0) {
+    if (map.has("tags")) map.delete("tags");
+    return;
+  }
+  const seq = new YAMLSeq();
+  for (const t of tags) seq.add(new Scalar(t));
+  map.set("tags", seq);
 }
 
 function syncPosition(map: YAMLMap, position: MindNode["position"]): void {
@@ -142,9 +162,83 @@ function syncOrCreate(source: MindNode, index: Map<string, YAMLMap>): YAMLMap {
     if (source.edgeTo !== undefined) {
       map.set("edgeTo", new Scalar(source.edgeTo));
     }
+    if (source.tags !== undefined && source.tags.length > 0) {
+      const seq = new YAMLSeq();
+      for (const t of source.tags) seq.add(new Scalar(t));
+      map.set("tags", seq);
+    }
     map.set("children", new YAMLSeq());
     index.set(source.id, map);
   }
   syncNode(map, source, index);
+  return map;
+}
+
+function ensureTagRootMap(doc: Document): YAMLMap {
+  const top = doc.contents as YAMLMap;
+  const existing = top.get("tagRoot", true);
+  if (isMap(existing)) return existing;
+  const fresh = new YAMLMap();
+  top.set("tagRoot", fresh);
+  return fresh;
+}
+
+function buildTagIdIndex(doc: Document): Map<string, YAMLMap> {
+  const index = new Map<string, YAMLMap>();
+  const tagRoot = doc.get("tagRoot", true);
+  if (isMap(tagRoot)) collectTagMaps(tagRoot, index);
+  return index;
+}
+
+function collectTagMaps(map: YAMLMap, out: Map<string, YAMLMap>): void {
+  const id = getIdValue(map);
+  if (id) out.set(id, map);
+  const children = map.get("children", true);
+  if (isSeq(children)) {
+    for (const item of children.items) {
+      if (isMap(item)) collectTagMaps(item, out);
+    }
+  }
+}
+
+function syncTagNode(
+  target: YAMLMap,
+  source: TagNode,
+  index: Map<string, YAMLMap>,
+): void {
+  setScalarValue(target, "id", source.id);
+  setScalarValue(target, "name", source.name);
+  syncTagChildren(target, source.children, index);
+}
+
+function syncTagChildren(
+  parentMap: YAMLMap,
+  source: TagNode[],
+  index: Map<string, YAMLMap>,
+): void {
+  const existing = parentMap.get("children", true);
+  let seq: YAMLSeq;
+  if (isSeq(existing)) {
+    seq = existing;
+  } else {
+    seq = new YAMLSeq();
+    parentMap.set("children", seq);
+  }
+  seq.items = source.map((child) => syncOrCreateTag(child, index));
+}
+
+function syncOrCreateTag(
+  source: TagNode,
+  index: Map<string, YAMLMap>,
+): YAMLMap {
+  let map = index.get(source.id);
+  if (!map) {
+    map = new YAMLMap();
+    map.set("id", new Scalar(source.id));
+    map.set("name", new Scalar(source.name));
+    map.set("children", new YAMLSeq());
+    index.set(source.id, map);
+  }
+  syncTagNode(map, source, index);
   return map;
 }

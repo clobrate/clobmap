@@ -1,5 +1,5 @@
 import { parseDocument, type Document } from "yaml";
-import type { MindDocument, MindNode, ParseError, Result } from "./types";
+import type { MindDocument, MindNode, ParseError, Result, TagNode } from "./types";
 
 const NODE_FIELDS = [
   "id",
@@ -14,10 +14,13 @@ const NODE_FIELDS = [
   "position",
   "edgeFrom",
   "edgeTo",
+  "tags",
 ] as const;
 
+const TAG_NODE_FIELDS = ["id", "name", "children"] as const;
+
 const HANDLE_SIDES = ["top", "right", "bottom", "left"] as const;
-const DOC_FIELDS = ["title", "root", "version", "layoutMode"] as const;
+const DOC_FIELDS = ["title", "root", "version", "layoutMode", "tagRoot"] as const;
 
 function makeError(message: string, line = 1, col = 1): ParseError {
   return { message, line, col };
@@ -88,7 +91,53 @@ function validateNode(value: unknown, path: string): Result<MindNode> {
   ) {
     node.edgeTo = value.edgeTo as MindNode["edgeTo"];
   }
+  if (value.tags !== undefined && value.tags !== null) {
+    if (!Array.isArray(value.tags)) {
+      return { ok: false, error: makeError(`"tags" must be a list at ${path}`) };
+    }
+    const tags: string[] = [];
+    for (let i = 0; i < value.tags.length; i += 1) {
+      const t = value.tags[i];
+      if (typeof t !== "string" || t.trim().length === 0) {
+        return {
+          ok: false,
+          error: makeError(`tags[${i}] must be a non-empty string at ${path}`),
+        };
+      }
+      tags.push(t);
+    }
+    if (tags.length > 0) node.tags = tags;
+  }
   return { ok: true, value: node };
+}
+
+function validateTagNode(value: unknown, path: string): Result<TagNode> {
+  if (!isPlainObject(value)) {
+    return { ok: false, error: makeError(`expected mapping at ${path}`) };
+  }
+  for (const key of Object.keys(value)) {
+    if (!(TAG_NODE_FIELDS as readonly string[]).includes(key)) {
+      return { ok: false, error: makeError(`unknown field "${key}" at ${path}`) };
+    }
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    return { ok: false, error: makeError(`missing or invalid "id" at ${path}`) };
+  }
+  if (typeof value.name !== "string" || value.name.trim().length === 0) {
+    return { ok: false, error: makeError(`missing or invalid "name" at ${path}`) };
+  }
+  const children: TagNode[] = [];
+  if (value.children !== undefined && value.children !== null) {
+    if (!Array.isArray(value.children)) {
+      return { ok: false, error: makeError(`"children" must be a list at ${path}`) };
+    }
+    for (let i = 0; i < value.children.length; i += 1) {
+      const childResult = validateTagNode(value.children[i], `${path}.children[${i}]`);
+      if (!childResult.ok) return childResult;
+      children.push(childResult.value);
+    }
+  }
+  return { ok: true, value: { id: value.id, name: value.name, children } };
 }
 
 function validateDocument(value: unknown): Result<MindDocument> {
@@ -117,6 +166,11 @@ function validateDocument(value: unknown): Result<MindDocument> {
   if (value.layoutMode === "auto" || value.layoutMode === "manual") {
     doc.layoutMode = value.layoutMode;
   }
+  if (value.tagRoot !== undefined && value.tagRoot !== null) {
+    const tagResult = validateTagNode(value.tagRoot, "tagRoot");
+    if (!tagResult.ok) return tagResult;
+    doc.tagRoot = tagResult.value;
+  }
   return { ok: true, value: doc };
 }
 
@@ -127,6 +181,44 @@ function ensureUniqueIds(node: MindNode, seen: Set<string>): ParseError | null {
   seen.add(node.id);
   for (const child of node.children) {
     const err = ensureUniqueIds(child, seen);
+    if (err) return err;
+  }
+  return null;
+}
+
+function ensureUniqueTagIds(node: TagNode, seen: Set<string>): ParseError | null {
+  if (seen.has(node.id)) {
+    return makeError(`duplicate id "${node.id}"`);
+  }
+  seen.add(node.id);
+  for (const child of node.children) {
+    const err = ensureUniqueTagIds(child, seen);
+    if (err) return err;
+  }
+  return null;
+}
+
+function ensureUniqueTagNames(node: TagNode, seen: Set<string>): ParseError | null {
+  // Skip the synthetic tag-root entry itself (its name is just a holder)
+  // and only enforce uniqueness across user-facing tag-nodes.
+  for (const child of node.children) {
+    const err = ensureUniqueTagNamesIncluding(child, seen);
+    if (err) return err;
+  }
+  return null;
+}
+
+function ensureUniqueTagNamesIncluding(
+  node: TagNode,
+  seen: Set<string>,
+): ParseError | null {
+  const key = node.name.trim().toLowerCase();
+  if (seen.has(key)) {
+    return makeError(`duplicate tag name "${node.name}"`);
+  }
+  seen.add(key);
+  for (const child of node.children) {
+    const err = ensureUniqueTagNamesIncluding(child, seen);
     if (err) return err;
   }
   return null;
@@ -156,7 +248,16 @@ export function parseLiveYaml(text: string): Result<LiveParseResult> {
   const js = doc.toJS();
   const validated = validateDocument(js);
   if (!validated.ok) return validated;
-  const dupErr = ensureUniqueIds(validated.value.root, new Set());
+  // Ids must be unique across BOTH trees — the id generator shares one
+  // counter, and ops/lookups search either tree.
+  const seenIds = new Set<string>();
+  const dupErr = ensureUniqueIds(validated.value.root, seenIds);
   if (dupErr) return { ok: false, error: dupErr };
+  if (validated.value.tagRoot) {
+    const tagDupErr = ensureUniqueTagIds(validated.value.tagRoot, seenIds);
+    if (tagDupErr) return { ok: false, error: tagDupErr };
+    const nameDupErr = ensureUniqueTagNames(validated.value.tagRoot, new Set());
+    if (nameDupErr) return { ok: false, error: nameDupErr };
+  }
   return { ok: true, value: { tree: validated.value, doc } };
 }

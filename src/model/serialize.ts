@@ -1,5 +1,5 @@
 import { stringify, type Document } from "yaml";
-import type { MindDocument, MindNode } from "./types";
+import type { MindDocument, MindNode, TagNode } from "./types";
 
 function nodeToPlain(node: MindNode): Record<string, unknown> {
   const out: Record<string, unknown> = {
@@ -16,8 +16,19 @@ function nodeToPlain(node: MindNode): Record<string, unknown> {
   }
   if (node.edgeFrom !== undefined) out.edgeFrom = node.edgeFrom;
   if (node.edgeTo !== undefined) out.edgeTo = node.edgeTo;
+  if (node.tags !== undefined && node.tags.length > 0) {
+    out.tags = [...node.tags];
+  }
   out.children = node.children.map(nodeToPlain);
   return out;
+}
+
+function tagNodeToPlain(node: TagNode): Record<string, unknown> {
+  return {
+    id: node.id,
+    name: node.name,
+    children: node.children.map(tagNodeToPlain),
+  };
 }
 
 function documentToPlain(doc: MindDocument): Record<string, unknown> {
@@ -25,6 +36,7 @@ function documentToPlain(doc: MindDocument): Record<string, unknown> {
   if (doc.version !== undefined) out.version = doc.version;
   if (doc.layoutMode !== undefined) out.layoutMode = doc.layoutMode;
   out.root = nodeToPlain(doc.root);
+  if (doc.tagRoot !== undefined) out.tagRoot = tagNodeToPlain(doc.tagRoot);
   return out;
 }
 
