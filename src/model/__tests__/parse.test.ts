@@ -538,3 +538,90 @@ root:
     expect(reparsed.value).toEqual(r.value);
   });
 });
+
+describe("parseYaml — tagRoot validation errors", () => {
+  it("rejects when tagRoot isn't a mapping (e.g. a scalar)", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  children: []
+tagRoot: "not an object"
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/expected mapping at tagRoot/);
+  });
+
+  it("rejects unknown fields inside a tag-node", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  children: []
+tagRoot:
+  id: n2
+  name: tags
+  children:
+    - id: n3
+      name: urgent
+      color: "#ccc"
+      children: []
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/unknown field "color"/);
+  });
+
+  it("rejects a tag-node with missing id", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  children: []
+tagRoot:
+  name: tags
+  children: []
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/missing or invalid "id"/);
+  });
+
+  it("rejects a tag-node with missing or empty name", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  children: []
+tagRoot:
+  id: n2
+  name: "   "
+  children: []
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/missing or invalid "name"/);
+  });
+
+  it("rejects when tag-node children isn't a list", () => {
+    const yaml = `title: T
+root:
+  id: n1
+  text: r
+  children: []
+tagRoot:
+  id: n2
+  name: tags
+  children: "not a list"
+`;
+    const r = parseYaml(yaml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/"children" must be a list/);
+  });
+});

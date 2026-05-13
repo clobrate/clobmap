@@ -16,6 +16,7 @@ describe("useUIStore", () => {
       selectedNodeId: null,
       editingNodeId: null,
       notesEditorNodeId: null,
+      tagEditorNodeId: null,
       contextMenu: null,
       clipboard: null,
       liveAnnouncement: "",
@@ -170,6 +171,34 @@ describe("useUIStore", () => {
 
       useUIStore.getState().setAvailableUpdate(null);
       expect(useUIStore.getState().availableUpdate).toBeNull();
+    });
+  });
+
+  describe("tag editor", () => {
+    it("openTagEditor sets the target node id", () => {
+      useUIStore.getState().openTagEditor("n42");
+      expect(useUIStore.getState().tagEditorNodeId).toBe("n42");
+    });
+
+    it("openTagEditor closes any open context menu (same node)", () => {
+      // Open a context menu, then open the tag editor.
+      useUIStore.getState().openContextMenu("n7", 100, 200);
+      expect(useUIStore.getState().contextMenu).not.toBeNull();
+      useUIStore.getState().openTagEditor("n7");
+      expect(useUIStore.getState().contextMenu).toBeNull();
+    });
+
+    it("closeTagEditor clears the target node id", () => {
+      useUIStore.getState().openTagEditor("n42");
+      useUIStore.getState().closeTagEditor();
+      expect(useUIStore.getState().tagEditorNodeId).toBeNull();
+    });
+
+    it("opening the tag editor doesn't disturb the notes editor (each tracks its own id)", () => {
+      useUIStore.getState().openNotesEditor("n1");
+      useUIStore.getState().openTagEditor("n2");
+      expect(useUIStore.getState().notesEditorNodeId).toBe("n1");
+      expect(useUIStore.getState().tagEditorNodeId).toBe("n2");
     });
   });
 });
