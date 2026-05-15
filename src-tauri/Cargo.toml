@@ -1,6 +1,6 @@
 [package]
 name = "clobmap"
-version = "1.2.0"
+version = "1.2.1"
 description = "Minimalistic mind-mapping app with YAML toggle"
 authors = ["clobmap contributors"]
 edition = "2021"

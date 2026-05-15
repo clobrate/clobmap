@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-05-15
+
+### Changed
+
+- **Auto-save on by default.** New installs start with auto-save
+  enabled. It only writes to disk once the document has a file path
+  and the YAML parses cleanly — untitled or invalid documents are
+  silently skipped.
+- **Status bar surfaces the no-filename case.** When auto-save is on
+  but the document has never been saved, the bottom status bar shows
+  "Autosave needs file name — please use Save As" so users know why
+  their edits aren't being persisted.
+
 ## [1.2.0] - 2026-05-13
 
 ### Added — Tags feature (Phase 20)
