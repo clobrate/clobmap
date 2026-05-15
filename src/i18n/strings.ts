@@ -33,6 +33,7 @@ export const strings = {
     saved: "saved",
     waitingValidYaml: "Waiting for valid YAML…",
     noDocument: "No document",
+    autoSaveNeedsFileName: "Autosave needs file name — please use Save As",
   },
   settings: {
     title: "Settings",

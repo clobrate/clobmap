@@ -8,7 +8,7 @@ describe("useUIStore", () => {
       viewMode: "mindmap",
       splitOrientation: "horizontal",
       splitRatio: 0.5,
-      autoSave: false,
+      autoSave: true,
       themePreference: "system",
       resolvedTheme: "dark",
       fontSize: 14,

@@ -25,7 +25,7 @@ export interface PersistedSettings {
 }
 
 const DEFAULTS: PersistedSettings = {
-  autoSave: false,
+  autoSave: true,
   splitOrientation: "horizontal",
   splitRatio: 0.5,
   themePreference: "system",
@@ -74,7 +74,10 @@ export async function loadSettings(): Promise<PersistedSettings> {
   }
   const rawRatio = localStorage.getItem(WEB_KEY_SPLIT_RATIO);
   return {
-    autoSave: localStorage.getItem(WEB_KEY_AUTO_SAVE) === "true",
+    autoSave: (() => {
+      const v = localStorage.getItem(WEB_KEY_AUTO_SAVE);
+      return v === null ? DEFAULTS.autoSave : v === "true";
+    })(),
     splitOrientation: (() => {
       const v = localStorage.getItem(WEB_KEY_SPLIT_ORIENTATION);
       return isSplitOrientation(v) ? v : DEFAULTS.splitOrientation;
