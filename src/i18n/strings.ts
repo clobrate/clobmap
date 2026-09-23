@@ -16,7 +16,8 @@ export const strings = {
     yaml: "YAML",
     split: "Split",
     mindmap: "Mind-map",
-    cycleHint: "Cycle view (YAML → Split → Mind-map)",
+    notelets: "Notelets",
+    cycleHint: "Cycle view (YAML → Split → Mind-map → Notelets)",
   },
   file: {
     menu: "File",

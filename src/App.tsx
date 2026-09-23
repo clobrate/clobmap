@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { YamlEditor } from "./components/YamlEditor";
 import { MindMap } from "./components/MindMap";
+import { Notelets } from "./components/Notelets";
 import { StatusBar } from "./components/StatusBar";
 import { ViewToggle } from "./components/ViewToggle";
 import { FileMenu } from "./components/FileMenu";
@@ -570,6 +571,11 @@ function App() {
             ) : (
               <MindMap />
             )}
+          </div>
+        )}
+        {viewMode === "notelets" && (
+          <div className="flex-1">
+            <Notelets />
           </div>
         )}
         {viewMode === "split" && (

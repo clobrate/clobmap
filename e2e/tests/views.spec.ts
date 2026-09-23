@@ -12,8 +12,10 @@ test.describe("view modes & split (§9)", () => {
     await expect(nodeByText(page, "Our wedding")).toBeVisible();
   });
 
-  test("9.1 Cmd+/ cycles YAML → Split → Mind-map → YAML", async ({ page }) => {
+  test("9.1 Cmd+/ cycles YAML → Split → Mind-map → Notelets → YAML", async ({ page }) => {
     expect(await activeView(page)).toBe("Mind-map");
+    await page.keyboard.press("Meta+/");
+    expect(await activeView(page)).toBe("Notelets");
     await page.keyboard.press("Meta+/");
     expect(await activeView(page)).toBe("YAML");
     await page.keyboard.press("Meta+/");
@@ -27,6 +29,18 @@ test.describe("view modes & split (§9)", () => {
     expect(await activeView(page)).toBe("YAML");
     await page.getByRole("tab", { name: "Mind-map" }).click();
     expect(await activeView(page)).toBe("Mind-map");
+  });
+
+  test("Notelets tab appears, activates, and shows the scaffold pane", async ({ page }) => {
+    const notelets = page.getByRole("tab", { name: "Notelets" });
+    await expect(notelets).toBeVisible();
+    await notelets.click();
+    expect(await activeView(page)).toBe("Notelets");
+    // Phase 0 scaffold: placeholder copy is present until later phases build
+    // the real notebook. Update this assertion when Phase 1 lands.
+    await expect(page.getByText("Notelets view — coming soon")).toBeVisible();
+    // Other surfaces are not mounted while Notelets is active.
+    await expect(page.locator(".cm-content")).toHaveCount(0);
   });
 
   test("9.4 the YAML view renders the active document's text", async ({ page }) => {

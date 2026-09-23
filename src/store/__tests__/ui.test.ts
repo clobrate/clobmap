@@ -6,6 +6,8 @@ describe("useUIStore", () => {
     // Reset to initial defaults so tests are independent.
     useUIStore.setState({
       viewMode: "mindmap",
+      noteletsMode: "scroll",
+      noteletsPageId: null,
       splitOrientation: "horizontal",
       splitRatio: 0.5,
       autoSave: true,
@@ -36,7 +38,7 @@ describe("useUIStore", () => {
       expect(useUIStore.getState().viewMode).toBe("yaml");
     });
 
-    it("toggleViewMode cycles yaml → split → mindmap → yaml", () => {
+    it("toggleViewMode cycles yaml → split → mindmap → notelets → yaml", () => {
       useUIStore.getState().setViewMode("yaml");
       const { toggleViewMode } = useUIStore.getState();
       toggleViewMode();
@@ -44,7 +46,18 @@ describe("useUIStore", () => {
       toggleViewMode();
       expect(useUIStore.getState().viewMode).toBe("mindmap");
       toggleViewMode();
+      expect(useUIStore.getState().viewMode).toBe("notelets");
+      toggleViewMode();
       expect(useUIStore.getState().viewMode).toBe("yaml");
+    });
+
+    it("setNoteletsMode and setNoteletsPageId update state", () => {
+      useUIStore.getState().setNoteletsMode("page");
+      expect(useUIStore.getState().noteletsMode).toBe("page");
+      useUIStore.getState().setNoteletsPageId("n5");
+      expect(useUIStore.getState().noteletsPageId).toBe("n5");
+      useUIStore.getState().setNoteletsPageId(null);
+      expect(useUIStore.getState().noteletsPageId).toBeNull();
     });
   });
 

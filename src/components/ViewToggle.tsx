@@ -4,6 +4,7 @@ const tabs: ReadonlyArray<{ value: ViewMode; label: string }> = [
   { value: "yaml", label: "YAML" },
   { value: "split", label: "Split" },
   { value: "mindmap", label: "Mind-map" },
+  { value: "notelets", label: "Notelets" },
 ];
 
 export function ViewToggle() {
