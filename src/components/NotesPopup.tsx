@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
-import { findById, updateNode } from "../model";
-import {
-  loadNotes,
-  NOTES_INLINE_LIMIT,
-  saveNotes,
-  type LoadedNotes,
-} from "../lib/notes";
+import { findById } from "../model";
+import { NOTES_INLINE_LIMIT } from "../lib/notes";
 import { isMobile, isTauri } from "../lib/env";
-import { openExternal } from "../lib/openExternal";
+import { useNodeNotes } from "../lib/useNodeNotes";
+import { useMarkdownHtml } from "../lib/useMarkdownHtml";
 
 type Mode = "edit" | "preview";
 
@@ -68,8 +64,6 @@ export function NotesPopup() {
 function NotesPopupInner({ nodeId }: { nodeId: string }) {
   const close = useUIStore((s) => s.closeNotesEditor);
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
-  const currentFilePath = useDocumentStore((s) => s.currentFilePath);
-  const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
 
   const node = parsedDoc ? findById(parsedDoc, nodeId) : null;
   // Persisted geometry, restored on open. Resize is driven by a custom
@@ -93,16 +87,23 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
   }, []);
   const resetFont = useCallback(() => setFontSize(DEFAULT_FONT), []);
 
-  const [content, setContent] = useState<string>("");
-  /** The last successfully-persisted content. `content !== savedContent`
-   * is our dirty signal for auto-save and accidental-close protection. */
-  const [savedContent, setSavedContent] = useState<string>("");
-  const [loaded, setLoaded] = useState<LoadedNotes | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [autoSavedAt, setAutoSavedAt] = useState<number | null>(null);
+  // Notes IO (load / dirty-tracking / auto-save / inline+sidecar) lives in a
+  // shared hook so this popup and the Notelets view use one code path.
+  const {
+    content,
+    setContent,
+    loaded,
+    save,
+    saving,
+    error,
+    autoSavedAt,
+    isDirty,
+    readOnly,
+    overLimit,
+  } = useNodeNotes(nodeId);
+  // Shared markdown → HTML renderer + safe external-link handling.
+  const { html: renderedHtml, onLinkClick } = useMarkdownHtml(content);
   const [mode, setMode] = useState<Mode>("edit");
-  const [renderedHtml, setRenderedHtml] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -113,60 +114,14 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
   const editScrollRef = useRef(0);
   const editSelectionRef = useRef<[number, number]>([0, 0]);
 
-  // Load existing notes ONCE per mount. The popup is keyed by nodeId at
-  // the wrapper, so opening notes for a different node remounts and
-  // reloads. We deliberately don't depend on node.notes here — auto-save
-  // changes node.notes, and re-running this effect would clobber the
-  // user's in-progress typing with a fresh read.
-  const [hasLoaded, setHasLoaded] = useState(false);
-  useEffect(() => {
-    if (hasLoaded) return;
-    let cancelled = false;
-    void (async () => {
-      const result = await loadNotes(node?.notes, currentFilePath);
-      if (cancelled) return;
-      setLoaded(result);
-      setContent(result.content);
-      setSavedContent(result.content);
-      setHasLoaded(true);
-      // Read-only notes (sidecar we can't edit on this platform) open
-      // straight in preview — there's nothing to type.
-      if (result.readOnly) setMode("preview");
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Read-only notes (a sidecar we can't edit on this platform) always show
+  // preview — there's nothing to type, and the Preview/Edit toggle is hidden
+  // for them. Derived rather than an effect so it can never fight the load.
+  const effectiveMode: Mode = readOnly ? "preview" : mode;
 
-  // Lazy-load micromark and re-render preview on every content change. We
-  // re-render even while in edit mode so toggling to preview is instant.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { micromark } = await import("micromark");
-        if (cancelled) return;
-        setRenderedHtml(micromark(content));
-      } catch (err) {
-        if (cancelled) return;
-        setRenderedHtml(
-          `<p style="color:#dc2626">Preview failed: ${escapeHtml(
-            err instanceof Error ? err.message : String(err),
-          )}</p>`,
-        );
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [content]);
-
-  const readOnly = loaded?.readOnly ?? false;
-  // Browser/iOS limit. Desktop's "limit" is just the auto-extract threshold.
+  // Browser/iOS char-counter context. Desktop's "limit" is just the
+  // auto-extract threshold, so the counter only matters on web/iOS.
   const isWebOrMobile = !isTauri() || isMobile();
-  const overLimit = isWebOrMobile && content.length > NOTES_INLINE_LIMIT;
-  const isDirty = hasLoaded && content !== savedContent;
 
   /**
    * Write the current content back to the document store (and to a
@@ -180,62 +135,12 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
    * Concurrent calls short-circuit via `saving`; the auto-save effect
    * waits for in-flight writes before scheduling the next one.
    */
-  const persist = useCallback(
-    async (closeAfter: boolean): Promise<void> => {
-      if (readOnly || saving || !parsedDoc || !node) return;
-      // Snapshot content so we know the exact string we successfully saved
-      // (the textarea may have changed by the time the await resolves).
-      const snapshot = content;
-      setError(null);
-      setSaving(true);
-      try {
-        const result = await saveNotes(
-          snapshot,
-          node.notes,
-          currentFilePath,
-          nodeId,
-          node.text,
-        );
-        const next = updateNode(parsedDoc, nodeId, { notes: result.fieldValue });
-        applyTreeChange(next);
-        setSavedContent(snapshot);
-        setAutoSavedAt(Date.now());
-        if (closeAfter) {
-          close();
-          return;
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        if (!closeAfter) setSaving(false);
-      }
-    },
-    [
-      readOnly,
-      saving,
-      parsedDoc,
-      node,
-      content,
-      currentFilePath,
-      nodeId,
-      applyTreeChange,
-      close,
-    ],
-  );
-
-  // Manual save (Save button + Cmd/Ctrl+Enter): saves and closes.
-  const onSave = useCallback(() => persist(true), [persist]);
-
-  // Auto-save: 1 s after the last edit, write to disk WITHOUT closing.
-  // Skipped when not dirty, when over the inline-only cap, on read-only
-  // notes, or while a save is already in flight.
-  useEffect(() => {
-    if (readOnly || !isDirty || overLimit || saving) return;
-    const handle = window.setTimeout(() => {
-      void persist(false);
-    }, 1000);
-    return () => window.clearTimeout(handle);
-  }, [content, isDirty, overLimit, readOnly, saving, persist]);
+  // Manual save (Save button + Cmd/Ctrl+Enter): persist via the shared hook,
+  // then close on success. Auto-save (no close) lives inside the hook.
+  const onSave = useCallback(async (): Promise<void> => {
+    const ok = await save();
+    if (ok) close();
+  }, [save, close]);
 
   // Esc / Cmd+Enter handlers, attached at window level so they fire even
   // when the textarea isn't focused. Esc only closes if the popup is
@@ -282,13 +187,14 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [bumpFont, close, isDirty, onSave, resetFont]);
 
-  // Focus the textarea on first open of edit mode.
+  // Focus the textarea on first open of edit mode. Keyed on effectiveMode so
+  // read-only (forced-preview) notes never try to focus a missing textarea.
   useEffect(() => {
-    if (mode !== "edit") return;
+    if (effectiveMode !== "edit") return;
     const el = textareaRef.current;
     if (!el) return;
     el.focus();
-  }, [mode]);
+  }, [effectiveMode]);
 
   // Persist resized dimensions to localStorage. Triggered by the custom
   // ResizeHandle's onCommit after each drag ends — no need to throttle
@@ -349,21 +255,6 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
       content,
     );
     goToEdit(cursor ?? undefined);
-  };
-
-  // Anchor clicks inside the rendered preview need to escape the in-app
-  // webview and hand off to the system browser — otherwise the URL
-  // navigates this very window, replacing the app. Only honor safe schemes
-  // (http/https/mailto); strip anything else to avoid javascript: URLs
-  // sneaking through micromark.
-  const onPreviewClick = (e: React.MouseEvent<HTMLDivElement>): void => {
-    const target = e.target as HTMLElement | null;
-    const anchor = target?.closest("a");
-    if (!anchor) return;
-    const href = anchor.getAttribute("href");
-    e.preventDefault();
-    if (!href) return;
-    if (/^(https?:|mailto:)/i.test(href)) void openExternal(href);
   };
 
   if (!node) {
@@ -444,7 +335,7 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
         )}
 
         <div className="flex min-h-0 flex-1 flex-col">
-          {mode === "edit" ? (
+          {effectiveMode === "edit" ? (
             <>
               <textarea
                 ref={textareaRef}
@@ -479,7 +370,7 @@ function NotesPopupInner({ nodeId }: { nodeId: string }) {
           ) : (
             <div
               ref={previewRef}
-              onClick={onPreviewClick}
+              onClick={onLinkClick}
               onDoubleClick={onPreviewDoubleClick}
               title={readOnly ? undefined : "Double-click to jump back to edit"}
               style={{ fontSize: `${fontSize}px` }}
@@ -729,12 +620,4 @@ function caretRangeAt(x: number, y: number): Range | null {
     return document.caretRangeFromPoint(x, y);
   }
   return null;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
