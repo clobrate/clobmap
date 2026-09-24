@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useDocumentStore } from "../store/document";
-import { flattenPages } from "../lib/notelets";
+import { useUIStore } from "../store/ui";
+import { flattenPages, pickActivePageId } from "../lib/notelets";
 import { NoteletsSidebar } from "./NoteletsSidebar";
 import { NoteletsPage } from "./NoteletsPage";
 import { strings } from "../i18n/strings";
@@ -8,27 +9,85 @@ import { strings } from "../i18n/strings";
 /**
  * Notelets — the notebook view (notes-as-pages with a tree sidebar). This
  * container owns the two-pane layout, the flattened page list, and the
- * click-to-scroll wiring; NoteletsSidebar renders the table of contents and
- * NoteletsPage renders each page. Scroll-spy (scroll → selection) arrives in
- * work item 4. See docs/notelets/notelets-phase1-implementation-plan.md.
+ * two-way selection ↔ scroll sync: clicking the sidebar scrolls a page into
+ * view (click-to-scroll), and scrolling the column selects the page at the
+ * top (scroll-spy). NoteletsSidebar renders the table of contents and
+ * NoteletsPage renders each page.
+ * See docs/notelets/notelets-phase1-implementation-plan.md.
  */
 export function Notelets() {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
+  const setSelected = useUIStore((s) => s.setSelected);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Scroll a page into view within the notebook column. Click-to-scroll is a
-  // container concern; scroll-spy (the reverse direction) arrives in item 4.
-  const scrollToPage = useCallback((id: string): void => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const el = container.querySelector<HTMLElement>(`[data-page-id="${CSS.escape(id)}"]`);
-    el?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, []);
+  // Suppress scroll-spy while WE are the ones scrolling (click / keyboard /
+  // enter-view), so smooth-scroll passing over intermediate pages doesn't
+  // flicker the selection.
+  const programmaticRef = useRef(false);
+  const programmaticTimer = useRef<number | null>(null);
+  const didInitialScroll = useRef(false);
 
   const pages = useMemo(
     () => (parsedDoc ? flattenPages(parsedDoc.root) : []),
     [parsedDoc],
   );
+
+  const scrollToPage = useCallback((id: string): void => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(`[data-page-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    programmaticRef.current = true;
+    if (programmaticTimer.current !== null) window.clearTimeout(programmaticTimer.current);
+    programmaticTimer.current = window.setTimeout(() => {
+      programmaticRef.current = false;
+    }, 600);
+    el.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, []);
+
+  // Scroll-spy: observe page elements against a thin trigger band at the top
+  // of the column; the page occupying it becomes the selected node. Re-runs
+  // when the page set changes (doc edits).
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || pages.length === 0) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const visible = new Map<string, number>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).dataset.pageId;
+          if (!id) continue;
+          if (e.isIntersecting) {
+            visible.set(id, e.boundingClientRect.top - (e.rootBounds?.top ?? 0));
+          } else {
+            visible.delete(id);
+          }
+        }
+        if (programmaticRef.current) return;
+        const active = pickActivePageId(
+          [...visible].map(([id, top]) => ({ id, top })),
+        );
+        if (active && active !== useUIStore.getState().selectedNodeId) {
+          setSelected(active);
+        }
+      },
+      // Trigger band = the top ~20% of the column.
+      { root: container, rootMargin: "0px 0px -80% 0px", threshold: 0 },
+    );
+    container.querySelectorAll("[data-page-id]").forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [pages, setSelected]);
+
+  // Enter-view sync: on first mount with a node already selected (e.g. picked
+  // in the mind-map), scroll to its page once.
+  useEffect(() => {
+    if (didInitialScroll.current || pages.length === 0) return;
+    const sel = useUIStore.getState().selectedNodeId;
+    if (sel && pages.some((p) => p.node.id === sel)) {
+      didInitialScroll.current = true;
+      scrollToPage(sel);
+    }
+  }, [pages, scrollToPage]);
 
   if (!parsedDoc || pages.length === 0) {
     return <NoteletsEmptyState />;

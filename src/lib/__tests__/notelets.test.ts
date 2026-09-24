@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { MindNode } from "../../model";
-import { flattenPages, nextPageId, prevPageId, subjectsOf } from "../notelets";
+import {
+  flattenPages,
+  nextPageId,
+  pickActivePageId,
+  prevPageId,
+  subjectsOf,
+} from "../notelets";
 
 /** Terse node builder: n(id, ...children). */
 function n(id: string, ...children: MindNode[]): MindNode {
@@ -122,5 +128,59 @@ describe("nextPageId / prevPageId", () => {
     const solo = flattenPages(n("root"));
     expect(nextPageId(solo, "root")).toBeNull();
     expect(prevPageId(solo, "root")).toBeNull();
+  });
+});
+
+describe("pickActivePageId (scroll-spy)", () => {
+  it("returns null when nothing is visible", () => {
+    expect(pickActivePageId([])).toBeNull();
+  });
+
+  it("returns the only visible page", () => {
+    expect(pickActivePageId([{ id: "a", top: 40 }])).toBe("a");
+  });
+
+  it("picks the page occupying the top (last one past the threshold)", () => {
+    // 'a' scrolled partly above the top (top < 0), 'b' just below, 'c' lower.
+    expect(
+      pickActivePageId([
+        { id: "a", top: -50 },
+        { id: "b", top: 120 },
+        { id: "c", top: 480 },
+      ]),
+    ).toBe("a");
+  });
+
+  it("prefers the lower page once it has crossed the top", () => {
+    // Both above the top line; 'b' is the more recent occupant (closer to 0).
+    expect(
+      pickActivePageId([
+        { id: "a", top: -400 },
+        { id: "b", top: -10 },
+      ]),
+    ).toBe("b");
+  });
+
+  it("falls back to the topmost page when none has crossed yet", () => {
+    // Everything still below the threshold line → highlight the first upcoming.
+    expect(
+      pickActivePageId([
+        { id: "b", top: 300 },
+        { id: "a", top: 100 },
+      ]),
+    ).toBe("a");
+  });
+
+  it("is independent of input order", () => {
+    const a = pickActivePageId([
+      { id: "x", top: -5 },
+      { id: "y", top: 200 },
+    ]);
+    const b = pickActivePageId([
+      { id: "y", top: 200 },
+      { id: "x", top: -5 },
+    ]);
+    expect(a).toBe("x");
+    expect(b).toBe("x");
   });
 });

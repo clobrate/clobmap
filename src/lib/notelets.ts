@@ -61,3 +61,28 @@ export function prevPageId(pages: PageEntry[], currentId: string): string | null
   if (i <= 0) return null;
   return pages[i - 1]!.node.id;
 }
+
+/** A page currently intersecting the viewport, with its top offset (px)
+ *  relative to the scroll viewport's top edge. */
+export interface VisiblePage {
+  id: string;
+  top: number;
+}
+
+/**
+ * Scroll-spy: given the pages currently visible in the notebook column and
+ * each one's top offset relative to the viewport top, decide which page is
+ * "active" (the one occupying the top of the viewport). That's the last page
+ * whose top has reached or passed the threshold line; if none has yet (we're
+ * scrolled above the first page's top), the topmost visible page. Pure so the
+ * selection logic is unit-testable without a real IntersectionObserver.
+ */
+export function pickActivePageId(visible: VisiblePage[], threshold = 1): string | null {
+  if (visible.length === 0) return null;
+  const sorted = [...visible].sort((a, b) => a.top - b.top);
+  let active: string | null = null;
+  for (const v of sorted) {
+    if (v.top <= threshold) active = v.id;
+  }
+  return active ?? sorted[0]!.id;
+}
