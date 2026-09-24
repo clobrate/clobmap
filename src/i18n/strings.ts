@@ -22,6 +22,7 @@ export const strings = {
   notelets: {
     empty: "Nothing to show yet — add nodes to see them as notebook pages.",
     tableOfContents: "Table of contents",
+    pages: "Notebook pages",
   },
   file: {
     menu: "File",

@@ -95,13 +95,19 @@ export function Notelets() {
 
   return (
     <div className="flex h-full min-h-0">
+      {/* ToC sidebar is hidden on phones (narrow screens read the pages full-
+          width); a mobile page-picker/drawer is deferred to Phase 4. */}
       <aside
         aria-label={strings.notelets.tableOfContents}
-        className="w-64 shrink-0 overflow-auto border-r border-neutral-200 bg-neutral-50 py-2 dark:border-neutral-800 dark:bg-neutral-900"
+        className="hidden w-64 shrink-0 overflow-auto border-r border-neutral-200 bg-neutral-50 py-2 sm:block dark:border-neutral-800 dark:bg-neutral-900"
       >
         <NoteletsSidebar pages={pages} onNavigate={scrollToPage} />
       </aside>
-      <div ref={scrollRef} className="min-w-0 flex-1 overflow-auto">
+      <div
+        ref={scrollRef}
+        aria-label={strings.notelets.pages}
+        className="min-w-0 flex-1 overflow-auto"
+      >
         <div className="mx-auto max-w-3xl px-6 py-6">
           {pages.map((p) => (
             <NoteletsPage key={p.node.id} page={p} />

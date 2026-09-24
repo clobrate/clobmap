@@ -6,6 +6,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Notelets view (read-only notebook)
+
+- **Fourth first-class view.** A new **Notelets** tab joins YAML /
+  Split / Mind-map (and the `Cmd/Ctrl + /` cycle). Where the mind-map
+  treats structure as the content, Notelets inverts it: the tree
+  becomes a table-of-contents sidebar and each node's long-form notes
+  become the content, rendered as a scrolling column of markdown
+  **pages** — a five-subject-notebook take on the same document.
+- **Everything is a page.** Every node — root, subject, page, child
+  page, at any depth — is a page that can carry notes. Note-less nodes
+  render as a heading with an empty body (uniform treatment).
+- **Table-of-contents sidebar.** An ARIA tree of every node, indented
+  by depth. Click a row (or use `↑`/`↓`, `Home`/`End`, `Enter`) to
+  select it and scroll its page into view.
+- **Two-way sync.** Scrolling the page column selects the page at the
+  top (scroll-spy) and highlights it in the sidebar; a node selected in
+  the mind-map or YAML view is the page Notelets scrolls to on entry.
+- **Shared notes pipeline.** Pages load through the same reader as the
+  notes popup, so inline notes and sidecar `.md` files render
+  identically and invisibly; markdown is rendered read-only (raw HTML
+  is not executed). In-page editing is planned for a later phase.
+- Internals: extracted shared `useMarkdownHtml` / `useNodeNotes` hooks
+  and pure page helpers (`flattenPages`, `subjectsOf`, paging,
+  scroll-spy picker) in `src/lib/notelets.ts`, all unit-tested, plus a
+  new `notelets.spec.ts` end-to-end suite.
+
 ## [1.2.1] - 2026-05-15
 
 ### Changed

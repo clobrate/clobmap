@@ -222,7 +222,7 @@ disabled in YAML-only view with a tooltip). Markdown works in any view.
 
 | # | Check | Pass criteria |
 |---|---|---|
-| 9.1 | Toggle (`Cmd+/`) cycles | YAML → Split → Mind-map → YAML (mobile: only YAML and Mind-map). |
+| 9.1 | Toggle (`Cmd+/`) cycles | YAML → Split → Mind-map → Notelets → YAML. |
 | 9.2 | Split orientation in Settings | Horizontal / vertical; persists. |
 | 9.3 | Drag splitter | Resizes; ratio clamps to 0.2–0.8; persists. |
 | 9.4 | Edit YAML, see mind-map update | Debounced ~150 ms after last keystroke. Inline parse error doesn't crash the canvas; last-good tree stays rendered. |
@@ -544,6 +544,27 @@ release and whenever the canvas chrome changes.
 | 17.9.3 | Filter view + screen reader running | Announce text reads naturally via the aria-live region (smoke check with VoiceOver / NVDA). |
 | 17.9.4 | Tag-tree pane visible, switch to YAML view, edit `tagRoot` to add a tag-node, switch back | New tag-node appears in the pane without reload. |
 | 17.9.5 | Multiple tabs open, each with different tags | Each tab tracks its own tag tree. Switching tabs swaps the pane content. |
+
+---
+
+## 18. Notelets (read-only notebook view)
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 18.1 | Activate the **Notelets** tab | Left table-of-contents sidebar + a scrolling column of pages, one per node. Other surfaces (YAML / canvas) are not mounted. |
+| 18.2 | `Cmd+/` includes Notelets | Cycle order is YAML → Split → Mind-map → Notelets → YAML. |
+| 18.3 | Node with Markdown notes | Its page renders the notes as Markdown (headings, lists, bold, code, blockquote, links). |
+| 18.4 | Node with no notes | Page shows the title heading only, no body. No crash / no blank gap. |
+| 18.5 | Click a ToC row | Row highlights (`aria-selected`), its page scrolls into view. |
+| 18.6 | Keyboard in the sidebar | `↑`/`↓` move selection in depth-first order; `Home`/`End` jump to first/last; `Enter` re-scrolls to the selected page; focus ring follows. |
+| 18.7 | Scroll the page column | The row for the page at the top of the column becomes selected (scroll-spy). No flicker while a click-scroll is animating. |
+| 18.8 | Select a node in the mind-map, switch to Notelets | That node is selected in the sidebar and its page is scrolled into view (enter-view sync). |
+| 18.9 | Link inside a rendered note | Opens in the system browser, not in-app. Raw HTML in a note is not executed (escaped). |
+| 18.10 | Sidecar note on web / iOS | Page shows the read-only message banner (sidecar not accessible); desktop shows the file content. |
+| 18.11 | Narrow / phone width | Sidebar is hidden; pages read full-width. |
+| 18.12 | Light and dark themes | Markdown (headings, code, blockquote, links) is legible in both. |
+
+> Notelets is read-only in this phase — edit notes via the popup (`N`) in the mind-map. In-page editing is a later phase. Pure helpers (`flattenPages`, paging, scroll-spy picker) and the shared notes hooks are unit-tested; the wiring + scroll-spy are covered by `e2e/tests/notelets.spec.ts`.
 
 ---
 

@@ -28,6 +28,8 @@ Two consequences worth knowing up front:
 │  YamlEditor (CodeMirror 6) ◄──┐         ┌──► MindMap (React Flow) │
 │                               │         │      + TagTreePane      │
 │                               │         │      + FilterCanvas     │
+│                               │         └──► Notelets (notebook)  │
+│                               │                + Sidebar + Page    │
 │                          subscribes  subscribes                    │
 └────────────────────────────────┼─────────┼─────────────────────────┘
                                  ▼         ▼
@@ -115,6 +117,9 @@ explicit `syncActive()` call after Save / Save As.
 | Pure-text re-serialize (no AST) | `src/model/serialize.ts` |
 | ID generator (shared namespace across both trees) | `src/model/ids.ts` |
 | Layout — data tree (`layout.ts`), tag tree (`tagLayout.ts`), filter view (inline in `FilterCanvas.tsx`) | `src/lib/` |
+| Notelets page model — `flattenPages`, `subjectsOf`, paging, scroll-spy picker | `src/lib/notelets.ts` |
+| Shared notes rendering + IO (used by the notes popup and Notelets pages) | `src/lib/useMarkdownHtml.ts`, `src/lib/useNodeNotes.ts` |
+| Notelets view (read-only notebook) — container, ToC sidebar, page | `src/components/Notelets.tsx`, `NoteletsSidebar.tsx`, `NoteletsPage.tsx` |
 | Tag helpers (`hasAnyTag`, filter-tree builder) | `src/lib/tags.ts`, `src/lib/tagFilter.ts` |
 | Document store | `src/store/document.ts` |
 | Tabs (snapshot+swap) | `src/store/tabs.ts` |
