@@ -1,16 +1,16 @@
 import { useCallback, useMemo, useRef } from "react";
 import { useDocumentStore } from "../store/document";
-import { useUIStore } from "../store/ui";
 import { flattenPages, type PageEntry } from "../lib/notelets";
+import { NoteletsSidebar } from "./NoteletsSidebar";
 import { strings } from "../i18n/strings";
 
 /**
- * Notelets — the notebook view (notes-as-pages with a tree sidebar). This is
- * the Phase 1 · Work-item-1 container: it owns the two-pane layout, the
- * flattened page list, and the click-to-scroll wiring. The sidebar rows and
- * page bodies are intentionally minimal stubs here — they get their own
- * components (NoteletsSidebar / NoteletsPage) and real markdown rendering in
- * work items 2 and 3. See docs/notelets/notelets-phase1-implementation-plan.md.
+ * Notelets — the notebook view (notes-as-pages with a tree sidebar). This
+ * container owns the two-pane layout, the flattened page list, and the
+ * click-to-scroll wiring. The sidebar (NoteletsSidebar) is real as of work
+ * item 2; page bodies are still minimal stubs until NoteletsPage brings
+ * markdown rendering in work item 3. See
+ * docs/notelets/notelets-phase1-implementation-plan.md.
  */
 export function Notelets() {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
@@ -40,7 +40,7 @@ export function Notelets() {
         aria-label={strings.notelets.tableOfContents}
         className="w-64 shrink-0 overflow-auto border-r border-neutral-200 bg-neutral-50 py-2 dark:border-neutral-800 dark:bg-neutral-900"
       >
-        <SidebarStub pages={pages} onNavigate={scrollToPage} />
+        <NoteletsSidebar pages={pages} onNavigate={scrollToPage} />
       </aside>
       <div ref={scrollRef} className="min-w-0 flex-1 overflow-auto">
         <div className="mx-auto max-w-3xl px-6 py-6">
@@ -62,48 +62,6 @@ function NoteletsEmptyState() {
 }
 
 /**
- * TEMPORARY sidebar — a flat, indented list of every page. Replaced by
- * NoteletsSidebar (tree roles, selection highlight) in work item 2.
- */
-function SidebarStub({
-  pages,
-  onNavigate,
-}: {
-  pages: PageEntry[];
-  onNavigate: (id: string) => void;
-}) {
-  const selectedNodeId = useUIStore((s) => s.selectedNodeId);
-  const setSelected = useUIStore((s) => s.setSelected);
-  return (
-    <ul className="text-sm">
-      {pages.map(({ node, depth }) => {
-        const active = node.id === selectedNodeId;
-        return (
-          <li key={node.id}>
-            <button
-              type="button"
-              onClick={() => {
-                setSelected(node.id);
-                onNavigate(node.id);
-              }}
-              style={{ paddingLeft: `${depth * 12 + 12}px` }}
-              className={
-                "block w-full truncate py-1 pr-2 text-left " +
-                (active
-                  ? "bg-neutral-200 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-50"
-                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200")
-              }
-            >
-              {node.text || " "}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-/**
  * TEMPORARY page — heading + raw notes text. Replaced by NoteletsPage
  * (shared loadNotes + useMarkdownHtml rendering, message banner, sidecar
  * handling) in work item 3.
@@ -111,7 +69,10 @@ function SidebarStub({
 function PageStub({ page }: { page: PageEntry }) {
   const { node, depth } = page;
   return (
-    <section data-page-id={node.id} className="scroll-mt-4 border-b border-neutral-100 py-4 last:border-0 dark:border-neutral-800/60">
+    <section
+      data-page-id={node.id}
+      className="scroll-mt-4 border-b border-neutral-100 py-4 last:border-0 dark:border-neutral-800/60"
+    >
       <h2
         className="font-semibold text-neutral-900 dark:text-neutral-100"
         style={{ fontSize: `${Math.max(15, 22 - depth)}px` }}
