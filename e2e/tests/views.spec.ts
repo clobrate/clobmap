@@ -31,14 +31,16 @@ test.describe("view modes & split (§9)", () => {
     expect(await activeView(page)).toBe("Mind-map");
   });
 
-  test("Notelets tab appears, activates, and shows the scaffold pane", async ({ page }) => {
+  test("Notelets tab appears, activates, and renders the notebook", async ({ page }) => {
     const notelets = page.getByRole("tab", { name: "Notelets" });
     await expect(notelets).toBeVisible();
     await notelets.click();
     expect(await activeView(page)).toBe("Notelets");
-    // Phase 0 scaffold: placeholder copy is present until later phases build
-    // the real notebook. Update this assertion when Phase 1 lands.
-    await expect(page.getByText("Notelets view — coming soon")).toBeVisible();
+    // Phase 1: a table-of-contents sidebar + a page per node render.
+    await expect(
+      page.getByRole("complementary", { name: "Table of contents" }),
+    ).toBeVisible();
+    await expect(page.locator("[data-page-id]").first()).toBeVisible();
     // Other surfaces are not mounted while Notelets is active.
     await expect(page.locator(".cm-content")).toHaveCount(0);
   });

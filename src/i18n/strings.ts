@@ -19,6 +19,10 @@ export const strings = {
     notelets: "Notelets",
     cycleHint: "Cycle view (YAML → Split → Mind-map → Notelets)",
   },
+  notelets: {
+    empty: "Nothing to show yet — add nodes to see them as notebook pages.",
+    tableOfContents: "Table of contents",
+  },
   file: {
     menu: "File",
     open: "Open…",
