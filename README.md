@@ -163,7 +163,8 @@ A **notebook** view of the same document — the fourth view, next to YAML / Spl
 
 - **Everything is a page.** Every node — root, subject, page, child page, at any depth — is a page. Note-less nodes render as a heading with a "Click to add notes…" affordance.
 - **Edit in place.** Click a page's body to edit its notes in a CodeMirror Markdown editor; blur or `Esc` saves and re-renders. Auto-save, the inline↔sidecar cap/extraction, and read-only handling are shared with the notes popup, so behavior is identical. One page edits at a time. Edits flow back to YAML / Mind-map like any other change.
-- **Sidebar navigation.** Click a row, or use `↑` / `↓`, `Home` / `End`, `Enter`. The selected page scrolls into view.
+- **Sidebar navigation.** Click a row, or use `↑` / `↓`, `Home` / `End`. The selected page scrolls into view.
+- **Restructure from the sidebar.** The table of contents is a full outliner: `Tab` adds a child, `Enter` adds a sibling, `F2` / double-click renames, `Delete` removes, `Alt`+`↑`/`↓` reorders among siblings, and rows can be dragged to reorder or re-parent. Every change uses the same tree ops as the mind-map — reflected in YAML and the Mind-map, and undoable with `Cmd/Ctrl+Z`.
 - **Scroll-spy.** Scrolling the page column selects the page at the top and highlights it in the sidebar. Selection is shared with the other views: a node picked in the mind-map is the page Notelets scrolls to on entry (and vice-versa).
 - **Same notes, one pipeline.** Pages load and save through the same code as the notes popup, so inline notes and sidecar `.md` files behave identically and invisibly. Raw HTML in notes is escaped, not executed (Markdown only); read-only sidecar notes (web / iOS) show a banner and can't be edited.
 

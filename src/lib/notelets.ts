@@ -86,3 +86,46 @@ export function pickActivePageId(visible: VisiblePage[], threshold = 1): string 
   }
   return active ?? sorted[0]!.id;
 }
+
+export type DropPosition = "before" | "after" | "onto";
+
+/** `{ parent, index }` of a node, or null for the root (which has none). */
+function parentInfo(root: MindNode, id: string): { parent: MindNode; index: number } | null {
+  for (let i = 0; i < root.children.length; i += 1) {
+    const child = root.children[i]!;
+    if (child.id === id) return { parent: root, index: i };
+    const found = parentInfo(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Translate a sidebar drop (drag `draggedId` onto `targetId` at `position`)
+ * into `moveNode` arguments. `onto` → become the target's (last) child;
+ * `before`/`after` → become a sibling at that slot. Returns the `index` in the
+ * target parent's children AFTER the dragged node is removed (moveNode's
+ * contract) — so same-parent reorders account for the index shift. Returns
+ * null for no-op / invalid drops (onto self, before/after the root). moveNode
+ * still guards the self/descendant cycle case, so the caller can just try it.
+ */
+export function dropPlan(
+  root: MindNode,
+  draggedId: string,
+  targetId: string,
+  position: DropPosition,
+): { parentId: string; index?: number } | null {
+  if (draggedId === targetId) return null;
+  if (position === "onto") return { parentId: targetId };
+
+  const target = parentInfo(root, targetId);
+  if (!target) return null; // target is the root — it has no siblings
+
+  const dragged = parentInfo(root, draggedId);
+  const sameParent = dragged?.parent.id === target.parent.id;
+  // Where the target sits once the dragged node is pulled out of the parent.
+  const adjustedTargetIdx =
+    sameParent && dragged!.index < target.index ? target.index - 1 : target.index;
+  const index = position === "before" ? adjustedTargetIdx : adjustedTargetIdx + 1;
+  return { parentId: target.parent.id, index };
+}

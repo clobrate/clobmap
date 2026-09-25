@@ -17,7 +17,7 @@ function toc(page: Page, name: string) {
   return page.getByRole("treeitem", { name });
 }
 
-test.describe("Notelets — read-only notebook (Phase 1)", () => {
+test.describe("Notelets notebook view", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/app/");
     await expect(nodeByText(page, "Our wedding")).toBeVisible();
@@ -254,5 +254,128 @@ test.describe("Notelets — read-only notebook (Phase 1)", () => {
     await expect(items).toHaveCount(2);
     await expect(items.nth(0)).toHaveText("Garden");
     await expect(items.nth(1)).toHaveText("Beach");
+  });
+
+  // ── Sidebar restructuring (Phase 3) ────────────────────────────────────
+
+  /** Select + focus a ToC row so keyboard ops target it. */
+  async function focusRow(page: Page, name: string) {
+    const row = toc(page, name);
+    await row.click();
+    await row.focus();
+    return row;
+  }
+  const renameInput = (page: Page) => page.getByRole("textbox", { name: "Rename node" });
+
+  test("Tab adds a child that lands in rename mode", async ({ page }) => {
+    await openNotelets(page);
+    await focusRow(page, "Venue");
+    await page.keyboard.press("Tab");
+    await renameInput(page).fill("Rehearsal");
+    await page.keyboard.press("Enter");
+    // New node appears in the ToC and as a page, nested under Venue (level 3).
+    await expect(toc(page, "Rehearsal")).toBeVisible();
+    await expect(toc(page, "Rehearsal")).toHaveAttribute("aria-level", "3");
+    await expect(page.getByRole("heading", { name: "Rehearsal" })).toBeVisible();
+  });
+
+  test("Enter adds a sibling", async ({ page }) => {
+    await openNotelets(page);
+    await focusRow(page, "Ceremony"); // child of Venue (level 3)
+    await page.keyboard.press("Enter");
+    await renameInput(page).fill("Vows");
+    await page.keyboard.press("Enter");
+    await expect(toc(page, "Vows")).toHaveAttribute("aria-level", "3"); // sibling level
+  });
+
+  test("F2 renames a node — ToC, page heading, and YAML all update", async ({ page }) => {
+    await openNotelets(page);
+    await focusRow(page, "Reception");
+    await page.keyboard.press("F2");
+    await renameInput(page).fill("Reception Hall");
+    await page.keyboard.press("Enter");
+    await expect(toc(page, "Reception Hall")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Reception Hall" })).toBeVisible();
+    await page.getByRole("tab", { name: "YAML" }).click();
+    await expect(page.locator(".cm-content")).toContainText("Reception Hall");
+  });
+
+  test("double-clicking a row renames it", async ({ page }) => {
+    await openNotelets(page);
+    await toc(page, "Florist").dblclick();
+    await renameInput(page).fill("Flowers");
+    await page.keyboard.press("Enter");
+    await expect(toc(page, "Flowers")).toBeVisible();
+  });
+
+  test("Delete removes a node and Cmd+Z restores it", async ({ page }) => {
+    await openNotelets(page);
+    await focusRow(page, "Reception");
+    await page.keyboard.press("Delete");
+    await expect(toc(page, "Reception")).toHaveCount(0);
+    await page.keyboard.press("Meta+z"); // window-level undo
+    await expect(toc(page, "Reception")).toBeVisible();
+  });
+
+  test("Alt+ArrowDown reorders siblings (YAML order changes)", async ({ page }) => {
+    await openNotelets(page);
+    await focusRow(page, "Ceremony"); // first child of Venue, before Reception
+    await page.keyboard.press("Alt+ArrowDown");
+    await page.getByRole("tab", { name: "YAML" }).click();
+    const yaml = (await page.locator(".cm-content").textContent()) ?? "";
+    expect(yaml.indexOf("Reception")).toBeLessThan(yaml.indexOf("Ceremony"));
+  });
+
+  test("dragging a row onto another reparents it (nesting deepens)", async ({ page }) => {
+    await openNotelets(page);
+    // Ceremony (child of Venue, level 3) → dropped ONTO Guests → becomes its child.
+    await expect(toc(page, "Ceremony")).toHaveAttribute("aria-level", "3");
+    await toc(page, "Ceremony").dragTo(toc(page, "Guests"));
+    await expect(toc(page, "Ceremony")).toHaveAttribute("aria-level", "3"); // Guests is level 2 → child level 3
+    // Prove it moved under Guests in YAML: Ceremony now follows Guests.
+    await page.getByRole("tab", { name: "YAML" }).click();
+    const yaml = (await page.locator(".cm-content").textContent()) ?? "";
+    expect(yaml.indexOf("Guests")).toBeLessThan(yaml.indexOf("Ceremony"));
+  });
+
+  test("a rename in the sidebar shows in the Mind-map", async ({ page }) => {
+    await openNotelets(page);
+    await focusRow(page, "Catering");
+    await page.keyboard.press("F2");
+    await renameInput(page).fill("Food & Drink");
+    await page.keyboard.press("Enter");
+    await page.getByRole("tab", { name: "Mind-map" }).click();
+    await expect(nodeByText(page, "Food & Drink")).toBeVisible();
+  });
+
+  test("dragging onto a row's top edge reorders it before (sibling)", async ({ page }) => {
+    await openNotelets(page);
+    // Vendors' children are Catering, Photographer, Florist. Drop Florist on
+    // the TOP edge of Catering → Florist becomes the first, still a sibling.
+    await toc(page, "Florist").dragTo(toc(page, "Catering"), {
+      targetPosition: { x: 12, y: 2 },
+    });
+    await expect(toc(page, "Florist")).toHaveAttribute("aria-level", "3"); // still a sibling
+    await page.getByRole("tab", { name: "YAML" }).click();
+    const yaml = (await page.locator(".cm-content").textContent()) ?? "";
+    expect(yaml.indexOf("Florist")).toBeLessThan(yaml.indexOf("Catering"));
+  });
+
+  test("F2 then Esc cancels the rename", async ({ page }) => {
+    await openNotelets(page);
+    await focusRow(page, "Photographer");
+    await page.keyboard.press("F2");
+    await renameInput(page).fill("Discarded");
+    await page.keyboard.press("Escape");
+    await expect(toc(page, "Photographer")).toBeVisible();
+    await expect(toc(page, "Discarded")).toHaveCount(0);
+  });
+
+  test("the root node cannot be deleted", async ({ page }) => {
+    await openNotelets(page);
+    await focusRow(page, "Our wedding");
+    await page.keyboard.press("Delete");
+    await expect(toc(page, "Our wedding")).toBeVisible();
+    await expect(page.getByRole("treeitem")).toHaveCount(14); // unchanged
   });
 });

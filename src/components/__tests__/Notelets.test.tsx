@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // loadNotes is called by every NoteletsPage; keep it inert here.
@@ -24,7 +24,7 @@ vi.mock("../NoteletsPageEditor", () => ({
 import { Notelets } from "../Notelets";
 import { useDocumentStore } from "../../store/document";
 import { useUIStore } from "../../store/ui";
-import type { MindDocument } from "../../model";
+import { findById, type MindDocument } from "../../model";
 
 function doc(): MindDocument {
   return {
@@ -144,6 +144,39 @@ describe("Notelets container", () => {
         );
       });
       expect(screen.queryByTestId("page-editor")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("undo / redo", () => {
+    const childCount = (id: string) =>
+      findById(useDocumentStore.getState().parsedDoc!, id)!.children.length;
+
+    const exists = (id: string) => findById(useDocumentStore.getState().parsedDoc!, id) !== null;
+
+    it("Cmd+Z undoes / Cmd+Shift+Z redoes a structural edit", () => {
+      // Delete (not Tab) so no rename input is focused — the window handler
+      // skips undo while a text field owns focus (tested separately below).
+      useUIStore.setState({ selectedNodeId: "s1" });
+      render(<Notelets />);
+      fireEvent.keyDown(screen.getByRole("tree"), { key: "Delete" });
+      expect(exists("s1")).toBe(false);
+      fireEvent.keyDown(window, { key: "z", metaKey: true });
+      expect(exists("s1")).toBe(true); // undone
+      fireEvent.keyDown(window, { key: "z", metaKey: true, shiftKey: true });
+      expect(exists("s1")).toBe(false); // redone
+    });
+
+    it("does not undo while a text input owns focus (editor keeps its own undo)", () => {
+      useUIStore.setState({ selectedNodeId: "s2" });
+      render(<Notelets />);
+      fireEvent.keyDown(screen.getByRole("tree"), { key: "Tab" });
+      expect(childCount("s2")).toBe(1);
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+      input.focus();
+      fireEvent.keyDown(window, { key: "z", metaKey: true });
+      expect(childCount("s2")).toBe(1); // undo skipped — input owns Cmd+Z
+      input.remove();
     });
   });
 });

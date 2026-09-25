@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MindNode } from "../../model";
 import {
+  dropPlan,
   flattenPages,
   nextPageId,
   pickActivePageId,
@@ -182,5 +183,40 @@ describe("pickActivePageId (scroll-spy)", () => {
     ]);
     expect(a).toBe("x");
     expect(b).toBe("x");
+  });
+});
+
+describe("dropPlan (drag → moveNode args)", () => {
+  // root ├─ s1 (├─ p1, └─ p2)  └─ s2
+  const root = () => n("root", n("s1", n("p1"), n("p2")), n("s2"));
+
+  it("onto → become the target's child (append, no index)", () => {
+    expect(dropPlan(root(), "p1", "s2", "onto")).toEqual({ parentId: "s2" });
+  });
+
+  it("onto self is a no-op", () => {
+    expect(dropPlan(root(), "s1", "s1", "onto")).toBeNull();
+  });
+
+  it("before/after the root is invalid (root has no siblings)", () => {
+    expect(dropPlan(root(), "s1", "root", "before")).toBeNull();
+    expect(dropPlan(root(), "s1", "root", "after")).toBeNull();
+  });
+
+  it("reparents before a target in another parent", () => {
+    // p1 (under s1) dropped before s2 (index 1 under root) → root, index 1.
+    expect(dropPlan(root(), "p1", "s2", "before")).toEqual({ parentId: "root", index: 1 });
+  });
+
+  it("reparents after a target in another parent", () => {
+    // p1 dropped after s1 (index 0 under root) → root, index 1.
+    expect(dropPlan(root(), "p1", "s1", "after")).toEqual({ parentId: "root", index: 1 });
+  });
+
+  it("reorders within the same parent, accounting for the removal shift", () => {
+    // p1 (idx 0) after p2 (idx 1) under s1 → s1, index 1 (post-removal).
+    expect(dropPlan(root(), "p1", "p2", "after")).toEqual({ parentId: "s1", index: 1 });
+    // p2 (idx 1) before p1 (idx 0) under s1 → s1, index 0.
+    expect(dropPlan(root(), "p2", "p1", "before")).toEqual({ parentId: "s1", index: 0 });
   });
 });

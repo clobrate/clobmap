@@ -17,8 +17,34 @@ import { strings } from "../i18n/strings";
  */
 export function Notelets() {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
+  const undo = useDocumentStore((s) => s.undo);
+  const redo = useDocumentStore((s) => s.redo);
   const setSelected = useUIStore((s) => s.setSelected);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Undo / redo for the whole Notelets view. The mind-map binds these on
+  // `window`, but it isn't mounted here — so we own them while Notelets is up.
+  // Skipped when a text editor owns focus (the CodeMirror page editor or the
+  // sidebar rename input), so their native Cmd+Z keeps undoing text.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k !== "z" && k !== "y") return;
+      const ae = document.activeElement;
+      if (
+        ae instanceof HTMLElement &&
+        (ae.closest(".cm-editor") || ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
+      e.preventDefault();
+      if (k === "y" || e.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
   // Suppress scroll-spy while WE are the ones scrolling (click / keyboard /
   // enter-view), so smooth-scroll passing over intermediate pages doesn't
   // flicker the selection.

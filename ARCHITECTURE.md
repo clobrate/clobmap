@@ -117,7 +117,7 @@ explicit `syncActive()` call after Save / Save As.
 | Pure-text re-serialize (no AST) | `src/model/serialize.ts` |
 | ID generator (shared namespace across both trees) | `src/model/ids.ts` |
 | Layout — data tree (`layout.ts`), tag tree (`tagLayout.ts`), filter view (inline in `FilterCanvas.tsx`) | `src/lib/` |
-| Notelets page model — `flattenPages`, `subjectsOf`, paging, scroll-spy picker | `src/lib/notelets.ts` |
+| Notelets page model — `flattenPages`, `subjectsOf`, paging, scroll-spy picker, drag `dropPlan` | `src/lib/notelets.ts` |
 | Shared notes rendering + IO (used by the notes popup and Notelets pages) | `src/lib/useMarkdownHtml.ts`, `src/lib/useNodeNotes.ts` |
 | Notelets view (notebook) — container, ToC sidebar, page, in-page CodeMirror editor | `src/components/Notelets.tsx`, `NoteletsSidebar.tsx`, `NoteletsPage.tsx`, `NoteletsPageEditor.tsx` |
 | Tag helpers (`hasAnyTag`, filter-tree builder) | `src/lib/tags.ts`, `src/lib/tagFilter.ts` |

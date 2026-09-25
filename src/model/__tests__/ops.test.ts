@@ -269,9 +269,31 @@ describe("moveNode", () => {
     expect(findById(doc, "n5")?.children[0]?.children.map((c) => c.id)).toEqual(["n3", "n4"]);
   });
 
-  it("inserts at index", () => {
+  it("inserts at index when reparenting", () => {
     const doc = moveNode(fixture(), "n3", "n1", 0);
     expect(doc.root.children.map((c) => c.id)).toEqual(["n3", "n2", "n5"]);
+  });
+
+  it("reorders within the same parent — moving a node later", () => {
+    // n2's children are [n3, n4]; move n3 to index 1 (its position AFTER it's
+    // removed from the parent) → [n4, n3].
+    const doc = moveNode(fixture(), "n3", "n2", 1);
+    expect(findById(doc, "n2")?.children.map((c) => c.id)).toEqual(["n4", "n3"]);
+  });
+
+  it("reorders within the same parent — moving a node earlier", () => {
+    const doc = moveNode(fixture(), "n4", "n2", 0);
+    expect(findById(doc, "n2")?.children.map((c) => c.id)).toEqual(["n4", "n3"]);
+  });
+
+  it("clamps an out-of-range index to the end", () => {
+    const doc = moveNode(fixture(), "n5", "n2", 99);
+    expect(findById(doc, "n2")?.children.map((c) => c.id)).toEqual(["n3", "n4", "n5"]);
+  });
+
+  it("clamps a negative index to the start", () => {
+    const doc = moveNode(fixture(), "n5", "n2", -5);
+    expect(findById(doc, "n2")?.children.map((c) => c.id)).toEqual(["n5", "n3", "n4"]);
   });
 
   it("rejects moving root", () => {

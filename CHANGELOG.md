@@ -26,18 +26,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (web/iOS) show a banner and can't be edited. Raw HTML in notes is
   escaped, not executed (Markdown only).
 - **Table-of-contents sidebar.** An ARIA tree of every node, indented
-  by depth. Click a row (or use `↑`/`↓`, `Home`/`End`, `Enter`) to
-  select it and scroll its page into view.
+  by depth. Click a row (or use `↑`/`↓`, `Home`/`End`) to select it and
+  scroll its page into view.
+- **Restructure from the sidebar.** The ToC is a full outliner:
+  `Tab` adds a child, `Enter` adds a sibling, `F2` / double-click
+  renames, `Delete` removes, `Alt`+`↑`/`↓` reorders among siblings, and
+  rows can be dragged to reorder or re-parent. Edits use the same tree
+  ops as the mind-map — reflected in YAML and the Mind-map, and undoable
+  with `Cmd/Ctrl+Z` (redo `Cmd/Ctrl+Shift+Z`).
 - **Two-way sync.** Scrolling the page column selects the page at the
   top (scroll-spy) and highlights it in the sidebar; a node selected in
   the mind-map or YAML view is the page Notelets scrolls to on entry.
   Edits flow back to YAML / Mind-map like any other change.
 - Internals: extracted shared `useMarkdownHtml` / `useNodeNotes` hooks
   and pure page helpers (`flattenPages`, `subjectsOf`, paging,
-  scroll-spy picker) in `src/lib/notelets.ts`, all unit-tested;
-  `NoteletsPageEditor` reuses the YAML view's CodeMirror stack via a new
-  `@codemirror/lang-markdown` dependency; plus a `notelets.spec.ts`
-  end-to-end suite.
+  scroll-spy picker, drag `dropPlan`) in `src/lib/notelets.ts`, all
+  unit-tested; `NoteletsPageEditor` reuses the YAML view's CodeMirror
+  stack via a new `@codemirror/lang-markdown` dependency; `moveNode`
+  gained an optional insert-at-`index`; plus an extensive
+  `notelets.spec.ts` end-to-end suite.
 
 ## [1.2.1] - 2026-05-15
 

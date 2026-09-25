@@ -556,7 +556,7 @@ release and whenever the canvas chrome changes.
 | 18.3 | Node with Markdown notes | Its page renders the notes as Markdown (headings, lists, bold, code, blockquote, links). |
 | 18.4 | Node with no notes | Page shows the title heading + a muted "Click to add notes…" affordance. No crash / no blank gap. |
 | 18.5 | Click a ToC row | Row highlights (`aria-selected`), its page scrolls into view. |
-| 18.6 | Keyboard in the sidebar | `↑`/`↓` move selection in depth-first order; `Home`/`End` jump to first/last; `Enter` re-scrolls to the selected page; focus ring follows. |
+| 18.6 | Navigation keys in the sidebar | `↑`/`↓` move selection in depth-first order; `Home`/`End` jump to first/last; focus ring follows. (`Enter`/`Tab` now restructure — see §18.20+.) |
 | 18.7 | Scroll the page column | The row for the page at the top of the column becomes selected (scroll-spy). No flicker while a click-scroll is animating. |
 | 18.8 | Select a node in the mind-map, switch to Notelets | That node is selected in the sidebar and its page is scrolled into view (enter-view sync). |
 | 18.9 | Link inside a rendered note | Opens in the system browser, not in-app. Raw HTML in a note is not executed (escaped). |
@@ -570,8 +570,16 @@ release and whenever the canvas chrome changes.
 | 18.17 | One editor at a time | Editing a second page (after leaving the first) leaves exactly one editor open. |
 | 18.18 | Over-limit on web / iOS (>800 chars) | Editor shows the over-limit warning; content isn't silently dropped (desktop auto-extracts to a sidecar instead). |
 | 18.19 | Read-only sidecar page (web/iOS) | Banner shown; the body is not clickable-to-edit. |
+| 18.20 | Sidebar `Tab` on a selected row | Adds a child, which lands in rename mode (input focused); appears in the ToC + as a page. |
+| 18.21 | Sidebar `Enter` on a selected row | Adds a sibling (rename mode). `Enter` on the root is a no-op. |
+| 18.22 | `F2` / double-click a row | Renames in place; commit on `Enter`/blur, cancel on `Esc`. ToC row, page heading, and YAML all update. Empty name allowed. |
+| 18.23 | `Delete` / `Backspace` on a row | Removes the node (and its subtree); selection moves to the row above. Root can't be deleted. |
+| 18.24 | `Alt`+`↑`/`↓` on a row | Reorders the node among its siblings; YAML order changes. |
+| 18.25 | Drag a row onto another | Drops in the top/bottom third → reorder before/after (sibling); drop in the middle → becomes a child. A drop line / ring shows the target. Dropping onto self or a descendant is a no-op. Root isn't draggable. |
+| 18.26 | `Cmd/Ctrl+Z` after a structural edit | Undoes it; `Cmd/Ctrl+Shift+Z` redoes. Works even after a delete (window-level). While the page editor or a rename input has focus, `Cmd+Z` undoes *text* instead (the editor owns it). |
+| 18.27 | Parity | Any sidebar restructure is reflected in the Mind-map and YAML views. |
 
-> Pure helpers (`flattenPages`, paging, scroll-spy picker) and the shared notes hooks are unit-tested; `NoteletsPage`/`NoteletsPageEditor` wiring and the editing + scroll-spy flows are covered by `e2e/tests/notelets.spec.ts` and the component tests. Known minor rough edge: clicking *directly* from one open editor onto another page's edit affordance may miss (layout shift on unmount) — click away first, then click the next page. No data loss.
+> Pure helpers (`flattenPages`, paging, scroll-spy picker, drag `dropPlan`) and the shared notes hooks are unit-tested; `NoteletsSidebar` structural + rename behavior, `NoteletsPage`/`NoteletsPageEditor` wiring, and the editing / scroll-spy / restructuring flows are covered by `e2e/tests/notelets.spec.ts` and the component tests. Two documented notes: (1) clicking *directly* from one open page editor onto another page's edit affordance may miss (layout shift on unmount) — click away first; (2) `Tab` is captured by the sidebar tree for add-child (a11y escape via `Shift+Tab`). No data loss in either.
 
 ---
 
