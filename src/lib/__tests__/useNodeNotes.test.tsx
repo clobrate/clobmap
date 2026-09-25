@@ -73,6 +73,24 @@ describe("useNodeNotes", () => {
       expect(result.current.overLimit).toBe(false);
     });
 
+    it("ignores a load that resolves after unmount (cancellation guard)", async () => {
+      let resolveLoad: (v: Awaited<ReturnType<typeof import("../notes").loadNotes>>) => void =
+        () => {};
+      mockLoad.mockReturnValueOnce(
+        new Promise((r) => {
+          resolveLoad = r;
+        }),
+      );
+      seedStore("hi");
+      const { result, unmount } = renderHook(() => useNodeNotes(NODE_ID));
+      unmount();
+      // Resolve AFTER unmount — the cancelled guard short-circuits, no throw,
+      // and nothing settles onto the gone component.
+      resolveLoad({ content: "late", isPathRef: false, resolvedPath: null, readOnly: false });
+      await Promise.resolve();
+      expect(result.current.hasLoaded).toBe(false);
+    });
+
     it("exposes the raw load result (sidecar path ref + message)", async () => {
       mockLoad.mockResolvedValueOnce({
         content: "from sidecar",

@@ -16,7 +16,7 @@ Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web
 - View / edit the same map as a **horizontal tree** (React Flow + Dagre layout).
 - Toggle between **YAML / Split / Mind-map / Notelets** in the header (or `Cmd/Ctrl + /`); split shows both panes side-by-side.
 - Edits in either view propagate to the other; selecting a node in the canvas jumps the YAML cursor to its line.
-- **Notelets** — a read-only *notebook* view of the same document: each node's notes rendered as Markdown **pages** with a table-of-contents sidebar (click or arrow-key to navigate; scroll-spy keeps the sidebar in sync). In-page editing is planned.
+- **Notelets** — a *notebook* view of the same document: each node's notes as Markdown **pages** with a table-of-contents sidebar (click or arrow-key to navigate; scroll-spy keeps the sidebar in sync). Click a page to edit its notes in place (CodeMirror, auto-save).
 - YAML comments and field ordering survive structural edits made from the canvas.
 - Open / save mind maps as `.clobmap.yaml` files (plain `.yaml` / `.yml` also opens); recent files persist across launches; external edits are detected and reloaded.
 - **Auto-save** (toggle in the ⚙ menu): when on and the YAML parses cleanly, edits flush to disk after a short pause.
@@ -159,14 +159,15 @@ Tag identity is matched **case-insensitively** but display preserves the casing 
 
 ### Notelets view
 
-A read-only **notebook** view of the same document — the fourth view, next to YAML / Split / Mind-map. The tree becomes a **table-of-contents sidebar**; each node's long-form notes become the content, rendered as a scrolling column of Markdown **pages**.
+A **notebook** view of the same document — the fourth view, next to YAML / Split / Mind-map. The tree becomes a **table-of-contents sidebar**; each node's long-form notes become the content, rendered as a scrolling column of Markdown **pages**.
 
-- **Everything is a page.** Every node — root, subject, page, child page, at any depth — is a page. Note-less nodes render as a heading with an empty body.
+- **Everything is a page.** Every node — root, subject, page, child page, at any depth — is a page. Note-less nodes render as a heading with a "Click to add notes…" affordance.
+- **Edit in place.** Click a page's body to edit its notes in a CodeMirror Markdown editor; blur or `Esc` saves and re-renders. Auto-save, the inline↔sidecar cap/extraction, and read-only handling are shared with the notes popup, so behavior is identical. One page edits at a time. Edits flow back to YAML / Mind-map like any other change.
 - **Sidebar navigation.** Click a row, or use `↑` / `↓`, `Home` / `End`, `Enter`. The selected page scrolls into view.
 - **Scroll-spy.** Scrolling the page column selects the page at the top and highlights it in the sidebar. Selection is shared with the other views: a node picked in the mind-map is the page Notelets scrolls to on entry (and vice-versa).
-- **Same notes, one pipeline.** Pages load through the same reader as the notes popup, so inline notes and sidecar `.md` files render identically and invisibly. Markdown is rendered read-only; raw HTML is not executed.
+- **Same notes, one pipeline.** Pages load and save through the same code as the notes popup, so inline notes and sidecar `.md` files behave identically and invisibly. Raw HTML in notes is escaped, not executed (Markdown only); read-only sidecar notes (web / iOS) show a banner and can't be edited.
 
-Notelets is read-only in this phase — edit notes via the popup (`N`) in the mind-map; in-page editing from the notebook is planned. On narrow (phone) screens the sidebar is hidden and pages read full-width.
+On narrow (phone) screens the sidebar is hidden and pages read full-width.
 
 ---
 
@@ -241,7 +242,7 @@ Top-level fields:
 ```
 clobmap/
 ├── src/                      # React frontend (TypeScript)
-│   ├── components/           # YamlEditor, MindMap, MindMapNode, NotesPopup, Notelets, NoteletsSidebar, NoteletsPage, TagEditor, TagTreePane, FilterCanvas, ViewToggle, FileMenu, ...
+│   ├── components/           # YamlEditor, MindMap, MindMapNode, NotesPopup, Notelets, NoteletsSidebar, NoteletsPage, NoteletsPageEditor, TagEditor, TagTreePane, FilterCanvas, ViewToggle, FileMenu, ...
 │   ├── lib/                  # layout (data tree), notelets (page model), useMarkdownHtml, useNodeNotes, tagLayout, tagFilter, tags helper, storage adapter, recentFiles, file actions
 │   ├── model/                # YAML serde, tree ops (data + tag), diff, AST apply (95% test coverage)
 │   ├── store/                # Zustand stores (document, ui — incl. tag tree state + filter state) + parse hook

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // loadNotes is called by every NoteletsPage; keep it inert here.
@@ -12,6 +12,14 @@ vi.mock("../../lib/notes", async () => {
   };
 });
 vi.mock("micromark", () => ({ micromark: (s: string) => `<p>${s}</p>` }));
+
+// Stub the CodeMirror editor — this file tests the container's edit
+// coordination, not the editor (covered by NoteletsPageEditor.test.tsx).
+vi.mock("../NoteletsPageEditor", () => ({
+  NoteletsPageEditor: ({ nodeId }: { nodeId: string }) => (
+    <div data-testid="page-editor">{nodeId}</div>
+  ),
+}));
 
 import { Notelets } from "../Notelets";
 import { useDocumentStore } from "../../store/document";
@@ -83,5 +91,59 @@ describe("Notelets container", () => {
     await user.click(screen.getByRole("treeitem", { name: "Subject 2" }));
     expect(useUIStore.getState().selectedNodeId).toBe("s2");
     expect(scrollSpy).toHaveBeenCalled();
+  });
+
+  describe("edit coordination", () => {
+    const addNotesIn = (id: string) =>
+      within(document.querySelector<HTMLElement>(`[data-page-id="${id}"]`)!).getByRole(
+        "button",
+        { name: /add notes/i },
+      );
+
+    it("clicking a page's add-notes affordance opens one editor for that page", async () => {
+      const user = userEvent.setup();
+      render(<Notelets />);
+      await waitFor(() => expect(addNotesIn("s2")).toBeInTheDocument());
+      await user.click(addNotesIn("s2"));
+      const editors = screen.getAllByTestId("page-editor");
+      expect(editors).toHaveLength(1);
+      expect(editors[0]).toHaveTextContent("s2");
+      // The edited node is also selected.
+      expect(useUIStore.getState().selectedNodeId).toBe("s2");
+    });
+
+    it("edits only one page at a time", async () => {
+      const user = userEvent.setup();
+      render(<Notelets />);
+      await waitFor(() => expect(addNotesIn("s1")).toBeInTheDocument());
+      await user.click(addNotesIn("s1"));
+      expect(screen.getAllByTestId("page-editor")).toHaveLength(1);
+      // s2 still shows its affordance (not editing); clicking it moves the editor.
+      await user.click(addNotesIn("s2"));
+      const editors = screen.getAllByTestId("page-editor");
+      expect(editors).toHaveLength(1);
+      expect(editors[0]).toHaveTextContent("s2");
+    });
+
+    it("drops the editor if the edited page disappears from the doc", async () => {
+      const user = userEvent.setup();
+      render(<Notelets />);
+      await waitFor(() => expect(addNotesIn("s2")).toBeInTheDocument());
+      await user.click(addNotesIn("s2"));
+      expect(screen.getByTestId("page-editor")).toHaveTextContent("s2");
+      // Replace the doc with one that no longer contains s2.
+      act(() => {
+        useDocumentStore.getState().reset(
+          "title: T",
+          {
+            title: "T",
+            root: { id: "root", text: "Root", children: [{ id: "s1", text: "Subject 1", children: [] }] },
+          },
+          null,
+          null,
+        );
+      });
+      expect(screen.queryByTestId("page-editor")).not.toBeInTheDocument();
+    });
   });
 });

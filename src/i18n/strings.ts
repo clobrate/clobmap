@@ -23,6 +23,7 @@ export const strings = {
     empty: "Nothing to show yet — add nodes to see them as notebook pages.",
     tableOfContents: "Table of contents",
     pages: "Notebook pages",
+    addNotes: "Click to add notes…",
   },
   file: {
     menu: "File",

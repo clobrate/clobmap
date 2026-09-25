@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added — Notelets view (read-only notebook)
+### Added — Notelets view (notebook)
 
 - **Fourth first-class view.** A new **Notelets** tab joins YAML /
   Split / Mind-map (and the `Cmd/Ctrl + /` cycle). Where the mind-map
@@ -16,21 +16,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   **pages** — a five-subject-notebook take on the same document.
 - **Everything is a page.** Every node — root, subject, page, child
   page, at any depth — is a page that can carry notes. Note-less nodes
-  render as a heading with an empty body (uniform treatment).
+  render as a heading with a "Click to add notes…" affordance (uniform
+  treatment).
+- **In-page editing.** Click a page's body to edit its notes in place in
+  a CodeMirror Markdown editor; blur or `Esc` saves and re-renders.
+  Auto-save, the inline↔sidecar cap/extraction, and read-only handling
+  all come from the same path as the notes popup, so behavior is
+  identical. One page edits at a time. Read-only sidecar notes
+  (web/iOS) show a banner and can't be edited. Raw HTML in notes is
+  escaped, not executed (Markdown only).
 - **Table-of-contents sidebar.** An ARIA tree of every node, indented
   by depth. Click a row (or use `↑`/`↓`, `Home`/`End`, `Enter`) to
   select it and scroll its page into view.
 - **Two-way sync.** Scrolling the page column selects the page at the
   top (scroll-spy) and highlights it in the sidebar; a node selected in
   the mind-map or YAML view is the page Notelets scrolls to on entry.
-- **Shared notes pipeline.** Pages load through the same reader as the
-  notes popup, so inline notes and sidecar `.md` files render
-  identically and invisibly; markdown is rendered read-only (raw HTML
-  is not executed). In-page editing is planned for a later phase.
+  Edits flow back to YAML / Mind-map like any other change.
 - Internals: extracted shared `useMarkdownHtml` / `useNodeNotes` hooks
   and pure page helpers (`flattenPages`, `subjectsOf`, paging,
-  scroll-spy picker) in `src/lib/notelets.ts`, all unit-tested, plus a
-  new `notelets.spec.ts` end-to-end suite.
+  scroll-spy picker) in `src/lib/notelets.ts`, all unit-tested;
+  `NoteletsPageEditor` reuses the YAML view's CodeMirror stack via a new
+  `@codemirror/lang-markdown` dependency; plus a `notelets.spec.ts`
+  end-to-end suite.
 
 ## [1.2.1] - 2026-05-15
 

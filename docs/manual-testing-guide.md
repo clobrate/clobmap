@@ -547,14 +547,14 @@ release and whenever the canvas chrome changes.
 
 ---
 
-## 18. Notelets (read-only notebook view)
+## 18. Notelets (notebook view)
 
 | # | Check | Pass criteria |
 |---|---|---|
 | 18.1 | Activate the **Notelets** tab | Left table-of-contents sidebar + a scrolling column of pages, one per node. Other surfaces (YAML / canvas) are not mounted. |
 | 18.2 | `Cmd+/` includes Notelets | Cycle order is YAML → Split → Mind-map → Notelets → YAML. |
 | 18.3 | Node with Markdown notes | Its page renders the notes as Markdown (headings, lists, bold, code, blockquote, links). |
-| 18.4 | Node with no notes | Page shows the title heading only, no body. No crash / no blank gap. |
+| 18.4 | Node with no notes | Page shows the title heading + a muted "Click to add notes…" affordance. No crash / no blank gap. |
 | 18.5 | Click a ToC row | Row highlights (`aria-selected`), its page scrolls into view. |
 | 18.6 | Keyboard in the sidebar | `↑`/`↓` move selection in depth-first order; `Home`/`End` jump to first/last; `Enter` re-scrolls to the selected page; focus ring follows. |
 | 18.7 | Scroll the page column | The row for the page at the top of the column becomes selected (scroll-spy). No flicker while a click-scroll is animating. |
@@ -562,9 +562,16 @@ release and whenever the canvas chrome changes.
 | 18.9 | Link inside a rendered note | Opens in the system browser, not in-app. Raw HTML in a note is not executed (escaped). |
 | 18.10 | Sidecar note on web / iOS | Page shows the read-only message banner (sidecar not accessible); desktop shows the file content. |
 | 18.11 | Narrow / phone width | Sidebar is hidden; pages read full-width. |
-| 18.12 | Light and dark themes | Markdown (headings, code, blockquote, links) is legible in both. |
+| 18.12 | Light and dark themes | Markdown (headings, code, blockquote, links) and the editor are legible in both. |
+| 18.13 | Click a page body to edit | A CodeMirror editor opens in place, focused, seeded with the current notes. Char count + save-status line below. |
+| 18.14 | Type, then `Esc` (or click away) | Editor saves and re-renders the Markdown; the edit shows in YAML / Mind-map. Sub-second final edits are not lost. |
+| 18.15 | Click an empty page's "Click to add notes…" | Opens an empty editor; typing + exit creates the note. |
+| 18.16 | Enter in a Markdown list | Auto-continues the list marker (typical MD-editor behavior). |
+| 18.17 | One editor at a time | Editing a second page (after leaving the first) leaves exactly one editor open. |
+| 18.18 | Over-limit on web / iOS (>800 chars) | Editor shows the over-limit warning; content isn't silently dropped (desktop auto-extracts to a sidecar instead). |
+| 18.19 | Read-only sidecar page (web/iOS) | Banner shown; the body is not clickable-to-edit. |
 
-> Notelets is read-only in this phase — edit notes via the popup (`N`) in the mind-map. In-page editing is a later phase. Pure helpers (`flattenPages`, paging, scroll-spy picker) and the shared notes hooks are unit-tested; the wiring + scroll-spy are covered by `e2e/tests/notelets.spec.ts`.
+> Pure helpers (`flattenPages`, paging, scroll-spy picker) and the shared notes hooks are unit-tested; `NoteletsPage`/`NoteletsPageEditor` wiring and the editing + scroll-spy flows are covered by `e2e/tests/notelets.spec.ts` and the component tests. Known minor rough edge: clicking *directly* from one open editor onto another page's edit affordance may miss (layout shift on unmount) — click away first, then click the next page. No data loss.
 
 ---
 

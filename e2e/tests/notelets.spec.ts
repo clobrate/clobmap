@@ -163,4 +163,96 @@ test.describe("Notelets — read-only notebook (Phase 1)", () => {
     await expect(page.getByRole("tree", { name: "Table of contents" })).toBeHidden();
     await expect(page.locator("[data-page-id]")).toHaveCount(14);
   });
+
+  // ── In-page editing (Phase 2) ──────────────────────────────────────────
+
+  test("editing a page persists the note to YAML and renders it (Esc to save)", async ({
+    page,
+  }) => {
+    await openNotelets(page);
+    const venue = page.locator('[data-page-id="n2"]');
+    await venue.getByRole("button").click(); // "Click to add notes…"
+    await venue.locator(".cm-content").click();
+    await page.keyboard.type("Ceremony at 3pm");
+    await page.keyboard.press("Escape");
+    await expect(venue.locator(".clobmap-md")).toContainText("Ceremony at 3pm");
+    await page.getByRole("tab", { name: "YAML" }).click();
+    await expect(page.locator(".cm-content")).toContainText("Ceremony at 3pm");
+  });
+
+  test("clicking away from the editor saves the edit (blur)", async ({ page }) => {
+    await openNotelets(page);
+    const venue = page.locator('[data-page-id="n2"]');
+    await venue.getByRole("button").click();
+    await venue.locator(".cm-content").click();
+    await page.keyboard.type("Saved on blur");
+    // Click the page heading (outside the editor) to blur.
+    await venue.getByRole("heading", { name: "Venue" }).click();
+    await expect(venue.locator(".clobmap-md")).toContainText("Saved on blur");
+  });
+
+  test("clicking a rendered note re-enters edit mode", async ({ page }) => {
+    await openNotelets(page);
+    const venue = page.locator('[data-page-id="n2"]');
+    await venue.getByRole("button").click();
+    await venue.locator(".cm-content").click();
+    await page.keyboard.type("First draft");
+    await page.keyboard.press("Escape");
+    await expect(venue.locator(".clobmap-md")).toContainText("First draft");
+    // Click the rendered markdown → editor comes back seeded with the note.
+    await venue.locator(".clobmap-md").click();
+    await expect(venue.locator(".cm-editor")).toBeVisible();
+  });
+
+  test("only one page editor is open at a time", async ({ page }) => {
+    await openNotelets(page);
+    await page.locator('[data-page-id="n2"]').getByRole("button").click();
+    await expect(page.locator(".cm-editor")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await page.locator('[data-page-id="n5"]').getByRole("button").click(); // Guests
+    await expect(page.locator('[data-page-id="n5"] .cm-editor')).toBeVisible();
+    await expect(page.locator(".cm-editor")).toHaveCount(1);
+  });
+
+  test("a read-only sidecar page is not editable", async ({ page }) => {
+    await openNotesPopup(page, "Guests");
+    await notesTextarea(page).fill("./missing-notes.md");
+    await page.keyboard.press("Meta+Enter");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    await openNotelets(page);
+    const guests = page.locator('[data-page-id="n5"]');
+    await expect(guests.getByText(/aren't accessible in browser builds/)).toBeVisible();
+    await guests.click();
+    await expect(guests.locator(".cm-editor")).toHaveCount(0);
+  });
+
+  test("auto-saves while still editing (1s debounce, no exit)", async ({ page }) => {
+    await openNotelets(page);
+    const venue = page.locator('[data-page-id="n2"]');
+    await venue.getByRole("button").click();
+    await venue.locator(".cm-content").click();
+    await page.keyboard.type("Auto note");
+    // The debounced auto-save fires ~1s after the last keystroke — the status
+    // flips WITHOUT us exiting the editor.
+    await expect(venue.getByText("Saved automatically")).toBeVisible({ timeout: 3000 });
+    await expect(venue.locator(".cm-editor")).toBeVisible(); // still editing
+    await page.getByRole("tab", { name: "YAML" }).click();
+    await expect(page.locator(".cm-content")).toContainText("Auto note");
+  });
+
+  test("Enter continues a Markdown list marker", async ({ page }) => {
+    await openNotelets(page);
+    const venue = page.locator('[data-page-id="n2"]');
+    await venue.getByRole("button").click();
+    await venue.locator(".cm-content").click();
+    await page.keyboard.type("- Garden");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Beach"); // no marker typed — continuation adds it
+    await page.keyboard.press("Escape");
+    const items = venue.locator(".clobmap-md li");
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(0)).toHaveText("Garden");
+    await expect(items.nth(1)).toHaveText("Beach");
+  });
 });

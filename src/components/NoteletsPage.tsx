@@ -1,19 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { useDocumentStore } from "../store/document";
+import { useUIStore } from "../store/ui";
 import { loadNotes, type LoadedNotes } from "../lib/notes";
 import { useMarkdownHtml } from "../lib/useMarkdownHtml";
+import { NoteletsPageEditor } from "./NoteletsPageEditor";
+import { strings } from "../i18n/strings";
 import type { PageEntry } from "../lib/notelets";
 
 /**
- * One Notelets page: a node's title as a heading and its notes rendered as
- * markdown. Read-only in Phase 1 — notes are loaded through the shared
- * `loadNotes` reader (so inline vs sidecar stays invisible) and rendered via
- * the shared `useMarkdownHtml`. In-page editing arrives in Phase 2. Note-less
- * nodes render as a heading with no body (uniform treatment, product §6.4).
+ * One Notelets page: a node's title as a heading and its notes as markdown.
+ * Notes load through the shared `loadNotes` reader (inline vs sidecar stays
+ * invisible) and render via the shared `useMarkdownHtml`. Clicking an editable
+ * body enters edit mode — a CodeMirror editor mounts in place (NoteletsPageEditor)
+ * and saves on blur / Esc. Read-only notes (web/iOS sidecar) show a banner and
+ * are not editable. Note-less nodes render as a heading with a "click to add
+ * notes" affordance (uniform treatment, product §6.4).
  */
-export function NoteletsPage({ page }: { page: PageEntry }) {
+export function NoteletsPage({
+  page,
+  isEditing = false,
+  onEdit,
+  onExitEdit,
+}: {
+  page: PageEntry;
+  isEditing?: boolean;
+  onEdit?: () => void;
+  onExitEdit?: () => void;
+}) {
   const { node, depth } = page;
   const docPath = useDocumentStore((s) => s.currentFilePath);
+  const setSelected = useUIStore((s) => s.setSelected);
   const [loaded, setLoaded] = useState<LoadedNotes | null>(null);
 
   useEffect(() => {
@@ -28,6 +44,25 @@ export function NoteletsPage({ page }: { page: PageEntry }) {
 
   const { html, onLinkClick } = useMarkdownHtml(loaded?.content ?? "");
   const hasNotes = (loaded?.content ?? "").trim().length > 0;
+  const readOnly = loaded?.readOnly ?? false;
+  const editable = !readOnly;
+
+  const beginEdit = (): void => {
+    if (!editable) return;
+    setSelected(node.id);
+    onEdit?.();
+  };
+
+  // A click on the rendered body either follows a link (external, no edit) or
+  // enters edit mode.
+  const onBodyClick = (e: MouseEvent<HTMLElement>): void => {
+    const anchor = (e.target as HTMLElement | null)?.closest("a");
+    if (anchor) {
+      onLinkClick(e);
+      return;
+    }
+    beginEdit();
+  };
 
   return (
     <section
@@ -47,15 +82,31 @@ export function NoteletsPage({ page }: { page: PageEntry }) {
         </div>
       )}
 
-      {hasNotes && (
+      {isEditing && editable ? (
+        <NoteletsPageEditor
+          nodeId={node.id}
+          title={node.text}
+          onExit={() => onExitEdit?.()}
+        />
+      ) : hasNotes ? (
         <div
-          onClick={onLinkClick}
-          className="clobmap-md mt-2 text-sm text-neutral-700 dark:text-neutral-300"
-          /* micromark output is CommonMark; raw HTML is escaped (markdown-only,
-             read-only). Editing lands in Phase 2. */
+          onClick={onBodyClick}
+          className={
+            "clobmap-md mt-2 text-sm text-neutral-700 dark:text-neutral-300" +
+            (editable ? " cursor-text" : "")
+          }
+          /* micromark output is CommonMark; raw HTML is escaped (markdown-only). */
           dangerouslySetInnerHTML={{ __html: html }}
         />
-      )}
+      ) : editable ? (
+        <button
+          type="button"
+          onClick={beginEdit}
+          className="mt-2 block text-left text-sm text-neutral-400 italic hover:text-neutral-600 dark:hover:text-neutral-300"
+        >
+          {strings.notelets.addNotes}
+        </button>
+      ) : null}
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
 import { flattenPages, pickActivePageId } from "../lib/notelets";
@@ -26,10 +26,26 @@ export function Notelets() {
   const programmaticTimer = useRef<number | null>(null);
   const didInitialScroll = useRef(false);
 
+  // Which page is currently in edit mode (one at a time).
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
+
   const pages = useMemo(
     () => (parsedDoc ? flattenPages(parsedDoc.root) : []),
     [parsedDoc],
   );
+
+  // Derived so a page that disappears (deleted / doc replaced) can't stay
+  // "editing" — no effect / setState needed.
+  const activeEditingId =
+    editingPageId !== null && pages.some((p) => p.node.id === editingPageId)
+      ? editingPageId
+      : null;
+
+  // Ref mirror so the scroll-spy callback (set up once) reads the latest value.
+  const editingRef = useRef<string | null>(null);
+  useEffect(() => {
+    editingRef.current = activeEditingId;
+  }, [activeEditingId]);
 
   const scrollToPage = useCallback((id: string): void => {
     const container = scrollRef.current;
@@ -63,7 +79,9 @@ export function Notelets() {
             visible.delete(id);
           }
         }
-        if (programmaticRef.current) return;
+        // Don't let scroll-spy yank the selection while a page is being
+        // edited, or during our own programmatic scrolls.
+        if (programmaticRef.current || editingRef.current !== null) return;
         const active = pickActivePageId(
           [...visible].map(([id, top]) => ({ id, top })),
         );
@@ -110,7 +128,19 @@ export function Notelets() {
       >
         <div className="mx-auto max-w-3xl px-6 py-6">
           {pages.map((p) => (
-            <NoteletsPage key={p.node.id} page={p} />
+            <NoteletsPage
+              key={p.node.id}
+              page={p}
+              isEditing={p.node.id === activeEditingId}
+              onEdit={() => setEditingPageId(p.node.id)}
+              // Only clear if THIS page is still the one editing. When the user
+              // clicks straight from page A to page B, A's blur-exit resolves
+              // after B's onEdit has already set editingPageId = B; without this
+              // guard that late exit would wipe B's editor.
+              onExitEdit={() =>
+                setEditingPageId((cur) => (cur === p.node.id ? null : cur))
+              }
+            />
           ))}
         </div>
       </div>
