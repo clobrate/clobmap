@@ -8,11 +8,11 @@ test.describe("smoke", () => {
     await page.goto("/app/");
 
     // Welcome doc renders.
-    await expect(nodeByText(page, "Our wedding")).toBeVisible();
-    await expect(nodeByText(page, "Venue")).toBeVisible();
+    await expect(nodeByText(page, "My day")).toBeVisible();
+    await expect(nodeByText(page, "Morning Routine")).toBeVisible();
 
     // Tab on the root creates a child and enters rename mode.
-    await addChild(page, "Our wedding", CHILD_LABEL);
+    await addChild(page, "My day", CHILD_LABEL);
 
     // Toggling to the YAML view should show the new child in the
     // serialized document — proves the round-trip parse → mutate →

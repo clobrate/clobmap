@@ -23,7 +23,7 @@ sections that touch the changed surface (use git diff to decide).
 
 | # | Check | Pass criteria |
 |---|---|---|
-| 1.1 | Launch with no draft, no last-open file | Welcome wedding-planning seed loads. Banner with "A mind map breaks a topic into branches…" appears (first launch only). |
+| 1.1 | Launch with no draft, no last-open file | Welcome "My day" seed loads (Morning Routine / Urgent / Important / To-dos / Meetings). Banner with "A mind map breaks a topic into branches…" appears (first launch only). |
 | 1.2 | Edit any node, force-quit (don't save), relaunch | Draft restored exactly. |
 | 1.3 | Open a file, save it, quit, relaunch | The same file reopens (desktop only). |
 | 1.4 | Relaunch with a file argv (`open file.clobmap.yaml` from Finder) | That file opens, takes precedence over draft / last-open. |

@@ -39,64 +39,106 @@ import { SplitPanes } from "./components/SplitPanes";
 import { getPendingOpenPath, listenForOpenFiles } from "./lib/openFromOs";
 import { disableTelemetry, enableTelemetry } from "./lib/telemetry";
 
-// First-paint seed. Picked to read as an obvious "big thing broken into
-// smaller things" to anyone — including users who don't know the term
-// "mind map". Don't make this abstract; concrete examples teach the idea
-// without anyone having to define it.
+// First-paint seed: a techie's daily-driver framework. It's meant to be a
+// scaffold the user adopts and fills in — the buckets a technical person
+// runs their day by (routine / urgent / important / to-dos), plus one home
+// for every meeting's notes — not a chronological "arc of a day". It reads
+// as an obvious "big thing broken into smaller things" to anyone, including
+// users who've never heard the term "mind map". Keep it concrete; concrete
+// examples teach the idea without anyone having to define it.
 //
-// Manual layout with explicit positions baked in: dragging a node any-
-// where is the canonical clobmap interaction, and we want first-paint
-// to demonstrate that. Positions are picked to mimic what the auto-
-// layout would produce for a balanced LR tree, with tighter row
-// spacing (~80 px) since these labels are short.
-// No `layoutMode` and no per-node `position` blocks — the canonical
-// auto layout (tidy-tree with measurement-driven sizing, ROW_GAP=10,
-// COLUMN_GAP=50) computes everything fresh on every load. Users can
-// switch to manual via Settings → Layout if they want to drag.
-const DEFAULT_YAML = `title: Wedding planning
+// It also doubles as a live demo of the 2.0 features: subject-level tags
+// feed the tag tree + filter view, and each Meetings child carries a short
+// Markdown note that becomes its page in the Notelets view.
+//
+// No `layoutMode` and no per-node `position` blocks — the canonical auto
+// layout (tidy-tree with measurement-driven sizing, ROW_GAP=10,
+// COLUMN_GAP=50) computes everything fresh on every load. Users can switch
+// to manual via Settings → Layout if they want to drag.
+//
+// The previous "Wedding planning" seed is retained as an example — see
+// examples/wedding-planning.clobmap.yaml (and e2e/helpers/fixtures.ts, which
+// seeds it as the working doc for the interaction specs).
+const DEFAULT_YAML = `title: My day
 version: 1
 root:
   id: n1
-  text: Our wedding
+  text: My day
   children:
     - id: n2
-      text: Venue
+      text: Morning Routine
+      tags: [routine]
       children:
         - id: n3
-          text: Ceremony
+          text: View Dashboards
+          tags: [ops]
           children: []
         - id: n4
-          text: Reception
+          text: Triage Customer Issues
           children: []
-    - id: n5
-      text: Guests
+        - id: n5
+          text: Plan the day
+          children: []
+    - id: n6
+      text: Urgent
+      tags: [urgent]
       children:
-        - id: n6
-          text: Family
-          children: []
         - id: n7
-          text: Friends
+          text: Check overdue items
           children: []
-    - id: n8
-      text: Vendors
+        - id: n8
+          text: Customer escalation
+          children: []
+    - id: n9
+      text: Important
+      tags: [important]
       children:
-        - id: n9
-          text: Catering
-          children: []
         - id: n10
-          text: Photographer
+          text: Ship the feature
           children: []
         - id: n11
-          text: Florist
+          text: Write tests
           children: []
     - id: n12
-      text: Schedule
+      text: To-dos
+      tags: [todo]
       children:
         - id: n13
-          text: Save the date
+          text: Due today
           children: []
         - id: n14
-          text: Send invites
+          text: Code review
+          children: []
+        - id: n15
+          text: Update tickets
+          children: []
+    - id: n16
+      text: Meetings
+      tags: [meeting]
+      children:
+        - id: n17
+          text: Standup
+          notes: |
+            Yesterday / Today / Blockers.
+            Keep it under 15 minutes.
+          children: []
+        - id: n18
+          text: 1:1 with manager
+          notes: |
+            ## Agenda
+            - Priorities this week
+            - Feedback
+            - Growth / goals
+          children: []
+        - id: n19
+          text: Brainstorming
+          notes: |
+            ## Ideas
+            -
+            ## Parking lot
+            -
+            ## Next steps
+            -
           children: []
 `;
 

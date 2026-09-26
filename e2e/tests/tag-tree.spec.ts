@@ -1,4 +1,5 @@
-import { expect, test, type Page, type Locator } from "@playwright/test";
+import { expect, test } from "../helpers/fixtures";
+import { type Page, type Locator } from "@playwright/test";
 import { nodeByText, selectNode } from "../helpers/mindmap";
 
 const ROOT = "Our wedding";

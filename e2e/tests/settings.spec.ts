@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "../helpers/fixtures";
+import { type Page } from "@playwright/test";
 import { nodeByText } from "../helpers/mindmap";
 
 async function openSettings(page: Page) {

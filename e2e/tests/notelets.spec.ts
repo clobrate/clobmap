@@ -1,4 +1,5 @@
-import { devices, expect, test, type Page } from "@playwright/test";
+import { expect, test } from "../helpers/fixtures";
+import { devices, type Page } from "@playwright/test";
 import {
   addChild,
   nodeByText,

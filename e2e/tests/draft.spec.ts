@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../helpers/fixtures";
 import { addChild, nodeByText, waitForDraftPersisted } from "../helpers/mindmap";
 
 const CHILD_LABEL = "Draft survives reload";
