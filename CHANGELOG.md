@@ -38,6 +38,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   top (scroll-spy) and highlights it in the sidebar; a node selected in
   the mind-map or YAML view is the page Notelets scrolls to on entry.
   Edits flow back to YAML / Mind-map like any other change.
+- **Reading modes, Subject tabs & paging.** A toolbar toggle switches
+  between **Scroll** (all pages, continuous) and **Page** (one page at a
+  time); the choice persists across launches. **Subject tabs** (an
+  "Overview" tab for the root plus one per top-level subject) jump to a
+  subject and show which one is current. In Page mode, Prev/Next buttons
+  and `←`/`→` page through in depth-first order (stopping at the ends),
+  with the position shown as "n / N".
+- **Mobile.** On phones the sidebar collapses into a `☰` drawer
+  (tap-outside / `Esc` / selecting a row closes it); Subject tabs +
+  paging are the always-visible nav, and Notelets opens in Page mode by
+  default.
 - Internals: extracted shared `useMarkdownHtml` / `useNodeNotes` hooks
   and pure page helpers (`flattenPages`, `subjectsOf`, paging,
   scroll-spy picker, drag `dropPlan`) in `src/lib/notelets.ts`, all

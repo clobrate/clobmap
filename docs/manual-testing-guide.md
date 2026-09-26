@@ -578,8 +578,14 @@ release and whenever the canvas chrome changes.
 | 18.25 | Drag a row onto another | Drops in the top/bottom third → reorder before/after (sibling); drop in the middle → becomes a child. A drop line / ring shows the target. Dropping onto self or a descendant is a no-op. Root isn't draggable. |
 | 18.26 | `Cmd/Ctrl+Z` after a structural edit | Undoes it; `Cmd/Ctrl+Shift+Z` redoes. Works even after a delete (window-level). While the page editor or a rename input has focus, `Cmd+Z` undoes *text* instead (the editor owns it). |
 | 18.27 | Parity | Any sidebar restructure is reflected in the Mind-map and YAML views. |
+| 18.28 | Reading-mode toggle | The toolbar has a Scroll / Page toggle. Scroll = all pages; Page = one page. The choice persists across a reload. |
+| 18.29 | Page mode — Prev/Next | Prev/Next buttons page through in depth-first order; a "n / N" position shows. Prev is disabled on the first page, Next on the last (no wrap). |
+| 18.30 | Page mode — keyboard | `←` / `→` page prev/next (inert while a page's editor or a text field owns focus — arrows move the caret there instead). |
+| 18.31 | Subject tabs | An "Overview" tab (root) + one per top-level subject across the top. Clicking jumps to that subject; the active tab reflects the current page's subject. |
+| 18.32 | Mobile — drawer | On a phone-width viewport the sidebar is hidden; a `☰` button opens it as a drawer. Closes on tap-outside, `Esc`, or selecting a row (which also navigates). |
+| 18.33 | Mobile — default mode | On an actual mobile device (iOS/Android UA), Notelets opens in Page mode by default; Subject tabs + paging read full-width. |
 
-> Pure helpers (`flattenPages`, paging, scroll-spy picker, drag `dropPlan`) and the shared notes hooks are unit-tested; `NoteletsSidebar` structural + rename behavior, `NoteletsPage`/`NoteletsPageEditor` wiring, and the editing / scroll-spy / restructuring flows are covered by `e2e/tests/notelets.spec.ts` and the component tests. Two documented notes: (1) clicking *directly* from one open page editor onto another page's edit affordance may miss (layout shift on unmount) — click away first; (2) `Tab` is captured by the sidebar tree for add-child (a11y escape via `Shift+Tab`). No data loss in either.
+> Pure helpers (`flattenPages`, `subjectsOf`, paging, scroll-spy picker, drag `dropPlan`) and the shared notes hooks are unit-tested; `NoteletsSidebar` structural + rename behavior, `NoteletsPage`/`NoteletsPageEditor` wiring, and the editing / scroll-spy / restructuring flows are covered by `e2e/tests/notelets.spec.ts` and the component tests. Two documented notes: (1) clicking *directly* from one open page editor onto another page's edit affordance may miss (layout shift on unmount) — click away first; (2) `Tab` is captured by the sidebar tree for add-child (a11y escape via `Shift+Tab`). No data loss in either.
 
 ---
 

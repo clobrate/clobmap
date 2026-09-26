@@ -54,7 +54,7 @@ class IOStub {
 
 beforeEach(() => {
   vi.stubGlobal("IntersectionObserver", IOStub);
-  useUIStore.setState({ selectedNodeId: null });
+  useUIStore.setState({ selectedNodeId: null, noteletsMode: "scroll", noteletsPageId: null });
   useDocumentStore.getState().reset("title: T", doc(), null, null);
 });
 
@@ -144,6 +144,165 @@ describe("Notelets container", () => {
         );
       });
       expect(screen.queryByTestId("page-editor")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("reading mode", () => {
+    it("the toggle reflects the current mode", () => {
+      useUIStore.setState({ noteletsMode: "page" });
+      render(<Notelets />);
+      expect(screen.getByRole("tab", { name: "Page" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Scroll" })).toHaveAttribute("aria-selected", "false");
+    });
+
+    it("clicking Page switches to one-page mode (a single page renders)", async () => {
+      const user = userEvent.setup();
+      render(<Notelets />);
+      await waitFor(() => expect(document.querySelectorAll("[data-page-id]")).toHaveLength(3));
+      await user.click(screen.getByRole("tab", { name: "Page" }));
+      expect(useUIStore.getState().noteletsMode).toBe("page");
+      await waitFor(() => expect(document.querySelectorAll("[data-page-id]")).toHaveLength(1));
+    });
+
+    it("clicking Scroll returns to continuous mode (all pages)", async () => {
+      const user = userEvent.setup();
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "root" });
+      render(<Notelets />);
+      expect(document.querySelectorAll("[data-page-id]")).toHaveLength(1);
+      await user.click(screen.getByRole("tab", { name: "Scroll" }));
+      await waitFor(() => expect(document.querySelectorAll("[data-page-id]")).toHaveLength(3));
+    });
+
+    it("page mode shows the selected node's page", async () => {
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "s2" });
+      render(<Notelets />);
+      await waitFor(() => {
+        const shown = document.querySelectorAll("[data-page-id]");
+        expect(shown).toHaveLength(1);
+        expect(shown[0]!.getAttribute("data-page-id")).toBe("s2");
+      });
+    });
+
+    it("has Prev/Next controls and a position indicator; Prev disabled on the first page", () => {
+      // Pages in depth-first order: root, s1, s2.
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "root" });
+      render(<Notelets />);
+      expect(screen.getByText("1 / 3")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
+    });
+
+    it("Next advances and Prev goes back (selection follows)", async () => {
+      const user = userEvent.setup();
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "root" });
+      render(<Notelets />);
+      await user.click(screen.getByRole("button", { name: "Next page" }));
+      expect(useUIStore.getState().selectedNodeId).toBe("s1");
+      await user.click(screen.getByRole("button", { name: "Previous page" }));
+      expect(useUIStore.getState().selectedNodeId).toBe("root");
+    });
+
+    it("Next is disabled on the last page", () => {
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "s2" });
+      render(<Notelets />);
+      expect(screen.getByText("3 / 3")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+    });
+
+    it("ArrowRight / ArrowLeft page in page mode", () => {
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "root" });
+      render(<Notelets />);
+      fireEvent.keyDown(window, { key: "ArrowRight" });
+      expect(useUIStore.getState().selectedNodeId).toBe("s1");
+      fireEvent.keyDown(window, { key: "ArrowLeft" });
+      expect(useUIStore.getState().selectedNodeId).toBe("root");
+    });
+
+    it("paging announces the new page title for screen readers", () => {
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "root", liveAnnouncement: "" });
+      render(<Notelets />);
+      fireEvent.keyDown(window, { key: "ArrowRight" });
+      expect(useUIStore.getState().liveAnnouncement).toBe("Subject 1");
+    });
+
+    it("arrow paging is inert while a page is being edited", async () => {
+      const user = userEvent.setup();
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "s2" });
+      render(<Notelets />);
+      // Enter edit on the current page (stubbed editor focuses nothing, but
+      // activeEditingId is set, which is what the guard checks).
+      await user.click(await screen.findByRole("button", { name: /add notes/i }));
+      fireEvent.keyDown(window, { key: "ArrowLeft" });
+      expect(useUIStore.getState().selectedNodeId).toBe("s2"); // did not page
+    });
+  });
+
+  describe("subject tabs", () => {
+    it("shows an Overview tab and one per subject", () => {
+      render(<Notelets />);
+      const tabs = within(screen.getByRole("tablist", { name: "Subjects" })).getAllByRole("tab");
+      expect(tabs.map((t) => t.textContent)).toEqual(["Overview", "Subject 1", "Subject 2"]);
+    });
+
+    it("Overview is active on the root page", () => {
+      useUIStore.setState({ selectedNodeId: "root" });
+      render(<Notelets />);
+      expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    });
+
+    it("a subject tab is active when its page is current", () => {
+      useUIStore.setState({ selectedNodeId: "s2" });
+      render(<Notelets />);
+      expect(screen.getByRole("tab", { name: "Subject 2" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "false");
+    });
+
+    it("clicking a subject tab selects that subject", async () => {
+      const user = userEvent.setup();
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "root" });
+      render(<Notelets />);
+      await user.click(screen.getByRole("tab", { name: "Subject 1" }));
+      expect(useUIStore.getState().selectedNodeId).toBe("s1");
+    });
+
+    it("clicking the Overview tab navigates to the root page", async () => {
+      const user = userEvent.setup();
+      useUIStore.setState({ noteletsMode: "page", selectedNodeId: "s2" });
+      render(<Notelets />);
+      await user.click(screen.getByRole("tab", { name: "Overview" }));
+      expect(useUIStore.getState().selectedNodeId).toBe("root");
+    });
+  });
+
+  describe("mobile ToC drawer", () => {
+    const openDrawer = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole("button", { name: "Show table of contents" }));
+      return screen.getByRole("dialog", { name: "Table of contents" });
+    };
+
+    it("opens a drawer with the tree; selecting a row navigates and closes it", async () => {
+      const user = userEvent.setup();
+      render(<Notelets />);
+      const dialog = await openDrawer(user);
+      await user.click(within(dialog).getByRole("treeitem", { name: "Subject 2" }));
+      expect(useUIStore.getState().selectedNodeId).toBe("s2");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("Esc closes the drawer", async () => {
+      const user = userEvent.setup();
+      render(<Notelets />);
+      await openDrawer(user);
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("clicking the backdrop closes the drawer", async () => {
+      const user = userEvent.setup();
+      render(<Notelets />);
+      const dialog = await openDrawer(user);
+      await user.click(dialog.firstElementChild as HTMLElement); // the backdrop
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
 

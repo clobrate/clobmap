@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { devices, expect, test, type Page } from "@playwright/test";
 import {
   addChild,
   nodeByText,
@@ -377,5 +377,141 @@ test.describe("Notelets notebook view", () => {
     await page.keyboard.press("Delete");
     await expect(toc(page, "Our wedding")).toBeVisible();
     await expect(page.getByRole("treeitem")).toHaveCount(14); // unchanged
+  });
+
+  // ── Reading modes / Subject tabs / paging (Phase 4) ─────────────────────
+
+  const modeTab = (page: Page, name: "Scroll" | "Page") =>
+    page.getByRole("tab", { name, exact: true });
+  const firstPageId = (page: Page) =>
+    page.locator("[data-page-id]").first().getAttribute("data-page-id");
+
+  test("reading-mode toggle switches to page mode and persists across reload", async ({
+    page,
+  }) => {
+    await openNotelets(page);
+    await expect(page.locator("[data-page-id]")).toHaveCount(14); // scroll: all
+    await modeTab(page, "Page").click();
+    await expect(page.locator("[data-page-id]")).toHaveCount(1); // page: one
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByRole("tab", { name: "Notelets" }).click();
+    await expect(modeTab(page, "Page")).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("page mode: Prev disabled on the first page; Next advances", async ({ page }) => {
+    await openNotelets(page);
+    await toc(page, "Our wedding").click();
+    await modeTab(page, "Page").click();
+    await expect(page.getByRole("button", { name: "Previous page" })).toBeDisabled();
+    await page.getByRole("button", { name: "Next page" }).click();
+    expect(await firstPageId(page)).toBe("n2"); // Venue
+  });
+
+  test("page mode: Next disabled on the last page", async ({ page }) => {
+    await openNotelets(page);
+    await toc(page, "Send invites").click(); // last node in depth-first order
+    await modeTab(page, "Page").click();
+    await expect(page.getByRole("button", { name: "Next page" })).toBeDisabled();
+  });
+
+  test("page mode: ← / → keyboard paging", async ({ page }) => {
+    await openNotelets(page);
+    await toc(page, "Our wedding").click();
+    await modeTab(page, "Page").click();
+    await page.keyboard.press("ArrowRight");
+    expect(await firstPageId(page)).toBe("n2");
+    await page.keyboard.press("ArrowLeft");
+    expect(await firstPageId(page)).toBe("n1");
+  });
+
+  test("subject tabs: Overview + per-subject; click navigates and reflects active", async ({
+    page,
+  }) => {
+    await openNotelets(page);
+    await modeTab(page, "Page").click();
+    const subjects = page.getByRole("tablist", { name: "Subjects" });
+    await expect(subjects.getByRole("tab")).toHaveText([
+      "Overview",
+      "Venue",
+      "Guests",
+      "Vendors",
+      "Schedule",
+    ]);
+    await page.getByRole("tab", { name: "Vendors", exact: true }).click();
+    expect(await firstPageId(page)).toBe("n8");
+    await expect(page.getByRole("tab", { name: "Vendors", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await page.getByRole("tab", { name: "Overview" }).click();
+    expect(await firstPageId(page)).toBe("n1");
+  });
+
+  test("page mode: selecting a sidebar row shows that page", async ({ page }) => {
+    await openNotelets(page);
+    await modeTab(page, "Page").click();
+    await toc(page, "Guests").click(); // ToC row
+    expect(await firstPageId(page)).toBe("n5"); // Guests
+  });
+
+  test("editing works in page mode and persists to YAML", async ({ page }) => {
+    await openNotelets(page);
+    await toc(page, "Venue").click();
+    await modeTab(page, "Page").click();
+    const venue = page.locator('[data-page-id="n2"]');
+    await venue.getByRole("button").click(); // "Click to add notes…"
+    await venue.locator(".cm-content").click();
+    await page.keyboard.type("Written in page mode");
+    await page.keyboard.press("Escape");
+    await expect(venue.locator(".clobmap-md")).toContainText("Written in page mode");
+    await page.getByRole("tab", { name: "YAML" }).click();
+    await expect(page.locator(".cm-content")).toContainText("Written in page mode");
+  });
+
+  test("page mode: arrow keys move the caret (not the page) while editing", async ({ page }) => {
+    await openNotelets(page);
+    await toc(page, "Venue").click();
+    await modeTab(page, "Page").click();
+    const venue = page.locator('[data-page-id="n2"]');
+    await venue.getByRole("button").click();
+    await venue.locator(".cm-content").click();
+    await page.keyboard.type("abc");
+    await page.keyboard.press("ArrowRight"); // must NOT page away
+    await page.keyboard.press("ArrowLeft");
+    expect(await firstPageId(page)).toBe("n2"); // still Venue
+  });
+
+  test("mobile: ☰ opens the ToC drawer, tapping a row navigates and closes it", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 720 });
+    await page.getByRole("tab", { name: "Notelets" }).click();
+    await expect(page.locator("[data-page-id]").first()).toBeVisible();
+    const tocBtn = page.getByRole("button", { name: "Show table of contents" });
+    await expect(tocBtn).toBeVisible();
+    await tocBtn.click();
+    const dialog = page.getByRole("dialog", { name: "Table of contents" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("treeitem", { name: "Guests" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0); // navigated + closed
+  });
+});
+
+/** On an actual mobile device (mobile UA), Notelets defaults to page mode.
+ * We set only the UA (what the app's isMobile() checks) + a phone viewport —
+ * the full device preset can't be used in a describe (it forces webkit). */
+test.describe("Notelets on a mobile device", () => {
+  test.use({
+    userAgent: devices["iPhone 13"].userAgent,
+    viewport: { width: 390, height: 844 },
+  });
+
+  test("defaults to page mode", async ({ page }) => {
+    await page.goto("/app/");
+    await page.getByRole("tab", { name: "Notelets" }).click();
+    await expect(page.getByRole("tab", { name: "Page", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });

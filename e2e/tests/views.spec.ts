@@ -2,7 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { nodeByText, selectNode } from "../helpers/mindmap";
 
 async function activeView(page: Page): Promise<string> {
-  const tab = page.locator('[role="tab"][aria-selected="true"]');
+  // Scope to the header View-mode toggle — the Notelets view has its own
+  // tablists (reading mode, subject tabs) that also use aria-selected.
+  const tab = page
+    .getByRole("tablist", { name: "View mode" })
+    .locator('[role="tab"][aria-selected="true"]');
   return (await tab.textContent())?.trim() ?? "";
 }
 

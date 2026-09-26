@@ -119,7 +119,7 @@ explicit `syncActive()` call after Save / Save As.
 | Layout — data tree (`layout.ts`), tag tree (`tagLayout.ts`), filter view (inline in `FilterCanvas.tsx`) | `src/lib/` |
 | Notelets page model — `flattenPages`, `subjectsOf`, paging, scroll-spy picker, drag `dropPlan` | `src/lib/notelets.ts` |
 | Shared notes rendering + IO (used by the notes popup and Notelets pages) | `src/lib/useMarkdownHtml.ts`, `src/lib/useNodeNotes.ts` |
-| Notelets view (notebook) — container, ToC sidebar, page, in-page CodeMirror editor | `src/components/Notelets.tsx`, `NoteletsSidebar.tsx`, `NoteletsPage.tsx`, `NoteletsPageEditor.tsx` |
+| Notelets view (notebook) — container (owns reading modes, Subject tabs, paging, mobile drawer, scroll-spy, undo), ToC sidebar/outliner, page, in-page CodeMirror editor | `src/components/Notelets.tsx`, `NoteletsSidebar.tsx`, `NoteletsPage.tsx`, `NoteletsPageEditor.tsx` |
 | Tag helpers (`hasAnyTag`, filter-tree builder) | `src/lib/tags.ts`, `src/lib/tagFilter.ts` |
 | Document store | `src/store/document.ts` |
 | Tabs (snapshot+swap) | `src/store/tabs.ts` |
@@ -127,7 +127,7 @@ explicit `syncActive()` call after Save / Save As.
 | File actions (open / save / new) | `src/lib/fileActions.ts` |
 | Storage adapter | `src/lib/storage/` |
 | Telemetry (Sentry, opt-in) | `src/lib/telemetry.ts` |
-| Settings persistence | `src/lib/settings.ts` |
+| Settings persistence (auto-save, split, theme, font, telemetry, Notelets reading mode) | `src/lib/settings.ts` |
 | Updater | `src/lib/updater.ts` |
 | OS-driven file open | `src/lib/openFromOs.ts` |
 | Tauri Rust shell | `src-tauri/src/lib.rs` |

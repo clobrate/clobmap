@@ -167,8 +167,10 @@ A **notebook** view of the same document — the fourth view, next to YAML / Spl
 - **Restructure from the sidebar.** The table of contents is a full outliner: `Tab` adds a child, `Enter` adds a sibling, `F2` / double-click renames, `Delete` removes, `Alt`+`↑`/`↓` reorders among siblings, and rows can be dragged to reorder or re-parent. Every change uses the same tree ops as the mind-map — reflected in YAML and the Mind-map, and undoable with `Cmd/Ctrl+Z`.
 - **Scroll-spy.** Scrolling the page column selects the page at the top and highlights it in the sidebar. Selection is shared with the other views: a node picked in the mind-map is the page Notelets scrolls to on entry (and vice-versa).
 - **Same notes, one pipeline.** Pages load and save through the same code as the notes popup, so inline notes and sidecar `.md` files behave identically and invisibly. Raw HTML in notes is escaped, not executed (Markdown only); read-only sidecar notes (web / iOS) show a banner and can't be edited.
+- **Reading modes.** A toolbar toggle switches between **Scroll** (all pages, continuous) and **Page** (one page at a time); the choice persists across launches. In Page mode, Prev/Next buttons and `←` / `→` page through in depth-first order (stopping at the ends), with an "n / N" position.
+- **Subject tabs.** An **Overview** tab (the root page) plus one tab per top-level subject sit across the top — jump to a subject, and the active tab reflects the current one.
 
-On narrow (phone) screens the sidebar is hidden and pages read full-width.
+On phones the sidebar collapses into a `☰` **drawer** (tap-outside / `Esc` / selecting a row closes it); Subject tabs + paging are the always-visible nav, and Notelets opens in Page mode by default.
 
 ---
 
