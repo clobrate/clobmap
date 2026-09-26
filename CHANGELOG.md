@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-25
+
+> **Non-breaking milestone.** This is a *significance* major bump for the
+> entirely new Notelets view — not a breaking change. The `.clobmap.yaml`
+> format is unchanged and every document from earlier versions opens as-is.
+
 ### Added — Notelets view (notebook)
 
 - **Fourth first-class view.** A new **Notelets** tab joins YAML /
