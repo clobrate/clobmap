@@ -6,6 +6,57 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Notelets view (notebook)
+
+- **Fourth first-class view.** A new **Notelets** tab joins YAML /
+  Split / Mind-map (and the `Cmd/Ctrl + /` cycle). Where the mind-map
+  treats structure as the content, Notelets inverts it: the tree
+  becomes a table-of-contents sidebar and each node's long-form notes
+  become the content, rendered as a scrolling column of markdown
+  **pages** — a five-subject-notebook take on the same document.
+- **Everything is a page.** Every node — root, subject, page, child
+  page, at any depth — is a page that can carry notes. Note-less nodes
+  render as a heading with a "Click to add notes…" affordance (uniform
+  treatment).
+- **In-page editing.** Click a page's body to edit its notes in place in
+  a CodeMirror Markdown editor; blur or `Esc` saves and re-renders.
+  Auto-save, the inline↔sidecar cap/extraction, and read-only handling
+  all come from the same path as the notes popup, so behavior is
+  identical. One page edits at a time. Read-only sidecar notes
+  (web/iOS) show a banner and can't be edited. Raw HTML in notes is
+  escaped, not executed (Markdown only).
+- **Table-of-contents sidebar.** An ARIA tree of every node, indented
+  by depth. Click a row (or use `↑`/`↓`, `Home`/`End`) to select it and
+  scroll its page into view.
+- **Restructure from the sidebar.** The ToC is a full outliner:
+  `Tab` adds a child, `Enter` adds a sibling, `F2` / double-click
+  renames, `Delete` removes, `Alt`+`↑`/`↓` reorders among siblings, and
+  rows can be dragged to reorder or re-parent. Edits use the same tree
+  ops as the mind-map — reflected in YAML and the Mind-map, and undoable
+  with `Cmd/Ctrl+Z` (redo `Cmd/Ctrl+Shift+Z`).
+- **Two-way sync.** Scrolling the page column selects the page at the
+  top (scroll-spy) and highlights it in the sidebar; a node selected in
+  the mind-map or YAML view is the page Notelets scrolls to on entry.
+  Edits flow back to YAML / Mind-map like any other change.
+- **Reading modes, Subject tabs & paging.** A toolbar toggle switches
+  between **Scroll** (all pages, continuous) and **Page** (one page at a
+  time); the choice persists across launches. **Subject tabs** (an
+  "Overview" tab for the root plus one per top-level subject) jump to a
+  subject and show which one is current. In Page mode, Prev/Next buttons
+  and `←`/`→` page through in depth-first order (stopping at the ends),
+  with the position shown as "n / N".
+- **Mobile.** On phones the sidebar collapses into a `☰` drawer
+  (tap-outside / `Esc` / selecting a row closes it); Subject tabs +
+  paging are the always-visible nav, and Notelets opens in Page mode by
+  default.
+- Internals: extracted shared `useMarkdownHtml` / `useNodeNotes` hooks
+  and pure page helpers (`flattenPages`, `subjectsOf`, paging,
+  scroll-spy picker, drag `dropPlan`) in `src/lib/notelets.ts`, all
+  unit-tested; `NoteletsPageEditor` reuses the YAML view's CodeMirror
+  stack via a new `@codemirror/lang-markdown` dependency; `moveNode`
+  gained an optional insert-at-`index`; plus an extensive
+  `notelets.spec.ts` end-to-end suite.
+
 ## [1.2.1] - 2026-05-15
 
 ### Changed

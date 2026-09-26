@@ -1,5 +1,5 @@
-import { isTauri } from "./env";
-import type { SplitOrientation, ThemePreference } from "../store/ui";
+import { isMobile, isTauri } from "./env";
+import type { NoteletsMode, SplitOrientation, ThemePreference } from "../store/ui";
 
 const STORE_FILE = "clobmap.json";
 const KEY_AUTO_SAVE = "auto-save";
@@ -8,12 +8,14 @@ const KEY_SPLIT_RATIO = "split-ratio";
 const KEY_THEME = "theme";
 const KEY_FONT_SIZE = "font-size";
 const KEY_TELEMETRY = "telemetry";
+const KEY_NOTELETS_MODE = "notelets-mode";
 const WEB_KEY_AUTO_SAVE = "clobmap-auto-save";
 const WEB_KEY_SPLIT_ORIENTATION = "clobmap-split-orientation";
 const WEB_KEY_SPLIT_RATIO = "clobmap-split-ratio";
 const WEB_KEY_THEME = "clobmap-theme";
 const WEB_KEY_FONT_SIZE = "clobmap-font-size";
 const WEB_KEY_TELEMETRY = "clobmap-telemetry";
+const WEB_KEY_NOTELETS_MODE = "clobmap-notelets-mode";
 
 export interface PersistedSettings {
   autoSave: boolean;
@@ -22,6 +24,7 @@ export interface PersistedSettings {
   themePreference: ThemePreference;
   fontSize: number;
   telemetryEnabled: boolean;
+  noteletsMode: NoteletsMode;
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -31,7 +34,17 @@ const DEFAULTS: PersistedSettings = {
   themePreference: "system",
   fontSize: 14,
   telemetryEnabled: false,
+  noteletsMode: "scroll",
 };
+
+/** No stored preference → one page at a time on phones, continuous on desktop. */
+function defaultNoteletsMode(): NoteletsMode {
+  return isMobile() ? "page" : "scroll";
+}
+
+function isNoteletsMode(v: unknown): v is NoteletsMode {
+  return v === "scroll" || v === "page";
+}
 
 function clampRatio(n: unknown): number {
   if (typeof n !== "number" || !Number.isFinite(n)) return DEFAULTS.splitRatio;
@@ -55,13 +68,14 @@ export async function loadSettings(): Promise<PersistedSettings> {
   if (isTauri()) {
     const { LazyStore } = await import("@tauri-apps/plugin-store");
     const store = new LazyStore(STORE_FILE);
-    const [autoSave, split, splitRatio, theme, font, telemetry] = await Promise.all([
+    const [autoSave, split, splitRatio, theme, font, telemetry, noteletsMode] = await Promise.all([
       store.get<boolean>(KEY_AUTO_SAVE),
       store.get<unknown>(KEY_SPLIT_ORIENTATION),
       store.get<unknown>(KEY_SPLIT_RATIO),
       store.get<unknown>(KEY_THEME),
       store.get<unknown>(KEY_FONT_SIZE),
       store.get<boolean>(KEY_TELEMETRY),
+      store.get<unknown>(KEY_NOTELETS_MODE),
     ]);
     return {
       autoSave: typeof autoSave === "boolean" ? autoSave : DEFAULTS.autoSave,
@@ -70,6 +84,7 @@ export async function loadSettings(): Promise<PersistedSettings> {
       themePreference: isThemePreference(theme) ? theme : DEFAULTS.themePreference,
       fontSize: clampFont(font),
       telemetryEnabled: typeof telemetry === "boolean" ? telemetry : DEFAULTS.telemetryEnabled,
+      noteletsMode: isNoteletsMode(noteletsMode) ? noteletsMode : defaultNoteletsMode(),
     };
   }
   const rawRatio = localStorage.getItem(WEB_KEY_SPLIT_RATIO);
@@ -89,6 +104,10 @@ export async function loadSettings(): Promise<PersistedSettings> {
     })(),
     fontSize: clampFont(Number(localStorage.getItem(WEB_KEY_FONT_SIZE))),
     telemetryEnabled: localStorage.getItem(WEB_KEY_TELEMETRY) === "true",
+    noteletsMode: (() => {
+      const v = localStorage.getItem(WEB_KEY_NOTELETS_MODE);
+      return isNoteletsMode(v) ? v : defaultNoteletsMode();
+    })(),
   };
 }
 
@@ -112,6 +131,17 @@ export async function saveSplitOrientationPref(value: SplitOrientation): Promise
     return;
   }
   localStorage.setItem(WEB_KEY_SPLIT_ORIENTATION, value);
+}
+
+export async function saveNoteletsModePref(value: NoteletsMode): Promise<void> {
+  if (isTauri()) {
+    const { LazyStore } = await import("@tauri-apps/plugin-store");
+    const store = new LazyStore(STORE_FILE);
+    await store.set(KEY_NOTELETS_MODE, value);
+    await store.save();
+    return;
+  }
+  localStorage.setItem(WEB_KEY_NOTELETS_MODE, value);
 }
 
 export async function saveThemePref(value: ThemePreference): Promise<void> {

@@ -2,7 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { nodeByText, selectNode } from "../helpers/mindmap";
 
 async function activeView(page: Page): Promise<string> {
-  const tab = page.locator('[role="tab"][aria-selected="true"]');
+  // Scope to the header View-mode toggle — the Notelets view has its own
+  // tablists (reading mode, subject tabs) that also use aria-selected.
+  const tab = page
+    .getByRole("tablist", { name: "View mode" })
+    .locator('[role="tab"][aria-selected="true"]');
   return (await tab.textContent())?.trim() ?? "";
 }
 
@@ -12,8 +16,10 @@ test.describe("view modes & split (§9)", () => {
     await expect(nodeByText(page, "Our wedding")).toBeVisible();
   });
 
-  test("9.1 Cmd+/ cycles YAML → Split → Mind-map → YAML", async ({ page }) => {
+  test("9.1 Cmd+/ cycles YAML → Split → Mind-map → Notelets → YAML", async ({ page }) => {
     expect(await activeView(page)).toBe("Mind-map");
+    await page.keyboard.press("Meta+/");
+    expect(await activeView(page)).toBe("Notelets");
     await page.keyboard.press("Meta+/");
     expect(await activeView(page)).toBe("YAML");
     await page.keyboard.press("Meta+/");
@@ -27,6 +33,20 @@ test.describe("view modes & split (§9)", () => {
     expect(await activeView(page)).toBe("YAML");
     await page.getByRole("tab", { name: "Mind-map" }).click();
     expect(await activeView(page)).toBe("Mind-map");
+  });
+
+  test("Notelets tab appears, activates, and renders the notebook", async ({ page }) => {
+    const notelets = page.getByRole("tab", { name: "Notelets" });
+    await expect(notelets).toBeVisible();
+    await notelets.click();
+    expect(await activeView(page)).toBe("Notelets");
+    // Phase 1: a table-of-contents sidebar + a page per node render.
+    await expect(
+      page.getByRole("complementary", { name: "Table of contents" }),
+    ).toBeVisible();
+    await expect(page.locator("[data-page-id]").first()).toBeVisible();
+    // Other surfaces are not mounted while Notelets is active.
+    await expect(page.locator(".cm-content")).toHaveCount(0);
   });
 
   test("9.4 the YAML view renders the active document's text", async ({ page }) => {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { YamlEditor } from "./components/YamlEditor";
 import { MindMap } from "./components/MindMap";
+import { Notelets } from "./components/Notelets";
 import { StatusBar } from "./components/StatusBar";
 import { ViewToggle } from "./components/ViewToggle";
 import { FileMenu } from "./components/FileMenu";
@@ -149,6 +150,7 @@ function App() {
   const setResolvedTheme = useUIStore((s) => s.setResolvedTheme);
   const setFontSize = useUIStore((s) => s.setFontSize);
   const setTelemetryEnabled = useUIStore((s) => s.setTelemetryEnabled);
+  const setNoteletsMode = useUIStore((s) => s.setNoteletsMode);
   const telemetryEnabled = useUIStore((s) => s.telemetryEnabled);
   const themePreference = useUIStore((s) => s.themePreference);
   const resolvedTheme = useUIStore((s) => s.resolvedTheme);
@@ -250,6 +252,7 @@ function App() {
       setThemePreference(s.themePreference);
       setFontSize(s.fontSize);
       setTelemetryEnabled(s.telemetryEnabled);
+      setNoteletsMode(s.noteletsMode);
       const resolved = resolveTheme(s.themePreference);
       setResolvedTheme(resolved);
       applyTheme(resolved);
@@ -261,6 +264,7 @@ function App() {
     setThemePreference,
     setFontSize,
     setTelemetryEnabled,
+    setNoteletsMode,
     setResolvedTheme,
   ]);
 
@@ -570,6 +574,11 @@ function App() {
             ) : (
               <MindMap />
             )}
+          </div>
+        )}
+        {viewMode === "notelets" && (
+          <div className="flex-1">
+            <Notelets />
           </div>
         )}
         {viewMode === "split" && (

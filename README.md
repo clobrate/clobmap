@@ -6,7 +6,7 @@ A minimalistic, cross-platform mind-mapping app where the **YAML view and the mi
 
 Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web, and (later) iOS / Android.
 
-> **Status:** **v1.1.5** is published — install from https://github.com/clobrate/clobmap/releases/latest. Live at https://clobmap.com. The next release ships **per-node tags + a tag tree + hierarchy filter view + selection-driven highlight** (Phase 20 — see the Roadmap below). 1.1.5 ships the first-launch **Wedding planning** seed in canonical auto layout (no `layoutMode` key, no per-node `position` blocks) so fresh installs see the current measurement-driven tidy-tree spacing instead of positions hand-placed against the pre-1.1.2 layout constants. 1.1.4 replaces "Markdown outline" with **All notes (Markdown)** under File → Export — one `# Node title (id)` heading per node followed by that node's long-form notes body, with `__ no notes found __` placeholders so the document covers the whole tree, and ATX headings inside each note demoted by one `#` so they nest under the per-node heading. Filename uses a `<doc>.notes.YYYYMMDDHHmm.md` pattern so successive exports don't clobber each other. Internally the e2e test suite grew by 50+ Playwright tests across the previously-manual surfaces (notes popup, tabs, layout-mode drag, perf, file menu, boot, rapid-rename stress) and unit-test coverage hit 100% on `model/ops.ts`, `lib/navigation.ts`, and `store/document.ts`. 1.1.3 added a "Reset to Auto (clear saved positions)" button under ⚙ → Layout that wipes every stored `position` field and flips the document back to canonical auto in one click — useful when a manual session has gone sideways and you want a true clean slate. Switching to Manual afterward also now snapshots the current measurement-driven render so the visual no longer jumps to a wide cap-sized layout. 1.1.2 shipped canvas-feel improvements (Ctrl/Cmd-drag to translate a whole subtree, normal drag freezes implicit-position children, symmetric north/south sibling distribution, measurement-driven layout for tight visible gaps, ROW_GAP=10 / COLUMN_GAP=50). 1.1.1 fixed a draft-restore bug on the web build (unsaved YAML now survives reload, including a second reload). 1.1 adds variable-size text nodes (word-wrap + max-width / max-height), running notes per node (Markdown popup with edit/preview toggle, auto-save, font zoom, sidecar `.md` files on desktop), free-form / manual layout (drag nodes anywhere, auto-switches from auto on first drag, per-doc layout mode, manual positions preserved across mode toggles), per-edge connector position (drag the endpoint dots to any of the 4 sides on either node, each child configurable independently), and arrow markers for direction. Exports to PNG / SVG / PDF / Markdown.
+> **Status:** **v1.2.1** is published — install from https://github.com/clobrate/clobmap/releases/latest. Live at https://clobmap.com. The next release, **2.0.0**, ships the **Notelets notebook view** — a fourth first-class view (alongside YAML / Split / Mind-map) where each node's notes become editable Markdown **pages** with a table-of-contents sidebar that doubles as an outliner, two reading modes (continuous **Scroll** / one-page **Page**), **Subject tabs**, keyboard paging, and a mobile drawer. It's a landmark bump but **non-breaking** — the `.clobmap.yaml` format is unchanged and every existing document opens as-is. 1.2.1 made **auto-save the default**; 1.2.0 shipped **per-node tags + a tag tree + hierarchy filter view + selection-driven highlight** (Phase 20 — see the Roadmap below). 1.1.5 ships the first-launch **Wedding planning** seed in canonical auto layout (no `layoutMode` key, no per-node `position` blocks) so fresh installs see the current measurement-driven tidy-tree spacing instead of positions hand-placed against the pre-1.1.2 layout constants. 1.1.4 replaces "Markdown outline" with **All notes (Markdown)** under File → Export — one `# Node title (id)` heading per node followed by that node's long-form notes body, with `__ no notes found __` placeholders so the document covers the whole tree, and ATX headings inside each note demoted by one `#` so they nest under the per-node heading. Filename uses a `<doc>.notes.YYYYMMDDHHmm.md` pattern so successive exports don't clobber each other. Internally the e2e test suite grew by 50+ Playwright tests across the previously-manual surfaces (notes popup, tabs, layout-mode drag, perf, file menu, boot, rapid-rename stress) and unit-test coverage hit 100% on `model/ops.ts`, `lib/navigation.ts`, and `store/document.ts`. 1.1.3 added a "Reset to Auto (clear saved positions)" button under ⚙ → Layout that wipes every stored `position` field and flips the document back to canonical auto in one click — useful when a manual session has gone sideways and you want a true clean slate. Switching to Manual afterward also now snapshots the current measurement-driven render so the visual no longer jumps to a wide cap-sized layout. 1.1.2 shipped canvas-feel improvements (Ctrl/Cmd-drag to translate a whole subtree, normal drag freezes implicit-position children, symmetric north/south sibling distribution, measurement-driven layout for tight visible gaps, ROW_GAP=10 / COLUMN_GAP=50). 1.1.1 fixed a draft-restore bug on the web build (unsaved YAML now survives reload, including a second reload). 1.1 adds variable-size text nodes (word-wrap + max-width / max-height), running notes per node (Markdown popup with edit/preview toggle, auto-save, font zoom, sidecar `.md` files on desktop), free-form / manual layout (drag nodes anywhere, auto-switches from auto on first drag, per-doc layout mode, manual positions preserved across mode toggles), per-edge connector position (drag the endpoint dots to any of the 4 sides on either node, each child configurable independently), and arrow markers for direction. Exports to PNG / SVG / PDF / Markdown.
 
 ---
 
@@ -14,8 +14,9 @@ Built with **Tauri v2 + React + TypeScript**. Targets macOS, Windows, Linux, web
 
 - Edit a mind map as **YAML** (CodeMirror 6, syntax highlighting, inline parse errors).
 - View / edit the same map as a **horizontal tree** (React Flow + Dagre layout).
-- Toggle between **YAML / Split / Mind-map** in the header (or `Cmd/Ctrl + /`); split shows both panes side-by-side.
+- Toggle between **YAML / Split / Mind-map / Notelets** in the header (or `Cmd/Ctrl + /`); split shows both panes side-by-side.
 - Edits in either view propagate to the other; selecting a node in the canvas jumps the YAML cursor to its line.
+- **Notelets** — a *notebook* view of the same document: each node's notes as Markdown **pages** with a table-of-contents sidebar (click or arrow-key to navigate; scroll-spy keeps the sidebar in sync). Click a page to edit its notes in place (CodeMirror, auto-save).
 - YAML comments and field ordering survive structural edits made from the canvas.
 - Open / save mind maps as `.clobmap.yaml` files (plain `.yaml` / `.yml` also opens); recent files persist across launches; external edits are detected and reloaded.
 - **Auto-save** (toggle in the ⚙ menu): when on and the YAML parses cleanly, edits flush to disk after a short pause.
@@ -80,13 +81,13 @@ npm run preview:web      # serve it locally on http://localhost:4173
 
 ## Use it
 
-The app starts with a sample mind map. Use the **YAML / Split / Mind-map** toggle in the header (or `Cmd/Ctrl + /`) to switch views.
+The app starts with a sample mind map. Use the **YAML / Split / Mind-map / Notelets** toggle in the header (or `Cmd/Ctrl + /`) to switch views.
 
 **App-wide shortcuts**
 
 | Action                               | Shortcut               |
 | ------------------------------------ | ---------------------- |
-| Cycle view (YAML → Split → Mind-map) | `Cmd/Ctrl + /`         |
+| Cycle view (YAML → Split → Mind-map → Notelets) | `Cmd/Ctrl + /`         |
 | New file                             | `Cmd/Ctrl + N`         |
 | New tab (desktop)                    | `Cmd/Ctrl + T`         |
 | Close tab (desktop)                  | `Cmd/Ctrl + W`         |
@@ -153,6 +154,23 @@ Adding the first tag to any data-node (via `T` or right-click → **Edit tags…
 | Highlight matching data-nodes       | Click a tag-node — every matching data-node fills with an amber background; clicking another tag replaces, clicking empty space or a data-node clears |
 
 Tag identity is matched **case-insensitively** but display preserves the casing you typed. A node tagged with multiple tags appears once per matching tag in the filter view (intentional duplication). The **"Untagged"** pseudo-bucket in the filter view collects every data-node with no tags. Tag highlight is ephemeral UI state — never persisted to YAML.
+
+---
+
+### Notelets view
+
+A **notebook** view of the same document — the fourth view, next to YAML / Split / Mind-map. The tree becomes a **table-of-contents sidebar**; each node's long-form notes become the content, rendered as a scrolling column of Markdown **pages**.
+
+- **Everything is a page.** Every node — root, subject, page, child page, at any depth — is a page. Note-less nodes render as a heading with a "Click to add notes…" affordance.
+- **Edit in place.** Click a page's body to edit its notes in a CodeMirror Markdown editor; blur or `Esc` saves and re-renders. Auto-save, the inline↔sidecar cap/extraction, and read-only handling are shared with the notes popup, so behavior is identical. One page edits at a time. Edits flow back to YAML / Mind-map like any other change.
+- **Sidebar navigation.** Click a row, or use `↑` / `↓`, `Home` / `End`. The selected page scrolls into view.
+- **Restructure from the sidebar.** The table of contents is a full outliner: `Tab` adds a child, `Enter` adds a sibling, `F2` / double-click renames, `Delete` removes, `Alt`+`↑`/`↓` reorders among siblings, and rows can be dragged to reorder or re-parent. Every change uses the same tree ops as the mind-map — reflected in YAML and the Mind-map, and undoable with `Cmd/Ctrl+Z`.
+- **Scroll-spy.** Scrolling the page column selects the page at the top and highlights it in the sidebar. Selection is shared with the other views: a node picked in the mind-map is the page Notelets scrolls to on entry (and vice-versa).
+- **Same notes, one pipeline.** Pages load and save through the same code as the notes popup, so inline notes and sidecar `.md` files behave identically and invisibly. Raw HTML in notes is escaped, not executed (Markdown only); read-only sidecar notes (web / iOS) show a banner and can't be edited.
+- **Reading modes.** A toolbar toggle switches between **Scroll** (all pages, continuous) and **Page** (one page at a time); the choice persists across launches. In Page mode, Prev/Next buttons and `←` / `→` page through in depth-first order (stopping at the ends), with an "n / N" position.
+- **Subject tabs.** An **Overview** tab (the root page) plus one tab per top-level subject sit across the top — jump to a subject, and the active tab reflects the current one.
+
+On phones the sidebar collapses into a `☰` **drawer** (tap-outside / `Esc` / selecting a row closes it); Subject tabs + paging are the always-visible nav, and Notelets opens in Page mode by default.
 
 ---
 
@@ -227,8 +245,8 @@ Top-level fields:
 ```
 clobmap/
 ├── src/                      # React frontend (TypeScript)
-│   ├── components/           # YamlEditor, MindMap, MindMapNode, NotesPopup, TagEditor, TagTreePane, TagMapNode, TagContextMenu, FilterCanvas, ViewToggle, FileMenu, ...
-│   ├── lib/                  # layout (data tree), tagLayout, tagFilter, tags helper, storage adapter, recentFiles, file actions
+│   ├── components/           # YamlEditor, MindMap, MindMapNode, NotesPopup, Notelets, NoteletsSidebar, NoteletsPage, NoteletsPageEditor, TagEditor, TagTreePane, FilterCanvas, ViewToggle, FileMenu, ...
+│   ├── lib/                  # layout (data tree), notelets (page model), useMarkdownHtml, useNodeNotes, tagLayout, tagFilter, tags helper, storage adapter, recentFiles, file actions
 │   ├── model/                # YAML serde, tree ops (data + tag), diff, AST apply (95% test coverage)
 │   ├── store/                # Zustand stores (document, ui — incl. tag tree state + filter state) + parse hook
 │   ├── App.tsx
@@ -295,6 +313,7 @@ Implementation plan in [`implementation-plan.md`](./implementation-plan.md). One
 | 18    | ✅     | **1.1.2** — Ctrl/Cmd-drag translates a whole subtree (delta applied to dragged node + every descendant). Plain drag no longer pulls implicit-position children with the parent: `onNodeDragStart` snapshots every visible node and `onNodeDragStop` writes the snapshot back, freezing siblings in place. New no-position siblings spread symmetrically (north + south) around the parent instead of stacking south. Layout uses React Flow's measured node sizes for slot allocation while keeping the user-set `maxWidth` / `maxHeight` as the CSS display cap, so visible gaps shrink to ROW_GAP without clipping text. Tightened defaults: ROW_GAP=10, COLUMN_GAP=50.|
 | 19    | ✅     | **1.1.3** — "Reset to Auto (clear saved positions)" button under ⚙ → Layout: one click wipes every stored `position` field AND removes `layoutMode` from the YAML, leaving a clean canonical-auto doc with no memory of prior manual coords. Auto → Manual toggle now snapshots React Flow's measurement-driven rendered positions instead of re-running auto-layout with cap-sized slots, so the visual no longer jumps to a wide layout. Removed the older "Reset positions" button (redundant — same end state via "Reset to Auto" + toggle Manual).|
 | 20    | ✅     | **Tags** (per [`tagging-design-doc.md`](./tagging-design-doc.md)) — five-phase rollout. **A:** model + YAML (per-node `tags: string[]`, `tagRoot` block, `SCHEMA_VERSION` bumped 1→2, `tagsAdd`/`tagsRemove`/`tagDelete` ops). **B:** per-node tag editor (`T` shortcut, right-click → Edit tags…, comma-batch input, removable chips). **C:** tag-tree pane (auto-shown when ≥1 tag, vertical split below the canvas, drag-to-reparent via `moveTagNode`, inline rename with linked-rename cascade across data-node `tags[]`, `Delete`/right-click delete cascades globally). **D:** hierarchy filter view (right-click → "Show nodes under this tag's hierarchy" — replaces canvas with a read-only tree rooted at the selected tag + descendants + an "Untagged" bucket; Reset filter chrome button to exit). **E:** polish (autocomplete in the tag editor with case-only-difference badge, F2/Delete tag-tree shortcuts, aria-live announcement on filter-view enter/exit). **Highlight extension:** clicking a tag-node in the pane auto-fills every matching data-node with an amber background; selection drives highlight. 387 unit tests + 378 e2e tests across chromium/firefox/webkit. |
+| 21    | 🚧 (→ 2.0.0) | **Notelets — the notebook view** (see [`docs/notelets/`](./docs/notelets/)) — a fourth first-class view where node notes become the content. Five-phase rollout. **0–1:** read-only notebook (table-of-contents sidebar, Markdown pages, scroll-spy, two-way selection sync). **2:** in-page CodeMirror Markdown editing (auto-save, inline↔sidecar invisible, Markdown-only). **3:** sidebar-as-outliner (`Tab`/`Enter` add, `F2`/double-click rename, `Delete`, `Alt`+`↑`/`↓` reorder, drag re-parent, `Cmd+Z` undo — same tree ops as the mind-map). **4:** reading modes (Scroll/Page, persisted), Subject tabs (Overview + per-subject), keyboard paging (`←`/`→`, stop-at-ends), mobile `☰` drawer. **5:** perf/polish/release. Non-breaking (schema unchanged). ~519 unit + full e2e across chromium/firefox/webkit. |
 
 ---
 

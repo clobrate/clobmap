@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-export type ViewMode = "yaml" | "mindmap" | "split";
+export type ViewMode = "yaml" | "mindmap" | "split" | "notelets";
+export type NoteletsMode = "scroll" | "page";
 export type SplitOrientation = "horizontal" | "vertical";
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
@@ -18,6 +19,10 @@ export interface ClipboardEntry {
 
 export interface UIState {
   viewMode: ViewMode;
+  /** Notelets reading mode. Not wired to any UI until a later phase. */
+  noteletsMode: NoteletsMode;
+  /** Current page in Notelets one-page mode; null follows selectedNodeId. */
+  noteletsPageId: string | null;
   splitOrientation: SplitOrientation;
   splitRatio: number;
   autoSave: boolean;
@@ -56,6 +61,8 @@ export interface UIState {
 
   setViewMode: (mode: ViewMode) => void;
   toggleViewMode: () => void;
+  setNoteletsMode: (mode: NoteletsMode) => void;
+  setNoteletsPageId: (id: string | null) => void;
   setSplitOrientation: (o: SplitOrientation) => void;
   toggleSplitOrientation: () => void;
   setSplitRatio: (ratio: number) => void;
@@ -87,6 +94,8 @@ export interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   viewMode: "mindmap",
+  noteletsMode: "scroll",
+  noteletsPageId: null,
   splitOrientation: "horizontal",
   splitRatio: 0.5,
   autoSave: true,
@@ -113,10 +122,12 @@ export const useUIStore = create<UIState>((set) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   toggleViewMode: () =>
     set((s) => {
-      const order: ViewMode[] = ["yaml", "split", "mindmap"];
+      const order: ViewMode[] = ["yaml", "split", "mindmap", "notelets"];
       const i = order.indexOf(s.viewMode);
       return { viewMode: order[(i + 1) % order.length]! };
     }),
+  setNoteletsMode: (mode) => set({ noteletsMode: mode }),
+  setNoteletsPageId: (id) => set({ noteletsPageId: id }),
   setSplitOrientation: (o) => set({ splitOrientation: o }),
   toggleSplitOrientation: () =>
     set((s) => ({
