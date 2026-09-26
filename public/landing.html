@@ -376,95 +376,69 @@
           <div class="visual">
             <div class="pane">
               <div class="pane-title">YAML</div>
-              <pre>title: Wedding planning
+              <pre>title: My day
 root:
-  text: Our wedding
+  text: My day
   children:
-    - text: Venue
+    - text: Morning Routine
+      tags: [routine]
       children:
-        - text: Ceremony
-        - text: Reception
-    - text: Guests
+        - text: Check overdue items
+        - text: Due today
+    - text: Urgent
+    - text: Important
+    - text: To-dos
+    - text: Meetings
       children:
-        - text: Family
-        - text: Friends
-    - text: Vendors
-      children:
-        - text: Catering
-        - text: Photographer</pre>
+        - text: Standup
+          notes: Yesterday / Today / Blockers</pre>
             </div>
             <div class="pane">
               <div class="pane-title">Mind-map</div>
               <svg viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg">
-                <!-- edges -->
+                <!-- edges: root → 5 subjects -->
                 <g fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-width="1.2">
-                  <path d="M70,140 C110,140 110,60 150,60" />
-                  <path d="M70,140 C110,140 110,140 150,140" />
-                  <path d="M70,140 C110,140 110,220 150,220" />
-                  <path d="M230,60 C260,60 260,30 290,30" />
-                  <path d="M230,60 C260,60 260,90 290,90" />
-                  <path d="M230,140 C260,140 260,120 290,120" />
-                  <path d="M230,140 C260,140 260,160 290,160" />
-                  <path d="M230,220 C260,220 260,200 290,200" />
-                  <path d="M230,220 C260,220 260,250 290,250" />
+                  <path d="M82,138 C135,138 135,38 175,38" />
+                  <path d="M82,138 C135,138 135,88 175,88" />
+                  <path d="M82,138 C135,138 135,138 175,138" />
+                  <path d="M82,138 C135,138 135,188 175,188" />
+                  <path d="M82,138 C135,138 135,238 175,238" />
                 </g>
                 <!-- root -->
                 <g>
-                  <rect x="14" y="124" width="56" height="32" rx="6"
+                  <rect x="12" y="122" width="70" height="32" rx="6"
                     fill="#10b981" fill-opacity="0.12"
                     stroke="#10b981" stroke-opacity="0.6" stroke-width="1.2"/>
-                  <text x="42" y="144" text-anchor="middle" font-size="11"
+                  <text x="47" y="142" text-anchor="middle" font-size="11"
                     font-family="-apple-system, system-ui, sans-serif"
-                    fill="#10b981" font-weight="600">Wedding</text>
+                    fill="#10b981" font-weight="600">My day</text>
                 </g>
-                <!-- depth-1 -->
-                <g font-family="-apple-system, system-ui, sans-serif" font-size="10">
-                  <rect x="150" y="44" width="80" height="32" rx="5"
+                <!-- subjects (depth-1) -->
+                <g font-family="-apple-system, system-ui, sans-serif" font-size="10.5">
+                  <rect x="175" y="23" width="150" height="30" rx="5"
                     fill="currentColor" fill-opacity="0.04"
                     stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="190" y="64" text-anchor="middle" fill="currentColor">Venue</text>
+                  <text x="250" y="42" text-anchor="middle" fill="currentColor">Morning Routine</text>
 
-                  <rect x="150" y="124" width="80" height="32" rx="5"
+                  <rect x="175" y="73" width="150" height="30" rx="5"
                     fill="currentColor" fill-opacity="0.04"
                     stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="190" y="144" text-anchor="middle" fill="currentColor">Guests</text>
+                  <text x="250" y="92" text-anchor="middle" fill="currentColor">Urgent</text>
 
-                  <rect x="150" y="204" width="80" height="32" rx="5"
+                  <rect x="175" y="123" width="150" height="30" rx="5"
                     fill="currentColor" fill-opacity="0.04"
                     stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="190" y="224" text-anchor="middle" fill="currentColor">Vendors</text>
-                </g>
-                <!-- depth-2 -->
-                <g font-family="-apple-system, system-ui, sans-serif" font-size="9.5">
-                  <rect x="290" y="14" width="100" height="28" rx="5"
-                    fill="currentColor" fill-opacity="0.04"
-                    stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="340" y="32" text-anchor="middle" fill="currentColor">Ceremony</text>
+                  <text x="250" y="142" text-anchor="middle" fill="currentColor">Important</text>
 
-                  <rect x="290" y="76" width="100" height="28" rx="5"
+                  <rect x="175" y="173" width="150" height="30" rx="5"
                     fill="currentColor" fill-opacity="0.04"
                     stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="340" y="94" text-anchor="middle" fill="currentColor">Reception</text>
+                  <text x="250" y="192" text-anchor="middle" fill="currentColor">To-dos</text>
 
-                  <rect x="290" y="106" width="100" height="28" rx="5"
+                  <rect x="175" y="223" width="150" height="30" rx="5"
                     fill="currentColor" fill-opacity="0.04"
                     stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="340" y="124" text-anchor="middle" fill="currentColor">Family</text>
-
-                  <rect x="290" y="146" width="100" height="28" rx="5"
-                    fill="currentColor" fill-opacity="0.04"
-                    stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="340" y="164" text-anchor="middle" fill="currentColor">Friends</text>
-
-                  <rect x="290" y="186" width="100" height="28" rx="5"
-                    fill="currentColor" fill-opacity="0.04"
-                    stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="340" y="204" text-anchor="middle" fill="currentColor">Catering</text>
-
-                  <rect x="290" y="236" width="100" height="28" rx="5"
-                    fill="currentColor" fill-opacity="0.04"
-                    stroke="currentColor" stroke-opacity="0.25"/>
-                  <text x="340" y="254" text-anchor="middle" fill="currentColor">Photographer</text>
+                  <text x="250" y="242" text-anchor="middle" fill="currentColor">Meetings</text>
                 </g>
               </svg>
             </div>

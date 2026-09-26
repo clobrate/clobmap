@@ -1,0 +1,45 @@
+title: Wedding planning
+version: 1
+root:
+  id: n1
+  text: Our wedding
+  children:
+    - id: n2
+      text: Venue
+      children:
+        - id: n3
+          text: Ceremony
+          children: []
+        - id: n4
+          text: Reception
+          children: []
+    - id: n5
+      text: Guests
+      children:
+        - id: n6
+          text: Family
+          children: []
+        - id: n7
+          text: Friends
+          children: []
+    - id: n8
+      text: Vendors
+      children:
+        - id: n9
+          text: Catering
+          children: []
+        - id: n10
+          text: Photographer
+          children: []
+        - id: n11
+          text: Florist
+          children: []
+    - id: n12
+      text: Schedule
+      children:
+        - id: n13
+          text: Save the date
+          children: []
+        - id: n14
+          text: Send invites
+          children: []

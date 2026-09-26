@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **New welcome sample: "My day" — a techie daily-driver.** First launch now
+  opens a functional day framework — **Morning Routine / Urgent / Important /
+  To-dos / Meetings** — with per-meeting notes pages and a few subject tags,
+  instead of the old "Wedding planning" map. It doubles as a live demo of
+  tags (tag tree + filter) and the Notelets notes-as-pages view. The previous
+  wedding map is **retained as an example** at
+  `examples/wedding-planning.clobmap.yaml` (not removed). The clobmap.com
+  landing-page hero was redrawn to match. `.clobmap.yaml` format unchanged.
+
 ## [2.0.0] - 2026-09-25
 
 > **Non-breaking milestone.** This is a *significance* major bump for the

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "../helpers/fixtures";
+import { type Page } from "@playwright/test";
 import { addChild, nodeByText, selectNode } from "../helpers/mindmap";
 
 // Welcome-doc tree the specs in this file rely on.

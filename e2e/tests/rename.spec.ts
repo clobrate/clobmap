@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../helpers/fixtures";
 import { nodeByText, selectNode } from "../helpers/mindmap";
 
 test.describe("inline rename (§5)", () => {
