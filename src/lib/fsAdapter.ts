@@ -27,3 +27,9 @@ export async function exists(path: string): Promise<boolean> {
   const { exists } = await import("@tauri-apps/plugin-fs");
   return exists(path);
 }
+
+export async function remove(path: string): Promise<void> {
+  const { remove } = await import("@tauri-apps/plugin-fs");
+  await remove(path);
+}
+

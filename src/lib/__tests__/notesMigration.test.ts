@@ -6,6 +6,7 @@ vi.mock("../fsAdapter", () => ({
   readTextFile: vi.fn(async () => "sidecar body"),
   mkdirp: vi.fn(async () => {}),
   exists: vi.fn(async () => false),
+  remove: vi.fn(async () => {}),
 }));
 
 import * as fs from "../fsAdapter";
@@ -81,12 +82,32 @@ describe("migrateDocToFolder (executor)", () => {
     expect(findById(tree, "n2")?.notes).toBe("./notelets/n2-Child.md");
   });
 
-  it("reads a legacy sidecar and re-homes its content", async () => {
+  it("moves a legacy sidecar (copy then delete the old file)", async () => {
     const root = node("n1", "Root", "./.plan_n1_Root.md");
     const { doc: tree } = await migrateDocToFolder(doc(root), DOC_PATH, "notelets");
     expect(fs.readTextFile).toHaveBeenCalledWith("/tmp/proj/.plan_n1_Root.md");
     expect(fs.writeTextFile).toHaveBeenCalledWith("/tmp/proj/notelets/n1-Root.md", "sidecar body");
+    expect(fs.remove).toHaveBeenCalledWith("/tmp/proj/.plan_n1_Root.md");
     expect(findById(tree, "n1")?.notes).toBe("./notelets/n1-Root.md");
+  });
+
+  it("migrates a sidecar shared by two nodes, reading once and deleting once", async () => {
+    const root = node("n1", "Root", "./.shared.md", [node("n2", "Child", "./.shared.md")]);
+    const { doc: tree } = await migrateDocToFolder(doc(root), DOC_PATH, "notelets");
+    // Read the shared source once; each node gets its own copy.
+    expect(vi.mocked(fs.readTextFile).mock.calls.filter((c) => c[0] === "/tmp/proj/.shared.md")).toHaveLength(1);
+    expect(fs.writeTextFile).toHaveBeenCalledWith("/tmp/proj/notelets/n1-Root.md", "sidecar body");
+    expect(fs.writeTextFile).toHaveBeenCalledWith("/tmp/proj/notelets/n2-Child.md", "sidecar body");
+    // Deleted exactly once (dedup), only after both copies.
+    expect(vi.mocked(fs.remove).mock.calls.filter((c) => c[0] === "/tmp/proj/.shared.md")).toHaveLength(1);
+    expect(findById(tree, "n1")?.notes).toBe("./notelets/n1-Root.md");
+    expect(findById(tree, "n2")?.notes).toBe("./notelets/n2-Child.md");
+  });
+
+  it("does NOT delete anything for inline-only migration", async () => {
+    const root = node("n1", "Root", "inline content");
+    await migrateDocToFolder(doc(root), DOC_PATH, "notelets");
+    expect(fs.remove).not.toHaveBeenCalled();
   });
 
   it("is a no-op when nothing needs migrating", async () => {

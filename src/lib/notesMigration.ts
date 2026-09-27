@@ -10,10 +10,12 @@
  *   returns a new tree with the `notes:` fields rewritten. The store-reading
  *   trigger lives in fileActions.ts (gated on folder mode).
  *
- * Non-destructive: legacy sidecar files are COPIED into the folder, not
- * deleted — the field is repointed, the old file is left as a harmless orphan
- * that a later "tidy" pass (Phase 3) can remove. The whole thing is applied as
- * one tree change, so a single undo reverts it.
+ * Move semantics: a legacy sidecar's content is copied into the folder and the
+ * old file is then DELETED (read-before-delete, so sidecars shared by several
+ * nodes still migrate). The `notes:` fields are repointed as one tree change,
+ * so a single undo reverts the document — note that undo restores the field
+ * value but NOT a deleted legacy file; inline→file migration is fully
+ * reversible (the content lives in the undo stack).
  */
 import type { MindDocument, MindNode } from "../model/types";
 import { updateNode } from "../model";
@@ -90,6 +92,12 @@ export async function migrateDocToFolder(
   if (ops.length === 0) return { doc, changed: false };
 
   let next = doc;
+  // Legacy sidecar sources to delete AFTER all copies land (read-before-delete
+  // keeps sidecars shared by multiple nodes working). Cache reads so a shared
+  // source is read once.
+  const toRemove = new Set<string>();
+  const readCache = new Map<string, string>();
+
   for (const op of ops) {
     const dest = await resolveNotesPath(op.newField, docPath);
     if (!dest) continue; // unresolvable (no docPath) — shouldn't happen here.
@@ -97,14 +105,25 @@ export async function migrateDocToFolder(
     let content = op.content ?? "";
     if (op.action === "sidecar-to-file" && op.sourceField) {
       const src = await resolveNotesPath(op.sourceField, docPath);
-      // Best-effort read; an unreadable legacy sidecar migrates as empty
-      // rather than aborting the whole document.
-      content = src ? await fs.readTextFile(src).catch(() => "") : "";
+      if (src) {
+        if (!readCache.has(src)) {
+          // Best-effort read; an unreadable legacy sidecar migrates as empty
+          // rather than aborting the whole document.
+          readCache.set(src, await fs.readTextFile(src).catch(() => ""));
+        }
+        content = readCache.get(src)!;
+        toRemove.add(src);
+      }
     }
 
     await fs.mkdirp(parentDir(dest));
     await fs.writeTextFile(dest, content);
     next = updateNode(next, op.nodeId, { notes: op.newField });
+  }
+
+  // Delete-after-copy: remove the now-migrated legacy sidecars (best-effort).
+  for (const src of toRemove) {
+    await fs.remove(src).catch(() => {});
   }
   return { doc: next, changed: true };
 }
