@@ -11,6 +11,8 @@ import { addRecentFile, removeRecentFile } from "./recentFiles";
 import { isMobile, isTauri } from "./env";
 import { saveLastOpenFile } from "./settings";
 import { migrateDocToFolder } from "./notesMigration";
+import { archiveNoteFile, tidyNotesFolder } from "./notesLifecycle";
+import type { MindNode } from "../model/types";
 
 /**
  * When folder storage is on (desktop), move any inline notes / legacy sidecars
@@ -32,6 +34,34 @@ async function maybeMigrateNotesOnOpen(): Promise<void> {
   } catch {
     // Best-effort: migration failure leaves inline notes as they were.
   }
+}
+
+/**
+ * Archive a node's note file when it's deleted (folder mode, desktop). Pass the
+ * node captured BEFORE the tree delete. Best-effort + gated, so it's a no-op in
+ * inline mode (the current behavior: the sidecar is left as an orphan).
+ */
+export async function archiveNoteOnDelete(node: MindNode | null): Promise<void> {
+  if (!node) return;
+  const ui = useUIStore.getState();
+  if (ui.noteStorage !== "folder" || !isTauri() || isMobile()) return;
+  const path = useDocumentStore.getState().currentFilePath;
+  if (!path) return;
+  try {
+    await archiveNoteFile(node, path, new Date().toISOString());
+  } catch {
+    // best-effort
+  }
+}
+
+/** Remove archives + orphans from the notes folder (folder mode, desktop).
+ * Returns the number of files removed. */
+export async function tidyNotes(): Promise<number> {
+  const ui = useUIStore.getState();
+  if (ui.noteStorage !== "folder" || !isTauri() || isMobile()) return 0;
+  const state = useDocumentStore.getState();
+  if (!state.parsedDoc || !state.currentFilePath) return 0;
+  return tidyNotesFolder(state.parsedDoc, state.currentFilePath, ui.notesFolder);
 }
 
 async function tauriConfirm(

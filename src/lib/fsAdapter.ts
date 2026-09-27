@@ -33,3 +33,15 @@ export async function remove(path: string): Promise<void> {
   await remove(path);
 }
 
+export async function rename(from: string, to: string): Promise<void> {
+  const { rename } = await import("@tauri-apps/plugin-fs");
+  await rename(from, to);
+}
+
+/** Names of the regular files directly in `path` (not recursive). */
+export async function readDir(path: string): Promise<string[]> {
+  const { readDir } = await import("@tauri-apps/plugin-fs");
+  const entries = await readDir(path);
+  return entries.filter((e) => e.isFile).map((e) => e.name);
+}
+
