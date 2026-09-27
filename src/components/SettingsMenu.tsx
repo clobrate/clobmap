@@ -5,10 +5,14 @@ import { useDocumentStore } from "../store/document";
 import {
   saveAutoSavePref,
   saveFontSizePref,
+  saveNoteStoragePref,
+  saveNotesFolderPref,
   saveSplitOrientationPref,
   saveTelemetryPref,
   saveThemePref,
 } from "../lib/settings";
+import { validateNotesFolder } from "../lib/notesFolder";
+import { tidyNotes } from "../lib/fileActions";
 import { isMobile, isTauri } from "../lib/env";
 import { checkForUpdate, clearLastCheckTime } from "../lib/updater";
 import { openExternal } from "../lib/openExternal";
@@ -41,6 +45,33 @@ export function SettingsMenu() {
   const setTelemetryEnabled = useUIStore((s) => s.setTelemetryEnabled);
   const telemetryAvailable = isTelemetryAvailable();
   const setAvailableUpdate = useUIStore((s) => s.setAvailableUpdate);
+
+  const noteStorage = useUIStore((s) => s.noteStorage);
+  const setNoteStorage = useUIStore((s) => s.setNoteStorage);
+  const notesFolder = useUIStore((s) => s.notesFolder);
+  const setNotesFolder = useUIStore((s) => s.setNotesFolder);
+  const [folderDraft, setFolderDraft] = useState(notesFolder);
+  const [folderError, setFolderError] = useState<string | null>(null);
+  const [tidyStatus, setTidyStatus] = useState<string | null>(null);
+
+  const commitFolder = () => {
+    const result = validateNotesFolder(folderDraft);
+    if (!result.ok) {
+      setFolderError(result.error);
+      return;
+    }
+    setFolderError(null);
+    setFolderDraft(result.value);
+    setNotesFolder(result.value);
+    void saveNotesFolderPref(result.value);
+  };
+
+  const onTidy = async () => {
+    setTidyStatus("Tidying…");
+    const removed = await tidyNotes();
+    setTidyStatus(removed > 0 ? `Removed ${removed} file${removed === 1 ? "" : "s"}` : "Nothing to tidy");
+    setTimeout(() => setTidyStatus(null), 3000);
+  };
 
   // Per-document layout mode (auto vs manual). Stored in YAML so it
   // survives across launches and travels with the file.
@@ -232,6 +263,70 @@ export function SettingsMenu() {
               />
             </div>
           </div>
+          {isTauri() && !isMobile() && (
+            <>
+              <Divider />
+              <div className="px-3 py-1.5">
+                <div className="text-neutral-600 dark:text-neutral-400">Note storage</div>
+                <div className="mt-1 flex gap-1">
+                  <SegButton
+                    active={noteStorage === "inline"}
+                    onClick={() => {
+                      setNoteStorage("inline");
+                      void saveNoteStoragePref("inline");
+                    }}
+                    label="Inline"
+                  />
+                  <SegButton
+                    active={noteStorage === "folder"}
+                    onClick={() => {
+                      setNoteStorage("folder");
+                      void saveNoteStoragePref("folder");
+                    }}
+                    label="Notes folder"
+                  />
+                </div>
+                {noteStorage === "folder" && (
+                  <>
+                    <label
+                      htmlFor="notes-folder-input"
+                      className="mt-2 block text-xs text-neutral-500"
+                    >
+                      Folder (relative to the document)
+                    </label>
+                    <input
+                      id="notes-folder-input"
+                      type="text"
+                      value={folderDraft}
+                      onChange={(e) => setFolderDraft(e.target.value)}
+                      onBlur={commitFolder}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitFolder();
+                      }}
+                      aria-label="Notes folder name"
+                      className="mt-0.5 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+                    />
+                    {folderError && (
+                      <div className="mt-0.5 text-xs text-red-600 dark:text-red-400">
+                        {folderError}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void onTidy()}
+                      className="mt-2 w-full rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      title="Remove archived (deleted) and orphaned note files from the folder."
+                    >
+                      Tidy notes folder
+                    </button>
+                    {tidyStatus && (
+                      <div className="mt-0.5 text-xs text-neutral-500">{tidyStatus}</div>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
+          )}
           {isTauri() && (
             <>
               <Divider />

@@ -54,12 +54,12 @@ const DEFAULTS: PersistedSettings = {
 };
 
 /**
- * No stored preference → note-storage mode. Returns `inline` for now so behavior
- * is unchanged while the folder-mode write/migration paths land behind the flag
- * (Phases 1–2). Phase 5 flips this to `isTauri() ? "folder" : "inline"`.
+ * No stored preference → note-storage mode. Desktop defaults to `folder`
+ * (file-per-note under a doc-relative folder); web / iOS can't write files so
+ * they stay `inline`. Existing docs migrate silently on first open (desktop).
  */
 function defaultNoteStorage(): NoteStorageMode {
-  return "inline";
+  return isTauri() && !isMobile() ? "folder" : "inline";
 }
 
 /** No stored preference → one page at a time on phones, continuous on desktop. */

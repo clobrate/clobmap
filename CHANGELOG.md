@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Desktop "notes folder" storage.** On desktop, each node's notes can live as
+  an individual Markdown file under a document-relative subfolder (default
+  `notelets/`) instead of inline in the YAML — regardless of size. This is now
+  the **desktop default**: opening a document migrates its inline notes (and any
+  legacy sidecars) into the folder **silently and undoably** on first open. The
+  `.yaml` then holds structure + short relative note paths, so git diffs stay
+  small and each note is a real file you can open/grep/diff.
+  - **Settings → Note storage** (⚙, desktop only): switch between **Inline** and
+    **Notes folder**, choose the folder name, and **Tidy notes folder** (remove
+    archived + orphaned files). Switching back to Inline is non-destructive —
+    existing note files stay as files; only new notes go inline.
+  - **Safe by design:** note files are confined to the document's own folder —
+    paths that escape (`..`, absolute, `~`, or symlinks) are refused, so a shared
+    `.clobmap.yaml` can never read files elsewhere on your disk.
+  - **Lifecycle:** deleting a node archives its note file as a hidden
+    `.Deleted-…` (never a hard delete); renames keep the link.
+  - Web / iOS can't write local files, so folder notes are read-only there and
+    the mode stays inline.
+  - `.clobmap.yaml` format is unchanged; inline mode remains fully supported.
+
 ## [2.0.2] - 2026-09-26
 
 ### Security
