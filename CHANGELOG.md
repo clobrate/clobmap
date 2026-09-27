@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-09-26
+
+### Security
+
+- **Cleared all known dependency vulnerabilities** across the web and desktop
+  builds — `npm audit` and `cargo audit` both now report **zero
+  vulnerabilities**.
+  - **Web / npm:** updated undici, vite, postcss, nanoid, brace-expansion,
+    browserslist, dompurify, fflate, and the vitest toolchain.
+  - **Desktop / Rust:** upgraded the **Tauri stack 2.11 → 2.12** (with matching
+    `@tauri-apps/*` packages), which pulls patched transitives — **quick-xml
+    0.42** (fixes two high-severity DoS advisories), **rustls 0.23.45**, and
+    drops the vulnerable **rkyv**; plus **tar 0.4.46** and **serde_with 3.22**.
+  - Remaining are non-vulnerability warnings only (an unmaintained transitive
+    and a Linux-GTK `glib` unsoundness advisory, both awaiting upstream).
+- No functional or format changes; `.clobmap.yaml` is unchanged and every
+  existing document opens as-is.
+
 ## [2.0.1] - 2026-09-26
 
 ### Changed
