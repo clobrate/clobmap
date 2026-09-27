@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_NOTES_FOLDER, type NoteStorageMode } from "../lib/notesFolder";
 
 export type ViewMode = "yaml" | "mindmap" | "split" | "notelets";
 export type NoteletsMode = "scroll" | "page";
@@ -23,6 +24,10 @@ export interface UIState {
   noteletsMode: NoteletsMode;
   /** Current page in Notelets one-page mode; null follows selectedNodeId. */
   noteletsPageId: string | null;
+  /** Desktop note-storage policy (loaded from settings). */
+  noteStorage: NoteStorageMode;
+  /** Doc-relative subfolder for folder-mode notes. */
+  notesFolder: string;
   splitOrientation: SplitOrientation;
   splitRatio: number;
   autoSave: boolean;
@@ -63,6 +68,8 @@ export interface UIState {
   toggleViewMode: () => void;
   setNoteletsMode: (mode: NoteletsMode) => void;
   setNoteletsPageId: (id: string | null) => void;
+  setNoteStorage: (mode: NoteStorageMode) => void;
+  setNotesFolder: (folder: string) => void;
   setSplitOrientation: (o: SplitOrientation) => void;
   toggleSplitOrientation: () => void;
   setSplitRatio: (ratio: number) => void;
@@ -96,6 +103,8 @@ export const useUIStore = create<UIState>((set) => ({
   viewMode: "mindmap",
   noteletsMode: "scroll",
   noteletsPageId: null,
+  noteStorage: "inline",
+  notesFolder: DEFAULT_NOTES_FOLDER,
   splitOrientation: "horizontal",
   splitRatio: 0.5,
   autoSave: true,
@@ -128,6 +137,8 @@ export const useUIStore = create<UIState>((set) => ({
     }),
   setNoteletsMode: (mode) => set({ noteletsMode: mode }),
   setNoteletsPageId: (id) => set({ noteletsPageId: id }),
+  setNoteStorage: (mode) => set({ noteStorage: mode }),
+  setNotesFolder: (folder) => set({ notesFolder: folder }),
   setSplitOrientation: (o) => set({ splitOrientation: o }),
   toggleSplitOrientation: () =>
     set((s) => ({

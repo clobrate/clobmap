@@ -193,6 +193,8 @@ function App() {
   const setFontSize = useUIStore((s) => s.setFontSize);
   const setTelemetryEnabled = useUIStore((s) => s.setTelemetryEnabled);
   const setNoteletsMode = useUIStore((s) => s.setNoteletsMode);
+  const setNoteStorage = useUIStore((s) => s.setNoteStorage);
+  const setNotesFolder = useUIStore((s) => s.setNotesFolder);
   const telemetryEnabled = useUIStore((s) => s.telemetryEnabled);
   const themePreference = useUIStore((s) => s.themePreference);
   const resolvedTheme = useUIStore((s) => s.resolvedTheme);
@@ -295,6 +297,8 @@ function App() {
       setFontSize(s.fontSize);
       setTelemetryEnabled(s.telemetryEnabled);
       setNoteletsMode(s.noteletsMode);
+      setNoteStorage(s.noteStorage);
+      setNotesFolder(s.notesFolder);
       const resolved = resolveTheme(s.themePreference);
       setResolvedTheme(resolved);
       applyTheme(resolved);
@@ -307,6 +311,8 @@ function App() {
     setFontSize,
     setTelemetryEnabled,
     setNoteletsMode,
+    setNoteStorage,
+    setNotesFolder,
     setResolvedTheme,
   ]);
 

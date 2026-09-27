@@ -128,7 +128,10 @@ describe("useNodeNotes", () => {
       });
 
       expect(ok).toBe(true);
-      expect(mockSave).toHaveBeenCalledWith("new body", "", null, NODE_ID, NODE_TEXT);
+      expect(mockSave).toHaveBeenCalledWith("new body", "", null, NODE_ID, NODE_TEXT, {
+        noteStorage: "inline",
+        notesFolder: "notelets",
+      });
       // Tree updated in the document store.
       expect(useDocumentStore.getState().parsedDoc?.root.notes).toBe("new body");
       expect(result.current.isDirty).toBe(false);
