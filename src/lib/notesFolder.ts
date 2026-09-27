@@ -127,3 +127,38 @@ export function coerceNotesFolder(value: unknown): string {
   const result = validateNotesFolder(value);
   return result.ok ? result.value : DEFAULT_NOTES_FOLDER;
 }
+
+/**
+ * Purely resolve `.` and `..` segments in a path (no filesystem). Preserves a
+ * leading `/` or `C:` drive; used by `isInsideDir`. This does NOT resolve
+ * symlinks — that's the native `path_is_within` guard's job (Phase 4).
+ */
+export function canonicalizeSegments(path: string): string {
+  const p = path.replace(/\\/g, "/");
+  const drive = (p.match(/^[a-zA-Z]:/) ?? [""])[0];
+  const body = p.slice(drive.length);
+  const absolute = body.startsWith("/");
+  const stack: string[] = [];
+  for (const seg of body.split("/")) {
+    if (!seg || seg === ".") continue;
+    if (seg === "..") {
+      if (stack.length > 0 && stack[stack.length - 1] !== "..") stack.pop();
+      else if (!absolute) stack.push("..");
+    } else {
+      stack.push(seg);
+    }
+  }
+  return drive + (absolute ? "/" : "") + stack.join("/");
+}
+
+/**
+ * True iff `childAbs` is inside `dirAbs` after collapsing `.`/`..` (string
+ * level — catches `../` escapes, absolute paths, and `~`-expanded paths). The
+ * symlink-safe check is the native `path_is_within` command layered on top.
+ */
+export function isInsideDir(childAbs: string, dirAbs: string): boolean {
+  const child = canonicalizeSegments(childAbs);
+  const dir = canonicalizeSegments(dirAbs).replace(/\/+$/, "");
+  if (!dir) return false;
+  return child === dir || child.startsWith(`${dir}/`);
+}

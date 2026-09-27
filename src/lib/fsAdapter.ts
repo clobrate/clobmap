@@ -45,3 +45,18 @@ export async function readDir(path: string): Promise<string[]> {
   return entries.filter((e) => e.isFile).map((e) => e.name);
 }
 
+/**
+ * Symlink-safe trust-boundary check via the native `path_is_within` command:
+ * true iff `child` canonicalizes to inside `dir`. Best-effort — returns `true`
+ * if the command is unavailable (older desktop build / web), so the caller's
+ * string-level `isInsideDir` governs as the fallback.
+ */
+export async function pathIsWithin(child: string, dir: string): Promise<boolean> {
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<boolean>("path_is_within", { child, dir });
+  } catch {
+    return true;
+  }
+}
+

@@ -3,6 +3,7 @@ import * as fs from "./fsAdapter";
 import {
   coerceNotesFolder,
   DEFAULT_NOTES_FOLDER,
+  isInsideDir,
   noteFilename,
   noteRelPath,
   type NoteStorageMode,
@@ -168,6 +169,21 @@ export async function loadNotes(
       resolvedPath: null,
       readOnly: true,
       message: "Save the document first so we can resolve relative notes paths.",
+    };
+  }
+  // Trust boundary (spec §9): a note file must live INSIDE the document's own
+  // folder. Refuse anything that escapes — `../`, absolute, or `~`-expanded —
+  // so a shared .clobmap.yaml can never make us read arbitrary files. The
+  // string check catches path escapes; the native `pathIsWithin` adds
+  // symlink-safety (and no-ops on web / older builds).
+  const docDir = docPath ? parentDir(docPath) : null;
+  if (!docDir || !isInsideDir(resolved, docDir) || !(await fs.pathIsWithin(resolved, docDir))) {
+    return {
+      content: "",
+      isPathRef: true,
+      resolvedPath: resolved,
+      readOnly: true,
+      message: "This notes file is outside the document's folder and won't be read.",
     };
   }
   try {

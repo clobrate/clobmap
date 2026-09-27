@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
+  canonicalizeSegments,
   coerceNotesFolder,
   DEFAULT_NOTES_FOLDER,
   deletedArchiveName,
+  isInsideDir,
   isNoteStorageMode,
   noteFilename,
   noteRelPath,
@@ -116,6 +118,46 @@ describe("validateNotesFolder", () => {
   it("rejects empty or `.` interior segments", () => {
     expect(validateNotesFolder("a//b").ok).toBe(false);
     expect(validateNotesFolder("a/./b").ok).toBe(false);
+  });
+});
+
+describe("canonicalizeSegments", () => {
+  it("collapses `.` and `..`", () => {
+    expect(canonicalizeSegments("/a/b/../c")).toBe("/a/c");
+    expect(canonicalizeSegments("/a/./b")).toBe("/a/b");
+    expect(canonicalizeSegments("a/b/../../c")).toBe("c");
+  });
+  it("can't pop past an absolute root", () => {
+    expect(canonicalizeSegments("/a/../../x")).toBe("/x");
+  });
+  it("keeps leading `..` on a relative path (can't resolve above cwd)", () => {
+    expect(canonicalizeSegments("../a/../b")).toBe("../b");
+  });
+  it("preserves a Windows drive and normalizes backslashes", () => {
+    expect(canonicalizeSegments("C:\\a\\b\\..\\c")).toBe("C:/a/c");
+  });
+});
+
+describe("isInsideDir", () => {
+  const dir = "/tmp/proj";
+  it("accepts a file inside the directory", () => {
+    expect(isInsideDir("/tmp/proj/notelets/n1.md", dir)).toBe(true);
+  });
+  it("accepts the directory itself", () => {
+    expect(isInsideDir("/tmp/proj", dir)).toBe(true);
+  });
+  it("rejects a `../` escape", () => {
+    expect(isInsideDir("/tmp/proj/../etc/passwd", dir)).toBe(false);
+  });
+  it("rejects an unrelated absolute path", () => {
+    expect(isInsideDir("/etc/passwd", dir)).toBe(false);
+  });
+  it("rejects a sibling with a shared name prefix (boundary is a path segment)", () => {
+    expect(isInsideDir("/tmp/project2/x", dir)).toBe(false);
+  });
+  it("tolerates a trailing slash on the directory and backslashes", () => {
+    expect(isInsideDir("/tmp/proj/n1.md", "/tmp/proj/")).toBe(true);
+    expect(isInsideDir("C:\\proj\\notes\\n1.md", "C:\\proj")).toBe(true);
   });
 });
 
