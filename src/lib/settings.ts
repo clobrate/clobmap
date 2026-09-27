@@ -1,5 +1,11 @@
 import { isMobile, isTauri } from "./env";
 import type { NoteletsMode, SplitOrientation, ThemePreference } from "../store/ui";
+import {
+  coerceNotesFolder,
+  DEFAULT_NOTES_FOLDER,
+  isNoteStorageMode,
+  type NoteStorageMode,
+} from "./notesFolder";
 
 const STORE_FILE = "clobmap.json";
 const KEY_AUTO_SAVE = "auto-save";
@@ -9,6 +15,8 @@ const KEY_THEME = "theme";
 const KEY_FONT_SIZE = "font-size";
 const KEY_TELEMETRY = "telemetry";
 const KEY_NOTELETS_MODE = "notelets-mode";
+const KEY_NOTE_STORAGE = "note-storage";
+const KEY_NOTES_FOLDER = "notes-folder";
 const WEB_KEY_AUTO_SAVE = "clobmap-auto-save";
 const WEB_KEY_SPLIT_ORIENTATION = "clobmap-split-orientation";
 const WEB_KEY_SPLIT_RATIO = "clobmap-split-ratio";
@@ -16,6 +24,8 @@ const WEB_KEY_THEME = "clobmap-theme";
 const WEB_KEY_FONT_SIZE = "clobmap-font-size";
 const WEB_KEY_TELEMETRY = "clobmap-telemetry";
 const WEB_KEY_NOTELETS_MODE = "clobmap-notelets-mode";
+const WEB_KEY_NOTE_STORAGE = "clobmap-note-storage";
+const WEB_KEY_NOTES_FOLDER = "clobmap-notes-folder";
 
 export interface PersistedSettings {
   autoSave: boolean;
@@ -25,6 +35,10 @@ export interface PersistedSettings {
   fontSize: number;
   telemetryEnabled: boolean;
   noteletsMode: NoteletsMode;
+  /** Desktop note-storage policy (see notesFolder.ts). */
+  noteStorage: NoteStorageMode;
+  /** Doc-relative subfolder for folder-mode notes. */
+  notesFolder: string;
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -35,7 +49,18 @@ const DEFAULTS: PersistedSettings = {
   fontSize: 14,
   telemetryEnabled: false,
   noteletsMode: "scroll",
+  noteStorage: "inline",
+  notesFolder: DEFAULT_NOTES_FOLDER,
 };
+
+/**
+ * No stored preference → note-storage mode. Returns `inline` for now so behavior
+ * is unchanged while the folder-mode write/migration paths land behind the flag
+ * (Phases 1–2). Phase 5 flips this to `isTauri() ? "folder" : "inline"`.
+ */
+function defaultNoteStorage(): NoteStorageMode {
+  return "inline";
+}
 
 /** No stored preference → one page at a time on phones, continuous on desktop. */
 function defaultNoteletsMode(): NoteletsMode {
@@ -68,15 +93,18 @@ export async function loadSettings(): Promise<PersistedSettings> {
   if (isTauri()) {
     const { LazyStore } = await import("@tauri-apps/plugin-store");
     const store = new LazyStore(STORE_FILE);
-    const [autoSave, split, splitRatio, theme, font, telemetry, noteletsMode] = await Promise.all([
-      store.get<boolean>(KEY_AUTO_SAVE),
-      store.get<unknown>(KEY_SPLIT_ORIENTATION),
-      store.get<unknown>(KEY_SPLIT_RATIO),
-      store.get<unknown>(KEY_THEME),
-      store.get<unknown>(KEY_FONT_SIZE),
-      store.get<boolean>(KEY_TELEMETRY),
-      store.get<unknown>(KEY_NOTELETS_MODE),
-    ]);
+    const [autoSave, split, splitRatio, theme, font, telemetry, noteletsMode, noteStorage, notesFolder] =
+      await Promise.all([
+        store.get<boolean>(KEY_AUTO_SAVE),
+        store.get<unknown>(KEY_SPLIT_ORIENTATION),
+        store.get<unknown>(KEY_SPLIT_RATIO),
+        store.get<unknown>(KEY_THEME),
+        store.get<unknown>(KEY_FONT_SIZE),
+        store.get<boolean>(KEY_TELEMETRY),
+        store.get<unknown>(KEY_NOTELETS_MODE),
+        store.get<unknown>(KEY_NOTE_STORAGE),
+        store.get<unknown>(KEY_NOTES_FOLDER),
+      ]);
     return {
       autoSave: typeof autoSave === "boolean" ? autoSave : DEFAULTS.autoSave,
       splitOrientation: isSplitOrientation(split) ? split : DEFAULTS.splitOrientation,
@@ -85,6 +113,8 @@ export async function loadSettings(): Promise<PersistedSettings> {
       fontSize: clampFont(font),
       telemetryEnabled: typeof telemetry === "boolean" ? telemetry : DEFAULTS.telemetryEnabled,
       noteletsMode: isNoteletsMode(noteletsMode) ? noteletsMode : defaultNoteletsMode(),
+      noteStorage: isNoteStorageMode(noteStorage) ? noteStorage : defaultNoteStorage(),
+      notesFolder: coerceNotesFolder(notesFolder),
     };
   }
   const rawRatio = localStorage.getItem(WEB_KEY_SPLIT_RATIO);
@@ -108,6 +138,11 @@ export async function loadSettings(): Promise<PersistedSettings> {
       const v = localStorage.getItem(WEB_KEY_NOTELETS_MODE);
       return isNoteletsMode(v) ? v : defaultNoteletsMode();
     })(),
+    noteStorage: (() => {
+      const v = localStorage.getItem(WEB_KEY_NOTE_STORAGE);
+      return isNoteStorageMode(v) ? v : defaultNoteStorage();
+    })(),
+    notesFolder: coerceNotesFolder(localStorage.getItem(WEB_KEY_NOTES_FOLDER)),
   };
 }
 
@@ -142,6 +177,32 @@ export async function saveNoteletsModePref(value: NoteletsMode): Promise<void> {
     return;
   }
   localStorage.setItem(WEB_KEY_NOTELETS_MODE, value);
+}
+
+export async function saveNoteStoragePref(value: NoteStorageMode): Promise<void> {
+  if (isTauri()) {
+    const { LazyStore } = await import("@tauri-apps/plugin-store");
+    const store = new LazyStore(STORE_FILE);
+    await store.set(KEY_NOTE_STORAGE, value);
+    await store.save();
+    return;
+  }
+  localStorage.setItem(WEB_KEY_NOTE_STORAGE, value);
+}
+
+/** Persists a validated, normalized notes-folder name. Returns the normalized
+ * value that was stored, or an error message if the folder is invalid. */
+export async function saveNotesFolderPref(value: string): Promise<string> {
+  const normalized = coerceNotesFolder(value);
+  if (isTauri()) {
+    const { LazyStore } = await import("@tauri-apps/plugin-store");
+    const store = new LazyStore(STORE_FILE);
+    await store.set(KEY_NOTES_FOLDER, normalized);
+    await store.save();
+    return normalized;
+  }
+  localStorage.setItem(WEB_KEY_NOTES_FOLDER, normalized);
+  return normalized;
 }
 
 export async function saveThemePref(value: ThemePreference): Promise<void> {
