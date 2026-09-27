@@ -124,4 +124,20 @@ describe("migrateDocToFolder (executor)", () => {
     expect(fs.writeTextFile).toHaveBeenCalledWith("/tmp/proj/notelets/n1-Root.md", "");
     expect(findById(tree, "n1")?.notes).toBe("./notelets/n1-Root.md");
   });
+
+  it("completes even if deleting a migrated legacy sidecar fails", async () => {
+    vi.mocked(fs.remove).mockRejectedValueOnce(new Error("EPERM"));
+    const root = node("n1", "Root", "./.plan_n1_Root.md");
+    const { doc: tree, changed } = await migrateDocToFolder(doc(root), DOC_PATH, "notelets");
+    expect(changed).toBe(true);
+    expect(findById(tree, "n1")?.notes).toBe("./notelets/n1-Root.md");
+  });
+
+  it("writes nothing when paths can't be resolved (no doc path)", async () => {
+    const root = node("n1", "Root", "inline content");
+    const { changed } = await migrateDocToFolder(doc(root), "", "notelets");
+    // Ops were planned but nothing resolves without a doc path → no writes.
+    expect(changed).toBe(true);
+    expect(fs.writeTextFile).not.toHaveBeenCalled();
+  });
 });

@@ -159,6 +159,9 @@ describe("isInsideDir", () => {
     expect(isInsideDir("/tmp/proj/n1.md", "/tmp/proj/")).toBe(true);
     expect(isInsideDir("C:\\proj\\notes\\n1.md", "C:\\proj")).toBe(true);
   });
+  it("rejects containment against an empty directory", () => {
+    expect(isInsideDir("/a/b", "")).toBe(false);
+  });
 });
 
 describe("coerceNotesFolder", () => {
