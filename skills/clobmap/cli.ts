@@ -593,7 +593,9 @@ function usage(): string {
   );
 }
 
-// Entrypoint (skipped under test import).
+// Entrypoint (skipped under test import — never runs when cli.ts is imported,
+// so it can't be exercised by the in-process `run()` suite).
+/* v8 ignore start */
 if (process.argv[1] && process.argv[1].endsWith("cli.ts")) {
   void run(process.argv.slice(2)).then((r) => {
     if (r.out) process.stdout.write(r.out + "\n");
@@ -601,3 +603,4 @@ if (process.argv[1] && process.argv[1].endsWith("cli.ts")) {
     process.exit(r.code);
   });
 }
+/* v8 ignore stop */

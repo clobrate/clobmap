@@ -59,6 +59,14 @@ export default defineConfig({
         functions: 90,
         branches: 90,
         statements: 90,
+        // The clobmap skill is held to the same bar on its own, not just as
+        // part of the overall aggregate.
+        "skills/**/*.ts": {
+          lines: 90,
+          functions: 90,
+          branches: 90,
+          statements: 90,
+        },
       },
     },
   },
