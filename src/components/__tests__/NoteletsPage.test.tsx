@@ -178,4 +178,27 @@ describe("NoteletsPage", () => {
       expect(onEdit).not.toHaveBeenCalled();
     });
   });
+
+  describe("tags line", () => {
+    it("shows 'tags: <none>' when the node has no tags", () => {
+      render(<NoteletsPage page={page({ id: "n1", text: "Venue" })} />);
+      expect(screen.getByRole("button", { name: /Edit tags: Venue/ })).toHaveTextContent(
+        "tags: <none>",
+      );
+    });
+
+    it("lists the node's tags comma-separated", () => {
+      render(<NoteletsPage page={page({ id: "n1", text: "Venue", tags: ["work", "urgent"] })} />);
+      expect(screen.getByRole("button", { name: /Edit tags: Venue/ })).toHaveTextContent(
+        "tags: work, urgent",
+      );
+    });
+
+    it("opens the shared tag editor for this node when clicked", async () => {
+      useUIStore.setState({ tagEditorNodeId: null });
+      render(<NoteletsPage page={page({ id: "n7", text: "Venue" })} />);
+      await userEvent.click(screen.getByRole("button", { name: /Edit tags: Venue/ }));
+      expect(useUIStore.getState().tagEditorNodeId).toBe("n7");
+    });
+  });
 });

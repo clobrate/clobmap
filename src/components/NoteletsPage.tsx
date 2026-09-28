@@ -30,6 +30,7 @@ export function NoteletsPage({
   const { node, depth } = page;
   const docPath = useDocumentStore((s) => s.currentFilePath);
   const setSelected = useUIStore((s) => s.setSelected);
+  const openTagEditor = useUIStore((s) => s.openTagEditor);
   // Re-reads on this token so a folder-mode note (whose YAML value is a stable
   // path) refreshes after an in-app edit or an external change — not just when
   // the path string itself changes.
@@ -79,6 +80,21 @@ export function NoteletsPage({
       >
         {node.text}
       </h2>
+
+      <button
+        type="button"
+        onClick={() => openTagEditor(node.id)}
+        title={strings.notelets.editTags}
+        aria-label={`${strings.notelets.editTags}: ${node.text}`}
+        className="mt-0.5 block text-left text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+      >
+        <span className="text-neutral-400 dark:text-neutral-500">{strings.notelets.tagsLabel}: </span>
+        {node.tags && node.tags.length > 0 ? (
+          node.tags.join(", ")
+        ) : (
+          <span className="italic">{strings.notelets.noTags}</span>
+        )}
+      </button>
 
       {loaded?.message && (
         <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">

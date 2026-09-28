@@ -192,7 +192,7 @@ test.describe("Notelets notebook view", () => {
   }) => {
     await openNotelets(page);
     const venue = page.locator('[data-page-id="n2"]');
-    await venue.getByRole("button").click(); // "Click to add notes…"
+    await venue.getByRole("button", { name: /add notes/i }).click(); // "Click to add notes…"
     await venue.locator(".cm-content").click();
     await page.keyboard.type("Ceremony at 3pm");
     await page.keyboard.press("Escape");
@@ -204,7 +204,7 @@ test.describe("Notelets notebook view", () => {
   test("clicking away from the editor saves the edit (blur)", async ({ page }) => {
     await openNotelets(page);
     const venue = page.locator('[data-page-id="n2"]');
-    await venue.getByRole("button").click();
+    await venue.getByRole("button", { name: /add notes/i }).click();
     await venue.locator(".cm-content").click();
     await page.keyboard.type("Saved on blur");
     // Click the page heading (outside the editor) to blur.
@@ -215,7 +215,7 @@ test.describe("Notelets notebook view", () => {
   test("clicking a rendered note re-enters edit mode", async ({ page }) => {
     await openNotelets(page);
     const venue = page.locator('[data-page-id="n2"]');
-    await venue.getByRole("button").click();
+    await venue.getByRole("button", { name: /add notes/i }).click();
     await venue.locator(".cm-content").click();
     await page.keyboard.type("First draft");
     await page.keyboard.press("Escape");
@@ -227,10 +227,10 @@ test.describe("Notelets notebook view", () => {
 
   test("only one page editor is open at a time", async ({ page }) => {
     await openNotelets(page);
-    await page.locator('[data-page-id="n2"]').getByRole("button").click();
+    await page.locator('[data-page-id="n2"]').getByRole("button", { name: /add notes/i }).click();
     await expect(page.locator(".cm-editor")).toHaveCount(1);
     await page.keyboard.press("Escape");
-    await page.locator('[data-page-id="n5"]').getByRole("button").click(); // Guests
+    await page.locator('[data-page-id="n5"]').getByRole("button", { name: /add notes/i }).click(); // Guests
     await expect(page.locator('[data-page-id="n5"] .cm-editor')).toBeVisible();
     await expect(page.locator(".cm-editor")).toHaveCount(1);
   });
@@ -251,7 +251,7 @@ test.describe("Notelets notebook view", () => {
   test("auto-saves while still editing (1s debounce, no exit)", async ({ page }) => {
     await openNotelets(page);
     const venue = page.locator('[data-page-id="n2"]');
-    await venue.getByRole("button").click();
+    await venue.getByRole("button", { name: /add notes/i }).click();
     await venue.locator(".cm-content").click();
     await page.keyboard.type("Auto note");
     // The debounced auto-save fires ~1s after the last keystroke — the status
@@ -265,7 +265,7 @@ test.describe("Notelets notebook view", () => {
   test("Enter continues a Markdown list marker", async ({ page }) => {
     await openNotelets(page);
     const venue = page.locator('[data-page-id="n2"]');
-    await venue.getByRole("button").click();
+    await venue.getByRole("button", { name: /add notes/i }).click();
     await venue.locator(".cm-content").click();
     await page.keyboard.type("- Garden");
     await page.keyboard.press("Enter");
@@ -480,7 +480,7 @@ test.describe("Notelets notebook view", () => {
     await toc(page, "Venue").click();
     await modeTab(page, "Page").click();
     const venue = page.locator('[data-page-id="n2"]');
-    await venue.getByRole("button").click(); // "Click to add notes…"
+    await venue.getByRole("button", { name: /add notes/i }).click(); // "Click to add notes…"
     await venue.locator(".cm-content").click();
     await page.keyboard.type("Written in page mode");
     await page.keyboard.press("Escape");
@@ -494,7 +494,7 @@ test.describe("Notelets notebook view", () => {
     await toc(page, "Venue").click();
     await modeTab(page, "Page").click();
     const venue = page.locator('[data-page-id="n2"]');
-    await venue.getByRole("button").click();
+    await venue.getByRole("button", { name: /add notes/i }).click();
     await venue.locator(".cm-content").click();
     await page.keyboard.type("abc");
     await page.keyboard.press("ArrowRight"); // must NOT page away
