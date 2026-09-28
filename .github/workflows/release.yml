@@ -137,6 +137,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Inject CHANGELOG notes into latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: |
+          # tauri-action writes latest.json with an empty `notes` field, so the
+          # in-app updater's "what's new" prompt would be blank. Populate it from
+          # this version's CHANGELOG section. `notes` is NOT part of the signed
+          # updater payload (per-platform signatures cover the bundles only), so
+          # editing + re-uploading latest.json here is safe.
+          set -euo pipefail
+          version="${TAG#v}"
+          # Extract this version's CHANGELOG section (between its heading and the
+          # next `## [`), trimming leading/trailing blank lines. Pure awk so it's
+          # portable across GNU/BSD.
+          notes=$(awk -v v="$version" '
+            index($0, "## [" v "]") == 1 { f = 1; next }
+            /^## \[/ { f = 0 }
+            f { buf = buf $0 "\n" }
+            END { gsub(/^\n+/, "", buf); gsub(/\n+$/, "\n", buf); printf "%s", buf }
+          ' CHANGELOG.md)
+          if [ -z "$notes" ]; then
+            echo "No CHANGELOG section for $version — leaving updater notes empty."
+          else
+            gh release download "$TAG" --pattern latest.json --output latest.json --clobber
+            jq --arg n "$notes" '.notes = $n' latest.json > latest.json.tmp
+            mv latest.json.tmp latest.json
+            gh release upload "$TAG" latest.json --clobber
+            echo "Injected updater notes ($(printf '%s' "$notes" | wc -l | tr -d ' ') lines) into latest.json."
+          fi
+
       - name: Promote draft to published
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
