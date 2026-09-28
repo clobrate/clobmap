@@ -24,6 +24,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     `.clobmap.yaml` can never read files elsewhere on your disk.
   - **Lifecycle:** deleting a node archives its note file as a hidden
     `.Deleted-…` (never a hard delete); renames keep the link.
+  - **External edits reflect back:** edit a note file in another app (VS Code,
+    etc.) and clobmap re-reads it — live via a watcher on the folder and
+    whenever the window regains focus. In-progress edits in clobmap are never
+    clobbered.
   - Web / iOS can't write local files, so folder notes are read-only there and
     the mode stays inline.
   - `.clobmap.yaml` format is unchanged; inline mode remains fully supported.

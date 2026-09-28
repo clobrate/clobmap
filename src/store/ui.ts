@@ -28,6 +28,9 @@ export interface UIState {
   noteStorage: NoteStorageMode;
   /** Doc-relative subfolder for folder-mode notes. */
   notesFolder: string;
+  /** Bumped when a note file may have changed on disk (external edit / focus);
+   * open note surfaces re-read from disk when it changes. */
+  notesReloadToken: number;
   splitOrientation: SplitOrientation;
   splitRatio: number;
   autoSave: boolean;
@@ -70,6 +73,7 @@ export interface UIState {
   setNoteletsPageId: (id: string | null) => void;
   setNoteStorage: (mode: NoteStorageMode) => void;
   setNotesFolder: (folder: string) => void;
+  bumpNotesReloadToken: () => void;
   setSplitOrientation: (o: SplitOrientation) => void;
   toggleSplitOrientation: () => void;
   setSplitRatio: (ratio: number) => void;
@@ -105,6 +109,7 @@ export const useUIStore = create<UIState>((set) => ({
   noteletsPageId: null,
   noteStorage: "inline",
   notesFolder: DEFAULT_NOTES_FOLDER,
+  notesReloadToken: 0,
   splitOrientation: "horizontal",
   splitRatio: 0.5,
   autoSave: true,
@@ -139,6 +144,7 @@ export const useUIStore = create<UIState>((set) => ({
   setNoteletsPageId: (id) => set({ noteletsPageId: id }),
   setNoteStorage: (mode) => set({ noteStorage: mode }),
   setNotesFolder: (folder) => set({ notesFolder: folder }),
+  bumpNotesReloadToken: () => set((s) => ({ notesReloadToken: s.notesReloadToken + 1 })),
   setSplitOrientation: (o) => set({ splitOrientation: o }),
   toggleSplitOrientation: () =>
     set((s) => ({
