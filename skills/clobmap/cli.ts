@@ -20,6 +20,9 @@
  *   clobmap layout <file> --auto|--manual
  *   clobmap pos-set <file> <ref> --x N --y N   |   pos-clear <file> [<ref>]
  *   clobmap edge-side <file> <ref> [--from side] [--to side]
+ *   clobmap export-notes <file> [--out PATH]
+ *   clobmap find <file> [--text q] [--tag t] [--color c]
+ *   clobmap apply <file> --ops <ops.json>   (atomic JSON op-list batch)
  * Global flags: --dry-run (preview a diff, no write), --json (machine output).
  */
 import { promises as fsp } from "node:fs";
@@ -43,24 +46,19 @@ import {
   tagDelete,
   moveTagNode,
   moveTagSibling,
-  findTagById,
   setLayoutMode,
   clearAllPositions,
   type IdGenerator,
 } from "../../src/model";
-import type { HandleSide, MindDocument, TagNode } from "../../src/model/types";
+import type { HandleSide, MindDocument } from "../../src/model/types";
 import { coerceNotesFolder, DEFAULT_NOTES_FOLDER } from "../../src/lib/notesFolder";
 import { loadDoc, serialize, atomicWrite } from "./core";
 import { resolveNodeId } from "./addressing";
 import { outline, lineDiff } from "./format";
-import {
-  readNote,
-  writeNote,
-  inferMode,
-  joinAppend,
-  joinPrepend,
-  type NoteStorageMode,
-} from "./notes-fs";
+import { readNote, writeNote, joinAppend, joinPrepend } from "./notes-fs";
+import { req, resolveMode, resolveTagId, tagList, asSide, asNum } from "./helpers";
+import { exportNotes, findNodes } from "./export";
+import { applyOps, type Op } from "./batch";
 
 export interface RunResult {
   code: number;
@@ -90,55 +88,14 @@ const OPTIONS = {
   y: { type: "string" },
   auto: { type: "boolean" },
   manual: { type: "boolean" },
+  ops: { type: "string" },
+  out: { type: "string" },
+  tag: { type: "string" },
   "notes-mode": { type: "string" },
   "notes-folder": { type: "string" },
   "dry-run": { type: "boolean" },
   json: { type: "boolean" },
 } as const;
-
-function resolveMode(flag: string | undefined, tree: MindDocument, folder: string): NoteStorageMode {
-  if (flag === "inline" || flag === "folder") return flag;
-  if (flag !== undefined) throw new Error("--notes-mode must be 'inline' or 'folder'");
-  return inferMode(tree, folder);
-}
-
-/** Resolve a tag reference (tag-node id | name) to a tag-node id. */
-function resolveTagId(tree: MindDocument, ref: string): string {
-  if (!tree.tagRoot) throw new Error("This document has no tags.");
-  if (findTagById(tree, ref)) return ref;
-  const matches: string[] = [];
-  const walk = (t: TagNode, isRoot: boolean): void => {
-    if (!isRoot && t.name.toLowerCase() === ref.toLowerCase()) matches.push(t.id);
-    for (const c of t.children) walk(c, false);
-  };
-  walk(tree.tagRoot, true);
-  if (matches.length === 1) return matches[0]!;
-  if (matches.length > 1) throw new Error(`Ambiguous tag "${ref}" — ${matches.length} match; use a tag id.`);
-  throw new Error(`Tag not found: "${ref}".`);
-}
-
-function tagList(v: string | undefined): string[] {
-  return (v ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-const SIDES: readonly HandleSide[] = ["top", "right", "bottom", "left"];
-function asSide(v: string, flag: string): HandleSide {
-  if ((SIDES as readonly string[]).includes(v)) return v as HandleSide;
-  throw new Error(`${flag} must be one of: ${SIDES.join(", ")}`);
-}
-function asNum(v: string, flag: string): number {
-  const n = Number(v);
-  if (!Number.isFinite(n)) throw new Error(`${flag} must be a number`);
-  return n;
-}
-
-function req<T>(v: T | undefined, msg: string): T {
-  if (v === undefined || v === null || v === "") throw new Error(msg);
-  return v;
-}
 
 async function fileExists(path: string): Promise<boolean> {
   return fsp.access(path).then(
@@ -543,6 +500,45 @@ export async function run(argv: string[]): Promise<RunResult> {
         return done(r.affected, r.before, r.text, "Reordered tag");
       }
 
+      case "export-notes": {
+        const live = await loadDoc(req(file, "Usage: export-notes <file> [--out PATH]")!);
+        const md = await exportNotes(live.tree, file!);
+        if (values.out !== undefined) {
+          if (!dryRun) await atomicWrite(values.out, md);
+          return {
+            code: 0,
+            out: json ? JSON.stringify({ ok: true, out: values.out }) : `Wrote ${values.out}`,
+            err: "",
+          };
+        }
+        return { code: 0, out: md, err: "" };
+      }
+
+      case "find": {
+        const live = await loadDoc(req(file, "Usage: find <file> [--text q] [--tag t] [--color c]")!);
+        if (values.text === undefined && values.tag === undefined && values.color === undefined) {
+          throw new Error("at least one of --text, --tag, --color is required");
+        }
+        const matches = findNodes(live.tree, {
+          text: values.text,
+          tag: values.tag,
+          color: values.color,
+        });
+        if (json) return { code: 0, out: JSON.stringify({ matches }), err: "" };
+        return { code: 0, out: matches.map((m) => `${m.text} [${m.id}]`).join("\n"), err: "" };
+      }
+
+      case "apply": {
+        req(file, "Usage: apply <file> --ops <ops.json>");
+        const opsPath = req(values.ops, "--ops <path> is required");
+        const ops = JSON.parse(await fsp.readFile(opsPath, "utf8")) as Op[];
+        const r = await edit(file!, dryRun, (tree, ids) =>
+          applyOps(tree, ids, ops, { file: file!, dryRun }),
+        );
+        const n = Array.isArray(ops) ? ops.length : 0;
+        return done(r.affected, r.before, r.text, `Applied ${n} op${n === 1 ? "" : "s"}`);
+      }
+
       default:
         return { code: 1, out: "", err: `Unknown command: ${command}\n${usage()}` };
     }
@@ -590,6 +586,9 @@ function usage(): string {
     "  tag-delete <file> <name>\n" +
     "  tag-move <file> <tag> [--under <parent>]\n" +
     "  tag-reorder <file> <tag> --up|--down\n" +
+    "  export-notes <file> [--out PATH]\n" +
+    "  find <file> [--text q] [--tag t] [--color c]\n" +
+    "  apply <file> --ops <ops.json>  (JSON array of ops, applied atomically)\n" +
     "  (refs: node id | title | 'A › B › C' path; tags: name | tag id)  flags: --dry-run --json"
   );
 }
