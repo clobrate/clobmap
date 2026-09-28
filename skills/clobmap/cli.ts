@@ -15,6 +15,11 @@
  *   clobmap move <file> <ref> --to <ref> [--index N]
  *   clobmap reorder <file> <ref> --up|--down
  *   clobmap collapse <file> <ref> --on|--off
+ *   clobmap color-set <file> <ref> --color V   |   color-clear <file> <ref>
+ *   clobmap size <file> <ref> [--max-width N] [--max-height N]
+ *   clobmap layout <file> --auto|--manual
+ *   clobmap pos-set <file> <ref> --x N --y N   |   pos-clear <file> [<ref>]
+ *   clobmap edge-side <file> <ref> [--from side] [--to side]
  * Global flags: --dry-run (preview a diff, no write), --json (machine output).
  */
 import { promises as fsp } from "node:fs";
@@ -39,9 +44,11 @@ import {
   moveTagNode,
   moveTagSibling,
   findTagById,
+  setLayoutMode,
+  clearAllPositions,
   type IdGenerator,
 } from "../../src/model";
-import type { MindDocument, TagNode } from "../../src/model/types";
+import type { HandleSide, MindDocument, TagNode } from "../../src/model/types";
 import { coerceNotesFolder, DEFAULT_NOTES_FOLDER } from "../../src/lib/notesFolder";
 import { loadDoc, serialize, atomicWrite } from "./core";
 import { resolveNodeId } from "./addressing";
@@ -76,6 +83,13 @@ const OPTIONS = {
   from: { type: "string" },
   tags: { type: "string" },
   under: { type: "string" },
+  color: { type: "string" },
+  "max-width": { type: "string" },
+  "max-height": { type: "string" },
+  x: { type: "string" },
+  y: { type: "string" },
+  auto: { type: "boolean" },
+  manual: { type: "boolean" },
   "notes-mode": { type: "string" },
   "notes-folder": { type: "string" },
   "dry-run": { type: "boolean" },
@@ -108,6 +122,17 @@ function tagList(v: string | undefined): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+const SIDES: readonly HandleSide[] = ["top", "right", "bottom", "left"];
+function asSide(v: string, flag: string): HandleSide {
+  if ((SIDES as readonly string[]).includes(v)) return v as HandleSide;
+  throw new Error(`${flag} must be one of: ${SIDES.join(", ")}`);
+}
+function asNum(v: string, flag: string): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) throw new Error(`${flag} must be a number`);
+  return n;
 }
 
 function req<T>(v: T | undefined, msg: string): T {
@@ -146,8 +171,23 @@ export async function run(argv: string[]): Promise<RunResult> {
   const wantsJson = argv.includes("--json");
   try {
     const command = argv[0];
+    // parseArgs treats `--y -40` as ambiguous; join numeric flags with a
+    // negative value into `--y=-40` so negative coordinates/sizes just work.
+    const numFlags = new Set(["--x", "--y", "--max-width", "--max-height"]);
+    const rawArgs = argv.slice(1);
+    const normArgs: string[] = [];
+    for (let i = 0; i < rawArgs.length; i += 1) {
+      const a = rawArgs[i]!;
+      const nextArg = rawArgs[i + 1];
+      if (numFlags.has(a) && nextArg !== undefined && /^-\d/.test(nextArg)) {
+        normArgs.push(`${a}=${nextArg}`);
+        i += 1;
+      } else {
+        normArgs.push(a);
+      }
+    }
     const { values, positionals } = parseArgs({
-      args: argv.slice(1),
+      args: normArgs,
       allowPositionals: true,
       options: OPTIONS,
     });
@@ -294,6 +334,97 @@ export async function run(argv: string[]): Promise<RunResult> {
           return { doc: updateNode(tree, id, { collapsed }), affected: [id] };
         });
         return done(r.affected, r.before, r.text, collapsed ? "Collapsed" : "Expanded");
+      }
+
+      case "color-set": {
+        req(file, "Usage: color-set <file> <ref> --color <value>");
+        req(ref, "<ref> is required");
+        const color = req(values.color, "--color <value> is required (e.g. #f59e0b)");
+        const r = await edit(file!, dryRun, (tree) => {
+          const id = resolveNodeId(tree, ref!);
+          return { doc: updateNode(tree, id, { color }), affected: [id] };
+        });
+        return done(r.affected, r.before, r.text, "Set color");
+      }
+
+      case "color-clear": {
+        req(file, "Usage: color-clear <file> <ref>");
+        req(ref, "<ref> is required");
+        const r = await edit(file!, dryRun, (tree) => {
+          const id = resolveNodeId(tree, ref!);
+          return { doc: updateNode(tree, id, { color: "" }), affected: [id] };
+        });
+        return done(r.affected, r.before, r.text, "Cleared color");
+      }
+
+      case "size": {
+        req(file, "Usage: size <file> <ref> [--max-width N] [--max-height N] (0 clears)");
+        req(ref, "<ref> is required");
+        if (values["max-width"] === undefined && values["max-height"] === undefined) {
+          throw new Error("--max-width and/or --max-height is required (use 0 to clear)");
+        }
+        const r = await edit(file!, dryRun, (tree) => {
+          const id = resolveNodeId(tree, ref!);
+          const patch: { maxWidth?: number; maxHeight?: number } = {};
+          if (values["max-width"] !== undefined) patch.maxWidth = asNum(values["max-width"], "--max-width");
+          if (values["max-height"] !== undefined) patch.maxHeight = asNum(values["max-height"], "--max-height");
+          return { doc: updateNode(tree, id, patch), affected: [id] };
+        });
+        return done(r.affected, r.before, r.text, "Set size");
+      }
+
+      case "layout": {
+        req(file, "Usage: layout <file> --auto|--manual");
+        if (!values.auto && !values.manual) throw new Error("--auto or --manual is required");
+        const mode = values.manual ? "manual" : "auto";
+        const r = await edit(file!, dryRun, (tree) => ({
+          doc: setLayoutMode(tree, mode),
+          affected: ["document"],
+        }));
+        return done(r.affected, r.before, r.text, `Layout → ${mode}`);
+      }
+
+      case "pos-set": {
+        req(file, "Usage: pos-set <file> <ref> --x N --y N");
+        req(ref, "<ref> is required");
+        const x = asNum(req(values.x, "--x N is required"), "--x");
+        const y = asNum(req(values.y, "--y N is required"), "--y");
+        const r = await edit(file!, dryRun, (tree) => {
+          const id = resolveNodeId(tree, ref!);
+          // Positions only render in manual layout — switch so the move takes effect.
+          const manual = setLayoutMode(tree, "manual");
+          return { doc: updateNode(manual, id, { position: { x, y } }), affected: [id] };
+        });
+        return done(r.affected, r.before, r.text, "Set position");
+      }
+
+      case "pos-clear": {
+        req(file, "Usage: pos-clear <file> [<ref>]  (no ref clears every node)");
+        const r = await edit(file!, dryRun, (tree) => {
+          if (ref) {
+            const id = resolveNodeId(tree, ref);
+            return { doc: updateNode(tree, id, { position: undefined }), affected: [id] };
+          }
+          return { doc: clearAllPositions(tree), affected: ["document"] };
+        });
+        return done(r.affected, r.before, r.text, "Cleared position");
+      }
+
+      case "edge-side": {
+        req(file, "Usage: edge-side <file> <ref> [--from side] [--to side]");
+        req(ref, "<ref> is required");
+        if (values.from === undefined && values.to === undefined) {
+          throw new Error("--from and/or --to is required (top|right|bottom|left)");
+        }
+        const r = await edit(file!, dryRun, (tree) => {
+          const id = resolveNodeId(tree, ref!);
+          const patch: { edgeFrom?: HandleSide; edgeTo?: HandleSide } = {};
+          if (values.from !== undefined) patch.edgeFrom = asSide(values.from, "--from");
+          if (values.to !== undefined) patch.edgeTo = asSide(values.to, "--to");
+          // Edge sides only render in manual layout — switch so they take effect.
+          return { doc: updateNode(setLayoutMode(tree, "manual"), id, patch), affected: [id] };
+        });
+        return done(r.affected, r.before, r.text, "Set edge sides");
       }
 
       case "note-get": {
@@ -443,6 +574,13 @@ function usage(): string {
     "  move <file> <ref> --to <ref> [--index N]\n" +
     "  reorder <file> <ref> --up|--down\n" +
     "  collapse <file> <ref> --on|--off\n" +
+    "  color-set <file> <ref> --color <value>\n" +
+    "  color-clear <file> <ref>\n" +
+    "  size <file> <ref> [--max-width N] [--max-height N]  (0 clears)\n" +
+    "  layout <file> --auto|--manual\n" +
+    "  pos-set <file> <ref> --x N --y N\n" +
+    "  pos-clear <file> [<ref>]  (no ref clears every node)\n" +
+    "  edge-side <file> <ref> [--from side] [--to side]  (top|right|bottom|left)\n" +
     "  note-get <file> <ref>\n" +
     "  note-set|note-append|note-prepend <file> <ref> --text T | --from PATH\n" +
     "  note-clear <file> <ref>\n" +
