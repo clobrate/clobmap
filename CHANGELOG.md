@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-09-27
+
 ### Added
 
 - **Desktop "notes folder" storage.** On desktop, each node's notes can live as
