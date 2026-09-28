@@ -19,7 +19,7 @@ export default defineConfig({
       // exercised through other channels (DOM event integration tests
       // we don't yet have) are excluded — they need a jsdom +
       // @testing-library/react setup that's its own project.
-      include: ["src/model/**/*.ts", "src/lib/**/*.ts", "src/store/**/*.ts"],
+      include: ["src/model/**/*.ts", "src/lib/**/*.ts", "src/store/**/*.ts", "skills/**/*.ts"],
       exclude: [
         "src/**/*.test.{ts,tsx}",
         "src/**/__tests__/**",
