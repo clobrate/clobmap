@@ -30,6 +30,10 @@ export function NoteletsPage({
   const { node, depth } = page;
   const docPath = useDocumentStore((s) => s.currentFilePath);
   const setSelected = useUIStore((s) => s.setSelected);
+  // Re-reads on this token so a folder-mode note (whose YAML value is a stable
+  // path) refreshes after an in-app edit or an external change — not just when
+  // the path string itself changes.
+  const notesReloadToken = useUIStore((s) => s.notesReloadToken);
   const [loaded, setLoaded] = useState<LoadedNotes | null>(null);
 
   useEffect(() => {
@@ -40,7 +44,7 @@ export function NoteletsPage({
     return () => {
       cancelled = true;
     };
-  }, [node.notes, docPath]);
+  }, [node.notes, docPath, notesReloadToken]);
 
   const { html, onLinkClick } = useMarkdownHtml(loaded?.content ?? "");
   const hasNotes = (loaded?.content ?? "").trim().length > 0;

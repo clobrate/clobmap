@@ -126,6 +126,10 @@ export function useNodeNotes(nodeId: string): UseNodeNotes {
       applyTreeChange(next);
       setSavedContent(snapshot);
       setAutoSavedAt(Date.now());
+      // In folder mode the YAML field is a path that doesn't change between
+      // edits, so surfaces that render the note from its file (the Notelets
+      // page) wouldn't otherwise know to re-read. Signal them.
+      useUIStore.getState().bumpNotesReloadToken();
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

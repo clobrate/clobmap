@@ -279,6 +279,21 @@ describe("useNodeNotes", () => {
     });
   });
 
+  describe("save signals a reload (so file-backed page displays refresh)", () => {
+    it("bumps notesReloadToken after a successful save", async () => {
+      env.tauri = true;
+      seedStore("");
+      const before = useUIStore.getState().notesReloadToken;
+      const { result } = renderHook(() => useNodeNotes(NODE_ID));
+      await waitFor(() => expect(result.current.hasLoaded).toBe(true));
+      act(() => result.current.setContent("edited"));
+      await act(async () => {
+        await result.current.save();
+      });
+      expect(useUIStore.getState().notesReloadToken).toBe(before + 1);
+    });
+  });
+
   describe("external reload (folder-mode note edited elsewhere)", () => {
     // A file-backed (path-ref) note whose disk content changes out from under us.
     const asPathRef = (content: string) =>
