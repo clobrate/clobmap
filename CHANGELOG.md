@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-28
+
 ### Added
 
 - **clobmap skill — a headless CLI toolkit** (`skills/clobmap/`) for creating and
