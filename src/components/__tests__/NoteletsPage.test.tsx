@@ -201,4 +201,22 @@ describe("NoteletsPage", () => {
       expect(useUIStore.getState().tagEditorNodeId).toBe("n7");
     });
   });
+
+  describe("node color", () => {
+    it("shows a colored left accent bar when the node has a color", () => {
+      const { container } = render(
+        <NoteletsPage page={page({ id: "n1", text: "Venue", color: "#14b8a6" })} />,
+      );
+      const section = container.querySelector('[data-page-id="n1"]') as HTMLElement;
+      expect(section.style.borderLeftColor).toBeTruthy();
+      expect(section.className).toContain("border-l-");
+    });
+
+    it("has no accent bar for an uncolored node", () => {
+      const { container } = render(<NoteletsPage page={page({ id: "n1", text: "Venue" })} />);
+      const section = container.querySelector('[data-page-id="n1"]') as HTMLElement;
+      expect(section.style.borderLeftColor).toBe("");
+      expect(section.className).not.toContain("border-l-");
+    });
+  });
 });

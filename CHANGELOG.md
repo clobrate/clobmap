@@ -31,10 +31,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - Web / iOS can't write local files, so folder notes are read-only there and
     the mode stays inline.
   - `.clobmap.yaml` format is unchanged; inline mode remains fully supported.
-- **Tags on Notelets pages + export.** Each Notelets page now shows a
+- **Tags + color on Notelets pages + export.** Each Notelets page now shows a
   `tags: …` line under its title (`tags: <none>` when empty); clicking it opens
-  the tag editor to add/remove tags. The **All notes (Markdown)** export also
-  writes a `tags:` line under each node's heading.
+  the tag editor to add/remove tags. A node's **color** shows as a colored left
+  accent bar on its page (mirroring the mind-map). The **All notes (Markdown)**
+  export writes a `tags:` line under each node's heading, plus a `color: #rrggbb`
+  line when the node has a color.
 
 ## [2.0.2] - 2026-09-26
 

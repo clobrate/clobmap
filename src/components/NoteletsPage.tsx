@@ -72,7 +72,13 @@ export function NoteletsPage({
   return (
     <section
       data-page-id={node.id}
-      className="scroll-mt-4 border-b border-neutral-100 py-4 last:border-0 dark:border-neutral-800/60"
+      className={
+        "scroll-mt-4 border-b border-neutral-100 py-4 last:border-0 dark:border-neutral-800/60" +
+        // A colored left accent bar mirrors the node's color in the mind-map
+        // (where color is the node border). Uncolored pages stay flush.
+        (node.color ? " border-l-[3px] pl-3" : "")
+      }
+      style={node.color ? { borderLeftColor: node.color } : undefined}
     >
       <h2
         className="font-semibold text-neutral-900 dark:text-neutral-100"
