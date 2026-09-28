@@ -10,7 +10,7 @@ export default defineConfig({
     // jsdom per file via `// @vitest-environment jsdom`.
     environment: "node",
     setupFiles: ["src/test-setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "skills/**/*.test.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
@@ -19,7 +19,7 @@ export default defineConfig({
       // exercised through other channels (DOM event integration tests
       // we don't yet have) are excluded — they need a jsdom +
       // @testing-library/react setup that's its own project.
-      include: ["src/model/**/*.ts", "src/lib/**/*.ts", "src/store/**/*.ts"],
+      include: ["src/model/**/*.ts", "src/lib/**/*.ts", "src/store/**/*.ts", "skills/**/*.ts"],
       exclude: [
         "src/**/*.test.{ts,tsx}",
         "src/**/__tests__/**",
@@ -59,6 +59,14 @@ export default defineConfig({
         functions: 90,
         branches: 90,
         statements: 90,
+        // The clobmap skill is held to the same bar on its own, not just as
+        // part of the overall aggregate.
+        "skills/**/*.ts": {
+          lines: 90,
+          functions: 90,
+          branches: 90,
+          statements: 90,
+        },
       },
     },
   },
