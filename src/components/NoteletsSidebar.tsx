@@ -5,12 +5,14 @@ import {
   addChild,
   addSibling,
   deleteNode,
+  findById,
   idGeneratorForDocument,
   moveNode,
   moveSibling,
   OpError,
   updateText,
 } from "../model";
+import { archiveNoteOnDelete } from "../lib/fileActions";
 import {
   dropPlan,
   nextPageId,
@@ -96,6 +98,7 @@ export function NoteletsSidebar({
     const idx = pages.findIndex((p) => p.node.id === id);
     const neighbor = pages[idx - 1]?.node.id ?? pages[idx + 1]?.node.id ?? null;
     try {
+      void archiveNoteOnDelete(findById(parsedDoc, id));
       applyTreeChange(deleteNode(parsedDoc, id));
       setSelected(neighbor);
     } catch (err) {

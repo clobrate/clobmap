@@ -51,6 +51,35 @@ fn open_log_folder() -> Result<(), String> {
     Err("Not available on this platform".into())
 }
 
+/// The notes trust boundary: true iff `child` resolves to a path INSIDE `dir`,
+/// with symlinks canonicalized on both sides. `child` may not exist yet (a
+/// to-be-written note file) — in that case we canonicalize its parent and
+/// re-append the final component. Used to guarantee clobmap never reads or
+/// writes a note file outside the document's own folder.
+#[tauri::command]
+fn path_is_within(child: String, dir: String) -> bool {
+    use std::path::Path;
+    let dir_c = match std::fs::canonicalize(Path::new(&dir)) {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    let child_path = Path::new(&child);
+    let child_c = match std::fs::canonicalize(child_path) {
+        Ok(p) => p,
+        Err(_) => match child_path
+            .parent()
+            .and_then(|p| std::fs::canonicalize(p).ok())
+        {
+            Some(parent) => match child_path.file_name() {
+                Some(name) => parent.join(name),
+                None => return false,
+            },
+            None => return false,
+        },
+    };
+    child_c.starts_with(&dir_c)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
@@ -89,7 +118,12 @@ pub fn run() {
 
     let context = tauri::generate_context!();
     let app = builder
-        .invoke_handler(tauri::generate_handler![ping, pending_open_path, open_log_folder])
+        .invoke_handler(tauri::generate_handler![
+            ping,
+            pending_open_path,
+            open_log_folder,
+            path_is_within
+        ])
         .build(context)
         .expect("error while building tauri application");
 

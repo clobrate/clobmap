@@ -23,6 +23,7 @@ vi.mock("../notes", async () => {
 
 import { useNodeNotes } from "../useNodeNotes";
 import { useDocumentStore } from "../../store/document";
+import { useUIStore } from "../../store/ui";
 import type { MindDocument } from "../../model";
 
 const NODE_ID = "n1";
@@ -128,7 +129,10 @@ describe("useNodeNotes", () => {
       });
 
       expect(ok).toBe(true);
-      expect(mockSave).toHaveBeenCalledWith("new body", "", null, NODE_ID, NODE_TEXT);
+      expect(mockSave).toHaveBeenCalledWith("new body", "", null, NODE_ID, NODE_TEXT, {
+        noteStorage: "inline",
+        notesFolder: "notelets",
+      });
       // Tree updated in the document store.
       expect(useDocumentStore.getState().parsedDoc?.root.notes).toBe("new body");
       expect(result.current.isDirty).toBe(false);
@@ -272,6 +276,87 @@ describe("useNodeNotes", () => {
       await waitFor(() => expect(result.current.hasLoaded).toBe(true));
       act(() => result.current.setContent("x".repeat(2000)));
       expect(result.current.overLimit).toBe(false);
+    });
+  });
+
+  describe("save signals a reload (so file-backed page displays refresh)", () => {
+    it("bumps notesReloadToken after a successful save", async () => {
+      env.tauri = true;
+      seedStore("");
+      const before = useUIStore.getState().notesReloadToken;
+      const { result } = renderHook(() => useNodeNotes(NODE_ID));
+      await waitFor(() => expect(result.current.hasLoaded).toBe(true));
+      act(() => result.current.setContent("edited"));
+      await act(async () => {
+        await result.current.save();
+      });
+      expect(useUIStore.getState().notesReloadToken).toBe(before + 1);
+    });
+  });
+
+  describe("external reload (folder-mode note edited elsewhere)", () => {
+    // A file-backed (path-ref) note whose disk content changes out from under us.
+    const asPathRef = (content: string) =>
+      mockLoad.mockImplementation(async () => ({
+        content,
+        isPathRef: true,
+        resolvedPath: "/tmp/proj/notelets/n1-Root.md",
+        readOnly: false,
+      }));
+
+    it("re-reads a clean file-backed note when the reload token bumps", async () => {
+      env.tauri = true;
+      asPathRef("from disk v1");
+      seedStore("./notelets/n1-Root.md");
+      const { result } = renderHook(() => useNodeNotes(NODE_ID));
+      await waitFor(() => expect(result.current.content).toBe("from disk v1"));
+
+      // External editor changes the file; signal a reload.
+      asPathRef("from disk v2");
+      act(() => useUIStore.getState().bumpNotesReloadToken());
+      await waitFor(() => expect(result.current.content).toBe("from disk v2"));
+      expect(result.current.isDirty).toBe(false);
+    });
+
+    it("does NOT clobber an in-progress edit on reload", async () => {
+      env.tauri = true;
+      asPathRef("from disk v1");
+      seedStore("./notelets/n1-Root.md");
+      const { result } = renderHook(() => useNodeNotes(NODE_ID));
+      await waitFor(() => expect(result.current.content).toBe("from disk v1"));
+
+      // User is mid-edit (dirty) when an external change arrives.
+      act(() => result.current.setContent("my unsaved edit"));
+      asPathRef("from disk v2");
+      act(() => useUIStore.getState().bumpNotesReloadToken());
+      await Promise.resolve();
+      expect(result.current.content).toBe("my unsaved edit");
+    });
+
+    it("re-reads but stays clean when the file content is unchanged", async () => {
+      env.tauri = true;
+      asPathRef("same content");
+      seedStore("./notelets/n1-Root.md");
+      const { result } = renderHook(() => useNodeNotes(NODE_ID));
+      await waitFor(() => expect(result.current.content).toBe("same content"));
+      // File didn't actually change → reload is a no-op, no dirtiness/flicker.
+      act(() => useUIStore.getState().bumpNotesReloadToken());
+      await Promise.resolve();
+      expect(result.current.content).toBe("same content");
+      expect(result.current.isDirty).toBe(false);
+    });
+
+    it("ignores the reload signal for inline notes", async () => {
+      env.tauri = true;
+      seedStore("inline note"); // default mockLoad → isPathRef: false
+      const { result } = renderHook(() => useNodeNotes(NODE_ID));
+      await waitFor(() => expect(result.current.hasLoaded).toBe(true));
+      const calls = mockLoad.mock.calls.length;
+      act(() => useUIStore.getState().bumpNotesReloadToken());
+      await Promise.resolve();
+      // No extra read for an inline (non-path-ref) note.
+      expect(mockLoad.mock.calls.length).toBe(calls);
+      expect(result.current.content).toBe("inline note");
     });
   });
 });

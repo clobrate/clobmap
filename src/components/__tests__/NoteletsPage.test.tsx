@@ -178,4 +178,49 @@ describe("NoteletsPage", () => {
       expect(onEdit).not.toHaveBeenCalled();
     });
   });
+
+  describe("tags line", () => {
+    it("shows 'tags: <none>' when the node has no tags", () => {
+      render(<NoteletsPage page={page({ id: "n1", text: "Venue" })} />);
+      expect(screen.getByRole("button", { name: /Edit tags: Venue/ })).toHaveTextContent(
+        "tags: <none>",
+      );
+    });
+
+    it("lists the node's tags comma-separated", () => {
+      render(<NoteletsPage page={page({ id: "n1", text: "Venue", tags: ["work", "urgent"] })} />);
+      expect(screen.getByRole("button", { name: /Edit tags: Venue/ })).toHaveTextContent(
+        "tags: work, urgent",
+      );
+    });
+
+    it("opens the shared tag editor for this node when clicked", async () => {
+      useUIStore.setState({ tagEditorNodeId: null });
+      render(<NoteletsPage page={page({ id: "n7", text: "Venue" })} />);
+      await userEvent.click(screen.getByRole("button", { name: /Edit tags: Venue/ }));
+      expect(useUIStore.getState().tagEditorNodeId).toBe("n7");
+    });
+  });
+
+  describe("node color", () => {
+    it("shows a colored left accent bar when the node has a color", () => {
+      const { container } = render(
+        <NoteletsPage page={page({ id: "n1", text: "Venue", color: "#14b8a6" })} />,
+      );
+      const section = container.querySelector('[data-page-id="n1"]') as HTMLElement;
+      expect(section.style.borderLeftColor).toBeTruthy();
+      expect(section.className).toContain("border-l-");
+      // The last-page override must only drop the bottom border, else it would
+      // zero the left color bar too (which is the only section in page mode).
+      expect(section.className).toContain("last:border-b-0");
+      expect(section.className).not.toContain("last:border-0");
+    });
+
+    it("has no accent bar for an uncolored node", () => {
+      const { container } = render(<NoteletsPage page={page({ id: "n1", text: "Venue" })} />);
+      const section = container.querySelector('[data-page-id="n1"]') as HTMLElement;
+      expect(section.style.borderLeftColor).toBe("");
+      expect(section.className).not.toContain("border-l-");
+    });
+  });
 });

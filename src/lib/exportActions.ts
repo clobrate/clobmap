@@ -239,7 +239,9 @@ export async function exportAllNotes(): Promise<void> {
       body = demoteHeadings(loaded.content.trim());
     }
     if (!body) body = "__ no notes found __";
-    sections.push(`# ${node.text} (${node.id})\n\n${body}\n`);
+    const tagsLine = `tags: ${node.tags && node.tags.length > 0 ? node.tags.join(", ") : "<none>"}`;
+    const colorLine = node.color ? `\ncolor: ${node.color}` : "";
+    sections.push(`# ${node.text} (${node.id})\n\n${tagsLine}${colorLine}\n\n${body}\n`);
   }
 
   await saveText(sections.join("\n"), suggestedFilename(`notes.${timestampForFilename()}.md`));

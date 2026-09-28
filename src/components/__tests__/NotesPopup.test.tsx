@@ -293,7 +293,10 @@ describe("NotesPopup", () => {
       await waitFor(() => {
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       });
-      expect(mockSave).toHaveBeenCalledWith("manual save", "", null, NODE_ID, NODE_TEXT);
+      expect(mockSave).toHaveBeenCalledWith("manual save", "", null, NODE_ID, NODE_TEXT, {
+        noteStorage: "inline",
+        notesFolder: "notelets",
+      });
     });
 
     it("backdrop click closes a clean popup", async () => {

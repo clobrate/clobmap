@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDocumentStore } from "../store/document";
+import { useUIStore } from "../store/ui";
 import { findById, updateNode } from "../model";
 import { loadNotes, NOTES_INLINE_LIMIT, saveNotes, type LoadedNotes } from "./notes";
 import { isMobile, isTauri } from "./env";
@@ -43,6 +44,9 @@ export function useNodeNotes(nodeId: string): UseNodeNotes {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
   const currentFilePath = useDocumentStore((s) => s.currentFilePath);
   const applyTreeChange = useDocumentStore((s) => s.applyTreeChange);
+  const noteStorage = useUIStore((s) => s.noteStorage);
+  const notesFolder = useUIStore((s) => s.notesFolder);
+  const notesReloadToken = useUIStore((s) => s.notesReloadToken);
   const node = parsedDoc ? findById(parsedDoc, nodeId) : null;
 
   const [content, setContent] = useState<string>("");
@@ -74,6 +78,32 @@ export function useNodeNotes(nodeId: string): UseNodeNotes {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-read from disk when an external change is signaled (a folder-mode note
+  // edited in another app, or the window regaining focus). Guarded so it never
+  // clobbers an in-progress edit: only file-backed notes, only when clean.
+  useEffect(() => {
+    if (!hasLoaded || saving) return;
+    if (!loaded?.isPathRef) return; // inline notes can't change under us
+    if (content !== savedContent) return; // dirty — don't stomp the user's edit
+    let cancelled = false;
+    void (async () => {
+      const result = await loadNotes(node?.notes, currentFilePath);
+      if (cancelled) return;
+      // Re-check dirtiness after the async read; apply only if still clean and
+      // the content actually differs.
+      if (content !== savedContent) return;
+      if (result.content === savedContent) return;
+      setLoaded(result);
+      setContent(result.content);
+      setSavedContent(result.content);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Fire on the external-change signal only; other values are read fresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notesReloadToken]);
+
   const readOnly = loaded?.readOnly ?? false;
   // Browser/iOS limit. Desktop's "limit" is just the auto-extract threshold.
   const isWebOrMobile = !isTauri() || isMobile();
@@ -88,11 +118,18 @@ export function useNodeNotes(nodeId: string): UseNodeNotes {
     setError(null);
     setSaving(true);
     try {
-      const result = await saveNotes(snapshot, node.notes, currentFilePath, nodeId, node.text);
+      const result = await saveNotes(snapshot, node.notes, currentFilePath, nodeId, node.text, {
+        noteStorage,
+        notesFolder,
+      });
       const next = updateNode(parsedDoc, nodeId, { notes: result.fieldValue });
       applyTreeChange(next);
       setSavedContent(snapshot);
       setAutoSavedAt(Date.now());
+      // In folder mode the YAML field is a path that doesn't change between
+      // edits, so surfaces that render the note from its file (the Notelets
+      // page) wouldn't otherwise know to re-read. Signal them.
+      useUIStore.getState().bumpNotesReloadToken();
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -100,7 +137,18 @@ export function useNodeNotes(nodeId: string): UseNodeNotes {
     } finally {
       setSaving(false);
     }
-  }, [readOnly, saving, parsedDoc, node, content, currentFilePath, nodeId, applyTreeChange]);
+  }, [
+    readOnly,
+    saving,
+    parsedDoc,
+    node,
+    content,
+    currentFilePath,
+    nodeId,
+    applyTreeChange,
+    noteStorage,
+    notesFolder,
+  ]);
 
   // Auto-save: 1 s after the last edit, write WITHOUT closing anything.
   // Skipped when not dirty, over the inline-only cap, read-only, or while a

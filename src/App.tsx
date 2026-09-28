@@ -193,6 +193,10 @@ function App() {
   const setFontSize = useUIStore((s) => s.setFontSize);
   const setTelemetryEnabled = useUIStore((s) => s.setTelemetryEnabled);
   const setNoteletsMode = useUIStore((s) => s.setNoteletsMode);
+  const setNoteStorage = useUIStore((s) => s.setNoteStorage);
+  const setNotesFolder = useUIStore((s) => s.setNotesFolder);
+  const noteStorage = useUIStore((s) => s.noteStorage);
+  const notesFolder = useUIStore((s) => s.notesFolder);
   const telemetryEnabled = useUIStore((s) => s.telemetryEnabled);
   const themePreference = useUIStore((s) => s.themePreference);
   const resolvedTheme = useUIStore((s) => s.resolvedTheme);
@@ -295,6 +299,8 @@ function App() {
       setFontSize(s.fontSize);
       setTelemetryEnabled(s.telemetryEnabled);
       setNoteletsMode(s.noteletsMode);
+      setNoteStorage(s.noteStorage);
+      setNotesFolder(s.notesFolder);
       const resolved = resolveTheme(s.themePreference);
       setResolvedTheme(resolved);
       applyTheme(resolved);
@@ -307,6 +313,8 @@ function App() {
     setFontSize,
     setTelemetryEnabled,
     setNoteletsMode,
+    setNoteStorage,
+    setNotesFolder,
     setResolvedTheme,
   ]);
 
@@ -519,6 +527,35 @@ function App() {
       stop?.();
     };
   }, [currentFilePath]);
+
+  // Folder mode (desktop): note files are first-class files a user may edit in
+  // another app. Reflect those external edits by signaling open note surfaces
+  // to re-read — (1) whenever the window regains focus (switching back from an
+  // editor) and (2) live via a watcher on the notes folder. useNodeNotes only
+  // reloads clean, file-backed notes, so it never clobbers in-progress edits.
+  useEffect(() => {
+    if (!isTauri() || noteStorage !== "folder" || !currentFilePath) return;
+    const bump = () => useUIStore.getState().bumpNotesReloadToken();
+    window.addEventListener("focus", bump);
+    const dir = currentFilePath.replace(/[/\\][^/\\]+$/, "");
+    const folderAbs = `${dir}/${notesFolder}`;
+    let cancelled = false;
+    let stop: (() => void) | undefined;
+    void storage.watch(folderAbs, bump).then(
+      (stopFn) => {
+        if (cancelled) stopFn();
+        else stop = stopFn;
+      },
+      () => {
+        // Folder not present / not watchable yet — the focus refresh covers it.
+      },
+    );
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", bump);
+      stop?.();
+    };
+  }, [currentFilePath, noteStorage, notesFolder]);
 
   return (
     <main

@@ -30,6 +30,11 @@ export function NoteletsPage({
   const { node, depth } = page;
   const docPath = useDocumentStore((s) => s.currentFilePath);
   const setSelected = useUIStore((s) => s.setSelected);
+  const openTagEditor = useUIStore((s) => s.openTagEditor);
+  // Re-reads on this token so a folder-mode note (whose YAML value is a stable
+  // path) refreshes after an in-app edit or an external change — not just when
+  // the path string itself changes.
+  const notesReloadToken = useUIStore((s) => s.notesReloadToken);
   const [loaded, setLoaded] = useState<LoadedNotes | null>(null);
 
   useEffect(() => {
@@ -40,7 +45,7 @@ export function NoteletsPage({
     return () => {
       cancelled = true;
     };
-  }, [node.notes, docPath]);
+  }, [node.notes, docPath, notesReloadToken]);
 
   const { html, onLinkClick } = useMarkdownHtml(loaded?.content ?? "");
   const hasNotes = (loaded?.content ?? "").trim().length > 0;
@@ -67,7 +72,16 @@ export function NoteletsPage({
   return (
     <section
       data-page-id={node.id}
-      className="scroll-mt-4 border-b border-neutral-100 py-4 last:border-0 dark:border-neutral-800/60"
+      className={
+        // `last:border-b-0` (not `border-0`) so the last page drops only its
+        // bottom rule — zeroing all borders would also kill the left color bar,
+        // which is the *only* section in page mode.
+        "scroll-mt-4 border-b border-neutral-100 py-4 last:border-b-0 dark:border-neutral-800/60" +
+        // A colored left accent bar mirrors the node's color in the mind-map
+        // (where color is the node border). Uncolored pages stay flush.
+        (node.color ? " border-l-[3px] pl-3" : "")
+      }
+      style={node.color ? { borderLeftColor: node.color } : undefined}
     >
       <h2
         className="font-semibold text-neutral-900 dark:text-neutral-100"
@@ -75,6 +89,21 @@ export function NoteletsPage({
       >
         {node.text}
       </h2>
+
+      <button
+        type="button"
+        onClick={() => openTagEditor(node.id)}
+        title={strings.notelets.editTags}
+        aria-label={`${strings.notelets.editTags}: ${node.text}`}
+        className="mt-0.5 block text-left text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+      >
+        <span className="text-neutral-400 dark:text-neutral-500">{strings.notelets.tagsLabel}: </span>
+        {node.tags && node.tags.length > 0 ? (
+          node.tags.join(", ")
+        ) : (
+          <span className="italic">{strings.notelets.noTags}</span>
+        )}
+      </button>
 
       {loaded?.message && (
         <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">

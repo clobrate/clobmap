@@ -1,6 +1,20 @@
 import { isMobile, isTauri } from "./env";
+import * as fs from "./fsAdapter";
+import {
+  coerceNotesFolder,
+  DEFAULT_NOTES_FOLDER,
+  isInsideDir,
+  noteFilename,
+  noteRelPath,
+  type NoteStorageMode,
+} from "./notesFolder";
 
 export const NOTES_INLINE_LIMIT = 800;
+
+/** Directory portion of an absolute path (strips the final path segment). */
+function parentDir(path: string): string {
+  return path.replace(/[/\\][^/\\]+$/, "");
+}
 
 /**
  * A node's `notes` field is stored as a single string in YAML. It can be
@@ -157,9 +171,23 @@ export async function loadNotes(
       message: "Save the document first so we can resolve relative notes paths.",
     };
   }
+  // Trust boundary (spec §9): a note file must live INSIDE the document's own
+  // folder. Refuse anything that escapes — `../`, absolute, or `~`-expanded —
+  // so a shared .clobmap.yaml can never make us read arbitrary files. The
+  // string check catches path escapes; the native `pathIsWithin` adds
+  // symlink-safety (and no-ops on web / older builds).
+  const docDir = docPath ? parentDir(docPath) : null;
+  if (!docDir || !isInsideDir(resolved, docDir) || !(await fs.pathIsWithin(resolved, docDir))) {
+    return {
+      content: "",
+      isPathRef: true,
+      resolvedPath: resolved,
+      readOnly: true,
+      message: "This notes file is outside the document's folder and won't be read.",
+    };
+  }
   try {
-    const { readTextFile } = await import("@tauri-apps/plugin-fs");
-    const content = await readTextFile(resolved);
+    const content = await fs.readTextFile(resolved);
     return { content, isPathRef: true, resolvedPath: resolved, readOnly: false };
   } catch (err) {
     return {
@@ -181,20 +209,32 @@ export interface SaveNotesResult {
   sidecarPath?: string;
 }
 
+export interface SaveNotesOptions {
+  /** Desktop storage policy. Defaults to `inline` (2.0.2 behavior). */
+  noteStorage?: NoteStorageMode;
+  /** Doc-relative subfolder for folder-mode notes. */
+  notesFolder?: string;
+}
+
 /**
  * Persist edited notes content. Returns the new YAML field value the
- * caller should write back into the node. Behavior depends on length
- * and platform:
+ * caller should write back into the node. Behavior depends on the storage
+ * mode, content length, and platform:
  *
+ * Common to all modes:
+ * - existing field is a path-ref (desktop) → write to that path, keep the
+ *   path value in YAML (shared sidecars — multiple nodes → one .md file).
+ *
+ * `inline` mode (default):
  * - empty content → field is deleted (returns `undefined`).
- * - existing field is a path-ref → write to that path, keep the path
- *   value in YAML (this is how shared sidecars work — multiple nodes
- *   pointing to the same .md file).
  * - content fits inline (≤ NOTES_INLINE_LIMIT) → return inline string.
- * - content overflows AND we're on desktop → auto-extract to sidecar,
- *   replace YAML field with `./<safe-filename>.md`.
- * - content overflows on web / iOS → throw; the caller (editor UI)
- *   must enforce the cap before reaching this point.
+ * - content overflows on desktop → auto-extract to a sidecar `./<name>.md`.
+ * - content overflows on web / iOS → throw (the editor caps before here).
+ *
+ * `folder` mode (desktop only — see docs/desktop-notes-folder-storage-*.md):
+ * - non-empty content → write `./<folder>/<nodeId>-<slug>.md`, ANY size.
+ * - empty content when the node already points at a file → keep an EMPTY,
+ *   reusable file (spec §11.4); otherwise delete the field.
  */
 export async function saveNotes(
   rawContent: string,
@@ -202,19 +242,31 @@ export async function saveNotes(
   docPath: string | null,
   nodeId: string,
   nodeText: string,
+  options: SaveNotesOptions = {},
 ): Promise<SaveNotesResult> {
+  const noteStorage = options.noteStorage ?? "inline";
   const content = rawContent;
+  const isDesktop = isTauri() && !isMobile();
+  const folderMode = noteStorage === "folder" && isDesktop;
+
   if (content.trim().length === 0) {
-    // Empty notes — if there was a sidecar, leave it on disk; just remove
-    // the link from the YAML. (Deleting orphan files is an explicit user
-    // gesture in v1; we don't want to surprise-delete attachments.)
+    // Folder mode: if the node already points at a file, keep it as an EMPTY
+    // reusable file rather than deleting (spec §11.4).
+    if (folderMode && existingValue && isPathReference(existingValue) && docPath) {
+      const resolved = await resolveNotesPath(existingValue, docPath);
+      if (resolved) {
+        await writeSidecar(resolved, "");
+        return { fieldValue: existingValue, wroteSidecar: true, sidecarPath: resolved };
+      }
+    }
+    // Otherwise: drop the link. If there was a sidecar, leave it on disk —
+    // deleting orphan files is an explicit gesture, not a surprise.
     return { fieldValue: undefined, wroteSidecar: false };
   }
 
   // If the existing field already pointed at a sidecar, keep that linkage
-  // and write the new content there. This is the path that supports
-  // multiple nodes sharing one notes file.
-  if (existingValue && isPathReference(existingValue) && isTauri() && !isMobile()) {
+  // and write the new content there (shared-sidecar path — both modes).
+  if (existingValue && isPathReference(existingValue) && isDesktop) {
     const resolved = await resolveNotesPath(existingValue, docPath);
     if (resolved) {
       await writeSidecar(resolved, content);
@@ -224,6 +276,23 @@ export async function saveNotes(
         sidecarPath: resolved,
       };
     }
+  }
+
+  // Folder mode: write a NEW per-node file under the folder, irrespective of
+  // size (no inline cap in this mode).
+  if (folderMode) {
+    if (!docPath) {
+      throw new Error("Save the document first so we can write the notes file next to it.");
+    }
+    const folder = coerceNotesFolder(options.notesFolder ?? DEFAULT_NOTES_FOLDER);
+    const relValue = noteRelPath(folder, noteFilename(nodeId, nodeText));
+    const resolved = await resolveNotesPath(relValue, docPath);
+    if (!resolved) {
+      throw new Error("Could not resolve a notes-folder path for the notes.");
+    }
+    await fs.mkdirp(parentDir(resolved));
+    await writeSidecar(resolved, content);
+    return { fieldValue: relValue, wroteSidecar: true, sidecarPath: resolved };
   }
 
   if (content.length <= NOTES_INLINE_LIMIT) {
@@ -251,6 +320,5 @@ export async function saveNotes(
 }
 
 async function writeSidecar(absolutePath: string, content: string): Promise<void> {
-  const { writeTextFile } = await import("@tauri-apps/plugin-fs");
-  await writeTextFile(absolutePath, content);
+  await fs.writeTextFile(absolutePath, content);
 }

@@ -1,5 +1,7 @@
 import { useDocumentStore } from "../store/document";
 import { useUIStore } from "../store/ui";
+import { findById } from "../model";
+import { isPathReference } from "../lib/notes";
 import { strings } from "../i18n/strings";
 
 export function StatusBar() {
@@ -8,6 +10,20 @@ export function StatusBar() {
   const parsedDoc = useDocumentStore((s) => s.parsedDoc);
   const currentFilePath = useDocumentStore((s) => s.currentFilePath);
   const autoSave = useUIStore((s) => s.autoSave);
+  const viewMode = useUIStore((s) => s.viewMode);
+  const noteletsMode = useUIStore((s) => s.noteletsMode);
+  const selectedNodeId = useUIStore((s) => s.selectedNodeId);
+
+  // In the Notelets one-page view, surface the current page's note file so the
+  // user knows which file on disk backs it (folder mode / sidecar). Inline or
+  // note-less pages have no file to show.
+  let noteFile: string | null = null;
+  if (viewMode === "notelets" && noteletsMode === "page" && parsedDoc && selectedNodeId) {
+    const notes = findById(parsedDoc, selectedNodeId)?.notes;
+    if (notes && isPathReference(notes)) {
+      noteFile = notes.trim().replace(/^\.\/+/, "");
+    }
+  }
 
   const status = parseError
     ? `Invalid: line ${parseError.line} — ${parseError.message}`
@@ -32,6 +48,15 @@ export function StatusBar() {
           aria-live="polite"
         >
           {strings.status.autoSaveNeedsFileName}
+        </span>
+      )}
+      {noteFile && (
+        <span
+          className="truncate font-mono text-neutral-500 dark:text-neutral-400"
+          title={noteFile}
+          aria-label={`Note file: ${noteFile}`}
+        >
+          {noteFile}
         </span>
       )}
       <span className="tabular-nums">{isDirty ? "● modified" : "saved"}</span>

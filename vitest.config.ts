@@ -44,6 +44,7 @@ export default defineConfig({
         "src/lib/notes.ts",
         // Platform / IO wrappers — small, mostly delegating, not worth
         // mocking for line count.
+        "src/lib/fsAdapter.ts",
         "src/lib/storage/**",
         "src/lib/exportActions.ts",
         "src/lib/openExternal.ts",

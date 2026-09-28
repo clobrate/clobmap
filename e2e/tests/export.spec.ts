@@ -92,10 +92,11 @@ test.describe("export (§7)", () => {
       const path = await dl.path();
       const fs = await import("node:fs/promises");
       const content = await fs.readFile(path, "utf8");
-      // The Venue section contains the demoted heading + body.
-      expect(content).toMatch(/# Venue \(n2\)\n\n## Inner heading\n\nbody text/);
-      // Sibling without notes still gets the placeholder.
-      expect(content).toMatch(/# Reception \(n4\)\n\n__ no notes found __/);
+      // Each section shows a tags line under its title, then the note body
+      // (the demoted heading + text for Venue).
+      expect(content).toMatch(/# Venue \(n2\)\n\ntags: <none>\n\n## Inner heading\n\nbody text/);
+      // Sibling without notes still gets the placeholder (and its tags line).
+      expect(content).toMatch(/# Reception \(n4\)\n\ntags: <none>\n\n__ no notes found __/);
     });
   });
 });

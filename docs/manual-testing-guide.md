@@ -589,6 +589,30 @@ release and whenever the canvas chrome changes.
 
 ---
 
+## 19. Notes-folder storage (desktop only)
+
+The engine (planners, migration, lifecycle, path sandbox) is unit-tested with a
+mocked filesystem; this matrix covers the real Tauri path. **Run on the desktop
+app with a saved `.clobmap.yaml` file.** Default on desktop is **Notes folder**.
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 19.1 | Open a doc that has inline notes (folder mode on) | Notes migrate on open: a `notelets/` folder appears next to the `.yaml` with one `<nodeId>-<slug>.md` per noted node; the `.yaml` now shows `notes: ./notelets/…` paths. Content is unchanged. |
+| 19.2 | `Cmd/Ctrl+Z` right after that migration | The whole migration reverts in one undo (fields back to inline). |
+| 19.3 | Re-open the migrated doc | No further migration (idempotent) — the folder + paths are already in place. |
+| 19.4 | Edit a note in the notes popup / Notelets | Saved to its `.md` file (any size — no 800-char cap); the `.yaml` path is unchanged. `git diff` touches only that one file. |
+| 19.5 | Clear a note to empty | The `.md` file stays (now empty); re-adding notes reuses the same file. |
+| 19.6 | Rename a node, then edit its note | The link holds (id-stable filename); the note still saves to the same file. |
+| 19.7 | Delete a node | Its note file is renamed to a hidden `.Deleted-<id>-<slug>-<timestamp>.md` (never hard-deleted). |
+| 19.8 | Settings → Note storage → **Tidy notes folder** | Removes `.Deleted-*` archives and orphaned files; keeps referenced (incl. empty) files. Reports how many were removed. |
+| 19.9 | Settings → switch to **Inline** | Non-destructive: existing note files stay as files (still resolve); only *new* notes on note-less nodes go inline. |
+| 19.10 | Settings → change the folder name | Validated live (rejects absolute / `~` / `..`); new notes land in the new folder. |
+| 19.11 | Move the `.yaml` **and** its notes folder together to a new location | All notes still resolve (relative paths). |
+| 19.12 | Open a doc whose `notes:` points outside its folder (`../…`, absolute, `~/…`) | That note shows read-only ("outside the document's folder"); the file is never read. |
+| 19.13 | Same doc on web / iOS | Folder/sidecar notes are read-only; the mode is inline; no file writes attempted. |
+
+---
+
 ## What's excluded from manual testing
 
 - The pure model layer (parse / serialize / apply / ops / diff /

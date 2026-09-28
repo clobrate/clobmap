@@ -34,6 +34,7 @@ import {
   updateNode,
 } from "../model";
 import type { MindNode } from "../model";
+import { archiveNoteOnDelete } from "../lib/fileActions";
 import { navigateIntoChildren, navigateSibling, navigateToParent } from "../lib/navigation";
 
 import { MindEdge } from "./MindEdge";
@@ -490,6 +491,7 @@ function MindMapInner() {
           if (selectedId === tree.root.id) return;
           e.preventDefault();
           try {
+            void archiveNoteOnDelete(findById(tree, selectedId));
             applyTreeChange(deleteNode(tree, selectedId));
             setSelected(null);
           } catch (err) {
@@ -710,6 +712,7 @@ function MindMapInner() {
     const tree = useDocumentStore.getState().parsedDoc;
     if (!tree || nodeId === tree.root.id) return;
     try {
+      void archiveNoteOnDelete(findById(tree, nodeId));
       applyTreeChange(deleteNode(tree, nodeId));
       setSelected(null);
     } catch (err) {
