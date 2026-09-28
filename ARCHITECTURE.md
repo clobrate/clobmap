@@ -164,6 +164,19 @@ explicit `syncActive()` call after Save / Save As.
   via `xcrun devicectl device install app`. There's no CI release
   pipeline for iOS yet — that's TestFlight setup work, deferred.
 
+## Headless authoring (the clobmap skill)
+
+Because the model layer (`src/model`) is pure — only the `yaml` lib, no
+React/Tauri/DOM — it can run in a plain Node process. `skills/clobmap/`
+is a CLI-only toolkit built on exactly that: `loadDoc → ops.* →
+applyTreeToDocument → serialize`, the same round-trip the app uses, so
+comments and key order survive. It reuses the app's pure note-folder
+rules (`src/lib/notesFolder.ts`) and re-implements only the disk I/O
+against Node `fs` (the "Node twin" of `fsAdapter`). It ships the full
+operation catalog plus an atomic JSON op-list batch. See
+[`skills/clobmap/SKILL.md`](skills/clobmap/SKILL.md). Invariant: agents
+and scripts author `.clobmap.yaml` **through this CLI**, never by hand.
+
 ## What's deliberately NOT here
 
 - **No backend.** Documents live on disk; nothing is uploaded

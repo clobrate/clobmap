@@ -149,3 +149,10 @@ note**, **prepend**, **insert**, **rename-by-title**, **move-by-path** — are
 *composed* from primitives (read → transform → write, or search → id → op). If
 this catalog is seeding an automation/MCP surface, those composed ops are the
 natural convenience wrappers to add on top of the primitives.
+
+### Implemented: the clobmap skill
+This catalog is now realized as a headless CLI —
+[`skills/clobmap/`](../skills/clobmap/SKILL.md) — covering the operations above
+(including the composed convenience wrappers) plus an atomic JSON op-list batch.
+It reuses the pure model layer, so edits round-trip losslessly. Use it instead
+of hand-editing `.clobmap.yaml`.
