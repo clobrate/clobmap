@@ -32,9 +32,16 @@ import {
   updateNode,
   updateText,
   applyTreeToDocument,
+  tagsAdd,
+  tagsRemove,
+  updateTagName,
+  tagDelete,
+  moveTagNode,
+  moveTagSibling,
+  findTagById,
   type IdGenerator,
 } from "../../src/model";
-import type { MindDocument } from "../../src/model/types";
+import type { MindDocument, TagNode } from "../../src/model/types";
 import { coerceNotesFolder, DEFAULT_NOTES_FOLDER } from "../../src/lib/notesFolder";
 import { loadDoc, serialize, atomicWrite } from "./core";
 import { resolveNodeId } from "./addressing";
@@ -67,6 +74,8 @@ const OPTIONS = {
   off: { type: "boolean" },
   force: { type: "boolean" },
   from: { type: "string" },
+  tags: { type: "string" },
+  under: { type: "string" },
   "notes-mode": { type: "string" },
   "notes-folder": { type: "string" },
   "dry-run": { type: "boolean" },
@@ -77,6 +86,28 @@ function resolveMode(flag: string | undefined, tree: MindDocument, folder: strin
   if (flag === "inline" || flag === "folder") return flag;
   if (flag !== undefined) throw new Error("--notes-mode must be 'inline' or 'folder'");
   return inferMode(tree, folder);
+}
+
+/** Resolve a tag reference (tag-node id | name) to a tag-node id. */
+function resolveTagId(tree: MindDocument, ref: string): string {
+  if (!tree.tagRoot) throw new Error("This document has no tags.");
+  if (findTagById(tree, ref)) return ref;
+  const matches: string[] = [];
+  const walk = (t: TagNode, isRoot: boolean): void => {
+    if (!isRoot && t.name.toLowerCase() === ref.toLowerCase()) matches.push(t.id);
+    for (const c of t.children) walk(c, false);
+  };
+  walk(tree.tagRoot, true);
+  if (matches.length === 1) return matches[0]!;
+  if (matches.length > 1) throw new Error(`Ambiguous tag "${ref}" — ${matches.length} match; use a tag id.`);
+  throw new Error(`Tag not found: "${ref}".`);
+}
+
+function tagList(v: string | undefined): string[] {
+  return (v ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function req<T>(v: T | undefined, msg: string): T {
@@ -313,6 +344,74 @@ export async function run(argv: string[]): Promise<RunResult> {
         return done(r.affected, r.before, r.text, "Cleared note");
       }
 
+      case "tag-add": {
+        req(file, "Usage: tag-add <file> <ref> --tags a,b");
+        req(ref, "<ref> is required");
+        const names = tagList(values.tags);
+        if (names.length === 0) throw new Error("--tags a,b is required");
+        const r = await edit(file!, dryRun, (tree, ids) => {
+          const id = resolveNodeId(tree, ref!);
+          return { doc: tagsAdd(tree, id, names, ids), affected: [id] };
+        });
+        return done(r.affected, r.before, r.text, "Tagged");
+      }
+
+      case "tag-remove": {
+        req(file, "Usage: tag-remove <file> <ref> --tags a,b");
+        req(ref, "<ref> is required");
+        const names = tagList(values.tags);
+        if (names.length === 0) throw new Error("--tags a,b is required");
+        const r = await edit(file!, dryRun, (tree) => {
+          const id = resolveNodeId(tree, ref!);
+          return { doc: tagsRemove(tree, id, names), affected: [id] };
+        });
+        return done(r.affected, r.before, r.text, "Untagged");
+      }
+
+      case "tag-rename": {
+        req(file, "Usage: tag-rename <file> <old> <new>");
+        const oldRef = req(ref, "<old> is required");
+        const newName = req(positionals[2], "<new> is required");
+        const r = await edit(file!, dryRun, (tree) => {
+          const tagId = resolveTagId(tree, oldRef!);
+          return { doc: updateTagName(tree, tagId, newName!), affected: [tagId] };
+        });
+        return done(r.affected, r.before, r.text, "Renamed tag");
+      }
+
+      case "tag-delete": {
+        req(file, "Usage: tag-delete <file> <name>");
+        req(ref, "<name> is required");
+        const r = await edit(file!, dryRun, (tree) => {
+          const tagId = resolveTagId(tree, ref!);
+          return { doc: tagDelete(tree, tagId), affected: [tagId] };
+        });
+        return done(r.affected, r.before, r.text, "Deleted tag");
+      }
+
+      case "tag-move": {
+        req(file, "Usage: tag-move <file> <tag> [--under <parent>]");
+        req(ref, "<tag> is required");
+        const r = await edit(file!, dryRun, (tree) => {
+          const tagId = resolveTagId(tree, ref!);
+          const parentId = values.under ? resolveTagId(tree, values.under) : tree.tagRoot!.id;
+          return { doc: moveTagNode(tree, tagId, parentId), affected: [tagId] };
+        });
+        return done(r.affected, r.before, r.text, "Moved tag");
+      }
+
+      case "tag-reorder": {
+        req(file, "Usage: tag-reorder <file> <tag> --up|--down");
+        req(ref, "<tag> is required");
+        const dir = values.up ? "up" : values.down ? "down" : undefined;
+        if (!dir) throw new Error("--up or --down is required");
+        const r = await edit(file!, dryRun, (tree) => {
+          const tagId = resolveTagId(tree, ref!);
+          return { doc: moveTagSibling(tree, tagId, dir), affected: [tagId] };
+        });
+        return done(r.affected, r.before, r.text, "Reordered tag");
+      }
+
       default:
         return { code: 1, out: "", err: `Unknown command: ${command}\n${usage()}` };
     }
@@ -348,7 +447,12 @@ function usage(): string {
     "  note-set|note-append|note-prepend <file> <ref> --text T | --from PATH\n" +
     "  note-clear <file> <ref>\n" +
     "    note flags: --notes-mode inline|folder (default: infer) --notes-folder NAME\n" +
-    "  (refs: node id | title | 'A › B › C' path)  flags: --dry-run --json"
+    "  tag-add|tag-remove <file> <ref> --tags a,b\n" +
+    "  tag-rename <file> <old> <new>\n" +
+    "  tag-delete <file> <name>\n" +
+    "  tag-move <file> <tag> [--under <parent>]\n" +
+    "  tag-reorder <file> <tag> --up|--down\n" +
+    "  (refs: node id | title | 'A › B › C' path; tags: name | tag id)  flags: --dry-run --json"
   );
 }
 
