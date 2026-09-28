@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **clobmap skill — a headless CLI toolkit** (`skills/clobmap/`) for creating and
+  editing `.clobmap.yaml` documents without opening the app, for scripts and
+  agents. Run via `npm run clobmap -- <command>`. It reuses the app's pure model
+  layer (`src/model`), so edits round-trip losslessly (comments, key order, and
+  formatting are preserved). Covers the full operation catalog — tree edits;
+  notes (inline or a per-node notes folder); tags + tag tree; color / size /
+  layout / positions / edges; query (`find`); notes export (`export-notes`,
+  byte-identical to the app's exporter); and an atomic JSON op-list batch
+  (`apply --ops`, where a bad op aborts the whole batch with no partial write).
+  Every mutation supports `--dry-run` (unified diff, no write) and `--json`, and
+  note files are sandboxed to the document's own folder. Agent-facing manifest
+  and recipes in [`skills/clobmap/SKILL.md`](./skills/clobmap/SKILL.md); design
+  rationale in [`docs/clobmap-skill-product-doc.md`](./docs/clobmap-skill-product-doc.md).
+  Fully tested (unit + branch + recipe smoke + process e2e), with `skills/` held
+  to ≥90% coverage on its own via a per-directory threshold.
+
 ## [2.0.3] - 2026-09-27
 
 ### Added

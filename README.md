@@ -252,6 +252,7 @@ clobmap/
 │   ├── App.tsx
 │   └── main.tsx
 ├── src-tauri/                # Rust backend (Tauri commands, plugins)
+├── skills/clobmap/           # Headless CLI toolkit for .clobmap.yaml (SKILL.md) — reuses src/model
 ├── docs/getting-started.md   # End-user 5-minute tour
 ├── design.md                 # Architecture and product spec (early)
 ├── ARCHITECTURE.md           # How the codebase fits together (current)
@@ -280,7 +281,31 @@ npm run lint             # ESLint
 npm run typecheck        # tsc --noEmit
 npm run format           # Prettier write
 npm run format:check     # Prettier check
+npm run clobmap -- ...   # Headless CLI for .clobmap.yaml (see below)
 ```
+
+---
+
+## Headless CLI (the clobmap skill)
+
+[`skills/clobmap/`](./skills/clobmap/SKILL.md) is a headless, CLI-only toolkit
+for creating and editing `.clobmap.yaml` documents **without opening the app** —
+for scripts and agents. It reuses the pure model layer (`src/model`), so every
+edit **round-trips losslessly** (comments, key order, and formatting survive).
+
+```bash
+npm run clobmap -- new demo.clobmap.yaml --title "Demo"
+npm run clobmap -- add-child demo.clobmap.yaml --parent "Demo" --text "Idea"
+npm run clobmap -- tag-add demo.clobmap.yaml "Idea" --tags "todo"
+npm run clobmap -- export-notes demo.clobmap.yaml --out notes.md
+```
+
+It covers the full operation catalog — tree edits, notes (inline or a notes
+folder), tags + tag tree, color/size/layout/positions, query, export, and an
+atomic JSON op-list batch (`apply --ops`) — with `--dry-run` and `--json` on
+every mutation. **Never hand-edit a `.clobmap.yaml`;** go through the CLI so ids
+stay unique, the tag tree stays consistent, and note files stay sandboxed. Full
+command reference and recipes: [`skills/clobmap/SKILL.md`](./skills/clobmap/SKILL.md).
 
 ---
 
