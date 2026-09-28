@@ -28,6 +28,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     etc.) and clobmap re-reads it — live via a watcher on the folder and
     whenever the window regains focus. In-progress edits in clobmap are never
     clobbered.
+  - The **Notelets one-page view** shows the current page's note file path in
+    the status bar, so you know which file on disk backs it.
   - Web / iOS can't write local files, so folder notes are read-only there and
     the mode stays inline.
   - `.clobmap.yaml` format is unchanged; inline mode remains fully supported.
