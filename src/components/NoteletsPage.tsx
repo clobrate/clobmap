@@ -73,7 +73,10 @@ export function NoteletsPage({
     <section
       data-page-id={node.id}
       className={
-        "scroll-mt-4 border-b border-neutral-100 py-4 last:border-0 dark:border-neutral-800/60" +
+        // `last:border-b-0` (not `border-0`) so the last page drops only its
+        // bottom rule — zeroing all borders would also kill the left color bar,
+        // which is the *only* section in page mode.
+        "scroll-mt-4 border-b border-neutral-100 py-4 last:border-b-0 dark:border-neutral-800/60" +
         // A colored left accent bar mirrors the node's color in the mind-map
         // (where color is the node border). Uncolored pages stay flush.
         (node.color ? " border-l-[3px] pl-3" : "")

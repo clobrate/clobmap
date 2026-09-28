@@ -210,6 +210,10 @@ describe("NoteletsPage", () => {
       const section = container.querySelector('[data-page-id="n1"]') as HTMLElement;
       expect(section.style.borderLeftColor).toBeTruthy();
       expect(section.className).toContain("border-l-");
+      // The last-page override must only drop the bottom border, else it would
+      // zero the left color bar too (which is the only section in page mode).
+      expect(section.className).toContain("last:border-b-0");
+      expect(section.className).not.toContain("last:border-0");
     });
 
     it("has no accent bar for an uncolored node", () => {
