@@ -35,9 +35,18 @@ import {
   type IdGenerator,
 } from "../../src/model";
 import type { MindDocument } from "../../src/model/types";
+import { coerceNotesFolder, DEFAULT_NOTES_FOLDER } from "../../src/lib/notesFolder";
 import { loadDoc, serialize, atomicWrite } from "./core";
 import { resolveNodeId } from "./addressing";
 import { outline, lineDiff } from "./format";
+import {
+  readNote,
+  writeNote,
+  inferMode,
+  joinAppend,
+  joinPrepend,
+  type NoteStorageMode,
+} from "./notes-fs";
 
 export interface RunResult {
   code: number;
@@ -57,9 +66,18 @@ const OPTIONS = {
   on: { type: "boolean" },
   off: { type: "boolean" },
   force: { type: "boolean" },
+  from: { type: "string" },
+  "notes-mode": { type: "string" },
+  "notes-folder": { type: "string" },
   "dry-run": { type: "boolean" },
   json: { type: "boolean" },
 } as const;
+
+function resolveMode(flag: string | undefined, tree: MindDocument, folder: string): NoteStorageMode {
+  if (flag === "inline" || flag === "folder") return flag;
+  if (flag !== undefined) throw new Error("--notes-mode must be 'inline' or 'folder'");
+  return inferMode(tree, folder);
+}
 
 function req<T>(v: T | undefined, msg: string): T {
   if (v === undefined || v === null || v === "") throw new Error(msg);
@@ -78,12 +96,15 @@ async function fileExists(path: string): Promise<boolean> {
 async function edit(
   file: string,
   dryRun: boolean,
-  mutate: (tree: MindDocument, ids: IdGenerator) => { doc: MindDocument; affected: string[] },
+  mutate: (
+    tree: MindDocument,
+    ids: IdGenerator,
+  ) => { doc: MindDocument; affected: string[] } | Promise<{ doc: MindDocument; affected: string[] }>,
 ): Promise<{ before: string; text: string; affected: string[] }> {
   const live = await loadDoc(file);
   const before = serialize(live);
   const ids = idGeneratorForDocument(live.tree);
-  const { doc: next, affected } = mutate(live.tree, ids);
+  const { doc: next, affected } = await mutate(live.tree, ids);
   applyTreeToDocument(live.doc, next);
   const text = serialize(live);
   if (!dryRun) await atomicWrite(file, text);
@@ -244,6 +265,54 @@ export async function run(argv: string[]): Promise<RunResult> {
         return done(r.affected, r.before, r.text, collapsed ? "Collapsed" : "Expanded");
       }
 
+      case "note-get": {
+        const live = await loadDoc(req(file, "Usage: note-get <file> <ref>")!);
+        const id = resolveNodeId(live.tree, req(ref, "<ref> is required")!);
+        const content = await readNote(live.tree, id, file!);
+        return { code: 0, out: json ? JSON.stringify({ id, content }) : content, err: "" };
+      }
+
+      case "note-set":
+      case "note-append":
+      case "note-prepend": {
+        req(file, `Usage: ${command} <file> <ref> --text T`);
+        req(ref, "<ref> is required");
+        let text: string;
+        if (values.text !== undefined) text = values.text;
+        else if (values.from !== undefined) text = await fsp.readFile(values.from, "utf8");
+        else throw new Error("--text or --from <path> is required");
+        const folder = coerceNotesFolder(values["notes-folder"] ?? DEFAULT_NOTES_FOLDER);
+        const r = await edit(file!, dryRun, async (t) => {
+          const id = resolveNodeId(t, ref!);
+          const mode = resolveMode(values["notes-mode"], t, folder);
+          const existing = command === "note-set" ? "" : await readNote(t, id, file!);
+          const content =
+            command === "note-append"
+              ? joinAppend(existing, text)
+              : command === "note-prepend"
+                ? joinPrepend(existing, text)
+                : text;
+          const doc = await writeNote(t, id, content, file!, { mode, folder, dryRun });
+          return { doc, affected: [id] };
+        });
+        const verb =
+          command === "note-append" ? "Appended note" : command === "note-prepend" ? "Prepended note" : "Set note";
+        return done(r.affected, r.before, r.text, verb);
+      }
+
+      case "note-clear": {
+        req(file, "Usage: note-clear <file> <ref>");
+        req(ref, "<ref> is required");
+        const folder = coerceNotesFolder(values["notes-folder"] ?? DEFAULT_NOTES_FOLDER);
+        const r = await edit(file!, dryRun, async (t) => {
+          const id = resolveNodeId(t, ref!);
+          const mode = resolveMode(values["notes-mode"], t, folder);
+          const doc = await writeNote(t, id, "", file!, { mode, folder, dryRun });
+          return { doc, affected: [id] };
+        });
+        return done(r.affected, r.before, r.text, "Cleared note");
+      }
+
       default:
         return { code: 1, out: "", err: `Unknown command: ${command}\n${usage()}` };
     }
@@ -275,6 +344,10 @@ function usage(): string {
     "  move <file> <ref> --to <ref> [--index N]\n" +
     "  reorder <file> <ref> --up|--down\n" +
     "  collapse <file> <ref> --on|--off\n" +
+    "  note-get <file> <ref>\n" +
+    "  note-set|note-append|note-prepend <file> <ref> --text T | --from PATH\n" +
+    "  note-clear <file> <ref>\n" +
+    "    note flags: --notes-mode inline|folder (default: infer) --notes-folder NAME\n" +
     "  (refs: node id | title | 'A › B › C' path)  flags: --dry-run --json"
   );
 }
