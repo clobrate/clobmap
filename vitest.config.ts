@@ -10,7 +10,7 @@ export default defineConfig({
     // jsdom per file via `// @vitest-environment jsdom`.
     environment: "node",
     setupFiles: ["src/test-setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "skills/**/*.test.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
