@@ -387,8 +387,84 @@ export function SettingsMenu() {
               }}
             />
           )}
+          {isTauri() && !isMobile() && <CliToolSection />}
         </div>
       )}
+    </div>
+  );
+}
+
+interface CliStatus {
+  installed: boolean;
+  is_ours: boolean;
+  path: string | null;
+  target: string | null;
+}
+
+/** Settings section: install/uninstall the bundled `clobmap` CLI on PATH. */
+function CliToolSection() {
+  const [status, setStatus] = useState<CliStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const refresh = async (): Promise<void> => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    setStatus(await invoke<CliStatus>("cli_status"));
+  };
+  useEffect(() => {
+    // One-shot async load of the current install status on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refresh();
+  }, []);
+
+  const act = async (command: "cli_install" | "cli_uninstall", pending: string): Promise<void> => {
+    setBusy(true);
+    setMessage(pending);
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const result = await invoke<string | null>(command);
+      setMessage(command === "cli_install" ? `Installed → ${result}` : "Removed.");
+      await refresh();
+    } catch (e) {
+      setMessage(typeof e === "string" ? e : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="px-3 py-1.5">
+      <div className="mb-1 text-xs font-medium text-neutral-500">Command-line tool</div>
+      {status?.is_ours ? (
+        <>
+          <p className="mb-1 break-all text-xs text-neutral-500">Installed at {status.path}</p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void act("cli_uninstall", "Removing…")}
+            className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          >
+            Uninstall
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="mb-1 text-xs text-neutral-500">
+            {status?.installed
+              ? `A different “clobmap” is already on your PATH (${status.path}).`
+              : "Run clobmap in your terminal — for scripts and AI agents."}
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void act("cli_install", "Installing…")}
+            className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          >
+            Install “clobmap” command
+          </button>
+        </>
+      )}
+      {message && <p className="mt-1 break-all text-xs text-neutral-500">{message}</p>}
     </div>
   );
 }

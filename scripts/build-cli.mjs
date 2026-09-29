@@ -53,7 +53,9 @@ const isWinTarget = TARGET.includes("windows");
 const isMacTarget = TARGET.includes("darwin");
 const EXT = isWinTarget ? ".exe" : "";
 const BIN = path.join(OUT_DIR, `clobmap${EXT}`);
-const SIDECAR = path.join(SIDECAR_DIR, `clobmap-${TARGET}${EXT}`);
+// Bundled sidecar base name must differ from the Cargo crate name (`clobmap`);
+// it's installed on PATH as the `clobmap` command via a symlink (see cli_tool.rs).
+const SIDECAR = path.join(SIDECAR_DIR, `clobmap-cli-${TARGET}${EXT}`);
 
 function run(cmd, args, opts = {}) {
   execFileSync(cmd, args, { stdio: "inherit", cwd: ROOT, ...opts });
