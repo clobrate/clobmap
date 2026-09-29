@@ -90,6 +90,15 @@ jobs:
             librsvg2-dev \
             patchelf
 
+      # Tauri's build script requires the externalBin sidecar to exist even for
+      # `cargo check`/`test`. The unit tests don't use it, so a placeholder file
+      # satisfies the check without building the full 138 MB binary here (the
+      # `cli-binary` job builds the real one).
+      - name: Stage placeholder CLI sidecar
+        run: |
+          mkdir -p src-tauri/binaries
+          touch src-tauri/binaries/clobmap-cli-x86_64-unknown-linux-gnu
+
       # Compiles the Rust (compile-checking every PR, which release.yml did but
       # PR CI didn't) and runs the cli_tool unit tests.
       - name: cargo test
