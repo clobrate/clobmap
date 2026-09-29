@@ -1,5 +1,7 @@
 use std::env;
 
+mod cli_tool;
+
 #[cfg(desktop)]
 use tauri::{Emitter, Manager};
 
@@ -122,7 +124,10 @@ pub fn run() {
             ping,
             pending_open_path,
             open_log_folder,
-            path_is_within
+            path_is_within,
+            cli_tool::cli_status,
+            cli_tool::cli_install,
+            cli_tool::cli_uninstall
         ])
         .build(context)
         .expect("error while building tauri application");

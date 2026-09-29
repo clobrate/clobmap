@@ -35,6 +35,7 @@ import { clearDraft, loadDraft, saveDraft } from "./lib/draft";
 import { applyTheme, resolveTheme, watchSystemTheme } from "./lib/theme";
 import { checkForUpdate, shouldRunScheduledCheck } from "./lib/updater";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { CliInstallPrompt } from "./components/CliInstallPrompt";
 import { SplitPanes } from "./components/SplitPanes";
 import { getPendingOpenPath, listenForOpenFiles } from "./lib/openFromOs";
 import { disableTelemetry, enableTelemetry } from "./lib/telemetry";
@@ -688,6 +689,7 @@ function App() {
       <StatusBar />
       <NotesPopup />
       <TagEditor />
+      <CliInstallPrompt />
       <div
         role="status"
         aria-live="polite"

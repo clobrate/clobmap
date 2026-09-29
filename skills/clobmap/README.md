@@ -19,56 +19,50 @@ npm run clobmap -- add-child demo.clobmap.yaml --parent <id|title> --text "Idea"
 
 ## Setup on another machine
 
-**This skill ships in the clobmap _source repo_, not the installed desktop
-app.** The `.dmg` / `.msi` / `.AppImage` you install is only the GUI — it does
-not include this CLI, `package.json`, or `npm`. So `npm run clobmap` fails with
-"could not read package.json" unless you run it from a clone of the repo, and
-there is no globally-installed "skill" for an agent to auto-discover.
+Two ways to get the CLI.
 
-To use it on a new machine:
+### Bundled with the desktop app (easiest — no Node, no clone)
 
-```bash
-# 1. Clone the repo (once)
-git clone https://github.com/clobrate/clobmap.git
-cd clobmap
-
-# 2. Install dev deps — this provides tsx, the runner
-npm install
-
-# 3. Run it — from the repo root
-npm run clobmap -- --help
-```
-
-`npm run clobmap` **must be run from the repo root** (where `package.json`
-lives). It operates on any `.clobmap.yaml` file, anywhere — including maps you
-created in the desktop app:
+The CLI ships **inside the desktop installer** as a self-contained binary.
+Install clobmap, then accept the first-run prompt or open **Settings →
+Command-line tool → Install**. The command is `clobmap` on macOS/Windows and
+**`clobmap-cli` on Linux** (the Linux GUI binary already owns the name
+`clobmap`). Linux `.deb`/`.rpm` packages also put it on PATH at install time.
 
 ```bash
-npm run clobmap -- tree ~/Documents/mymap.clobmap.yaml
+clobmap tree ~/Documents/mymap.clobmap.yaml       # macOS / Windows
+clobmap-cli tree ~/Documents/mymap.clobmap.yaml   # Linux
 ```
 
 The desktop app watches its open file for external changes, so CLI edits show up
 live (and vice-versa) — just avoid holding unsaved edits on both sides at once.
 
-### Run it from anywhere (optional alias)
+### From the source repo (for development)
 
-Point an alias at the repo's local `tsx` + `cli.ts` (absolute paths) so you
-don't have to `cd` in each time. In `~/.zshrc` / `~/.bashrc`:
+The repo runs the CLI from TypeScript via `tsx` — no compiled binary needed:
+
+```bash
+git clone https://github.com/clobrate/clobmap.git
+cd clobmap
+npm install                       # provides tsx, the runner
+npm run clobmap -- --help         # run from the repo root
+```
+
+`npm run clobmap` **must be run from the repo root** (where `package.json`
+lives). Optionally alias it so you don't have to `cd` in each time — point at the
+repo's local `tsx` + `cli.ts` (absolute paths) in `~/.zshrc` / `~/.bashrc`:
 
 ```bash
 alias clobmap='/ABS/PATH/TO/clobmap/node_modules/.bin/tsx /ABS/PATH/TO/clobmap/skills/clobmap/cli.ts'
 ```
 
-Then from any directory: `clobmap tree ~/anything.clobmap.yaml`. (Replace the
-path with your clone; the repo still needs `npm install` done once.)
-
 ### Using it from an AI agent
 
-[`SKILL.md`](./SKILL.md) is written in **Claude Code's** skill format, so Claude
-Code can auto-discover and invoke it. Other agents (e.g. Codex) don't read that
-format — there's nothing to "install." To have any agent use it, point it at
-this repo and tell it to run `npm run clobmap -- <command>`, using `SKILL.md` as
-the command reference. It's a plain CLI underneath — no special registration.
+With the bundled CLI on PATH, an agent can just run `clobmap` / `clobmap-cli`
+directly. [`SKILL.md`](./SKILL.md) is written in **Claude Code's** skill format,
+so Claude Code can auto-discover and invoke it; other agents (e.g. Codex) don't
+read that format, so point them at `SKILL.md` as the command reference and have
+them call the CLI (`clobmap …`, or `npm run clobmap -- …` from a repo clone).
 
 ## Layout
 

@@ -33,7 +33,16 @@ files. Hand-editing silently corrupts those invariants.
 
 ## Running it
 
-From the repo root:
+If the desktop app is installed and its CLI has been enabled (Settings →
+Command-line tool), just run it on PATH — `clobmap` on macOS/Windows,
+`clobmap-cli` on Linux:
+
+```bash
+clobmap <command> <file> [args]        # macOS / Windows
+clobmap-cli <command> <file> [args]    # Linux
+```
+
+From a source checkout instead (no app needed), run it from the repo root:
 
 ```bash
 npm run clobmap -- <command> <file> [args]
