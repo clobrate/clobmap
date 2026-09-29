@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-28
+
 ### Added
 
 - **The clobmap CLI now ships with the desktop app.** The headless CLI (the
