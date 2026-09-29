@@ -1,9 +1,12 @@
 /**
- * Process-level e2e: spawn the REAL CLI (`tsx skills/clobmap/cli.ts …`) as a
- * child process, so the things the in-process `run()` suite can't reach get
- * exercised for real — the entrypoint's argv slicing, stdout/stderr routing,
- * and the actual `process.exit(code)`. This is the CLI's equivalent of a
- * browser e2e (the app's Playwright specs don't cover the headless skill).
+ * Process-level e2e: spawn the REAL CLI as a child process, so the things the
+ * in-process `run()` suite can't reach get exercised for real — the entrypoint's
+ * argv handling, stdout/stderr routing, and the actual `process.exit(code)`.
+ *
+ * By default it runs the source via `tsx skills/clobmap/cli.ts`. In CI the
+ * `cli-binary` job sets `CLOBMAP_BIN` to the compiled Node-SEA binary, so the
+ * SAME assertions verify the shipped executable — including `--version` parity
+ * and the embedded SKILL.md asset (the SEA-only `docs` path).
  */
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
@@ -11,10 +14,12 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import pkg from "../../../package.json";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const tsxBin = path.join(repoRoot, "node_modules", ".bin", "tsx");
 const cli = path.join(repoRoot, "skills", "clobmap", "cli.ts");
+const compiledBin = process.env.CLOBMAP_BIN; // set in CI → test the SEA binary
 
 interface Proc {
   code: number;
@@ -22,7 +27,8 @@ interface Proc {
   stderr: string;
 }
 function clob(...args: string[]): Proc {
-  const r = spawnSync(tsxBin, [cli, ...args], { cwd: repoRoot, encoding: "utf8" });
+  const [cmd, cmdArgs] = compiledBin ? [compiledBin, args] : [tsxBin, [cli, ...args]];
+  const r = spawnSync(cmd, cmdArgs, { cwd: repoRoot, encoding: "utf8" });
   return { code: r.status ?? -1, stdout: r.stdout.trim(), stderr: r.stderr.trim() };
 }
 async function tmpFile(): Promise<string> {
@@ -69,5 +75,18 @@ describe("cli process e2e", () => {
     const r = clob("delete", f, "nope", "--json");
     expect(r.code).toBe(1);
     expect(JSON.parse(r.stderr).error).toMatch(/not found/i);
+  }, 30_000);
+
+  it("--version matches the app version (parity)", () => {
+    const r = clob("--version");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toBe(pkg.version);
+  }, 30_000);
+
+  it("docs prints the command reference (embedded SKILL.md asset)", () => {
+    const r = clob("docs");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toMatch(/name: clobmap/); // SKILL.md frontmatter
+    expect(r.stdout).toMatch(/Command reference/i);
   }, 30_000);
 });

@@ -129,6 +129,18 @@ fn install_unix(target: &Path) -> Result<String, String> {
     if let Some(parent) = dst.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
+    // O3: our installs are always symlinks. If a real (non-symlink) file is
+    // sitting at the target, it's a foreign `clobmap` — refuse rather than
+    // clobber it. Our own (stale) symlink is fine to replace.
+    if let Ok(meta) = std::fs::symlink_metadata(dst) {
+        if !meta.file_type().is_symlink() {
+            return Err(format!(
+                "A different '{}' already exists at {} (not created by clobmap). Remove it first, then retry.",
+                command_name(),
+                dst.display()
+            ));
+        }
+    }
     let _ = std::fs::remove_file(dst); // best-effort; replaced below if it fails
     if symlink(target, dst).is_ok() {
         return Ok(dst.display().to_string());
