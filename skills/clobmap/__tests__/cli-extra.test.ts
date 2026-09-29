@@ -10,6 +10,7 @@ import path from "node:path";
 import { run } from "../cli";
 import { loadDoc } from "../core";
 import { resolveNodeId } from "../addressing";
+import pkg from "../../../package.json";
 
 const FIXTURE = `title: Test
 version: 1
@@ -47,6 +48,21 @@ describe("cli — misc surfaces", () => {
     const r = await run([]);
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/headless clobmap document toolkit/);
+  });
+
+  it("--version / -v / version print the package version", async () => {
+    for (const arg of ["--version", "-v", "version"]) {
+      const r = await run([arg]);
+      expect(r.code).toBe(0);
+      expect(r.out).toBe(pkg.version);
+    }
+  });
+
+  it("docs prints the command reference (SKILL.md)", async () => {
+    const r = await run(["docs"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/name: clobmap/); // SKILL.md frontmatter
+    expect(r.out).toMatch(/Command reference/i);
   });
 
   it("note-set --from reads content from a file", async () => {

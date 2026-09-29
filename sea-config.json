@@ -1,0 +1,10 @@
+{
+  "main": "dist-cli/clobmap.cjs",
+  "output": "dist-cli/clobmap.blob",
+  "disableExperimentalSEAWarning": true,
+  "useSnapshot": false,
+  "useCodeCache": false,
+  "assets": {
+    "SKILL.md": "skills/clobmap/SKILL.md"
+  }
+}

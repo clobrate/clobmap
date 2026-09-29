@@ -46,3 +46,8 @@ playwright/.cache/
 .env.*.local
 *.key
 stress-1000.yaml
+
+# Bundled CLI build output
+dist-cli
+# SEA-capable node cache (build:cli)
+.sea-node

@@ -27,6 +27,8 @@
  */
 import { promises as fsp } from "node:fs";
 import { parseArgs } from "node:util";
+import { isSea, getAsset } from "node:sea";
+import pkg from "../../package.json";
 import {
   addChild,
   addSibling,
@@ -64,6 +66,18 @@ export interface RunResult {
   code: number;
   out: string;
   err: string;
+}
+
+/** Version, taken from package.json — inlined into the compiled binary by
+ * esbuild, read live when running from source. Keeps binary ↔ app in sync. */
+const VERSION: string = pkg.version;
+
+/** The command reference (SKILL.md). Read from the embedded SEA asset in the
+ * compiled binary; from disk (next to this file) when running from source. */
+async function docsText(): Promise<string> {
+  /* v8 ignore next -- SEA-binary-only; covered by the compiled-binary e2e, not the source suite */
+  if (isSea()) return getAsset("SKILL.md", "utf8") as string;
+  return fsp.readFile(new URL("./SKILL.md", import.meta.url), "utf8");
 }
 
 const OPTIONS = {
@@ -171,6 +185,14 @@ export async function run(argv: string[]): Promise<RunResult> {
       case "--help":
       case "-h":
         return { code: 0, out: usage(), err: "" };
+
+      case "--version":
+      case "-v":
+      case "version":
+        return { code: 0, out: VERSION, err: "" };
+
+      case "docs":
+        return { code: 0, out: await docsText(), err: "" };
 
       case "new": {
         req(file, "Usage: new <file> [--title]");
@@ -589,14 +611,24 @@ function usage(): string {
     "  export-notes <file> [--out PATH]\n" +
     "  find <file> [--text q] [--tag t] [--color c]\n" +
     "  apply <file> --ops <ops.json>  (JSON array of ops, applied atomically)\n" +
+    "  docs                            (print the full command reference)\n" +
+    "  --version | -v                  (print the version)\n" +
     "  (refs: node id | title | 'A › B › C' path; tags: name | tag id)  flags: --dry-run --json"
   );
 }
 
 // Entrypoint (skipped under test import — never runs when cli.ts is imported,
 // so it can't be exercised by the in-process `run()` suite).
+//
+// argv layout is [runtime, invocation, ...args] in every shape — source (tsx),
+// plain bundle (node clobmap.cjs), and the SEA binary — so args start at [2].
+// The SEA binary's invocation path isn't cli.ts/clobmap.cjs, hence isSea().
 /* v8 ignore start */
-if (process.argv[1] && process.argv[1].endsWith("cli.ts")) {
+const argv1 = process.argv[1];
+const runAsMain =
+  isSea() ||
+  (argv1 !== undefined && (argv1.endsWith("cli.ts") || argv1.endsWith("clobmap.cjs")));
+if (runAsMain) {
   void run(process.argv.slice(2)).then((r) => {
     if (r.out) process.stdout.write(r.out + "\n");
     if (r.err) process.stderr.write(r.err + "\n");
