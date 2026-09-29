@@ -255,6 +255,28 @@ export async function saveLastOpenFile(path: string | null): Promise<void> {
   await store.save();
 }
 
+/**
+ * Whether the user has permanently dismissed the "install the clobmap CLI"
+ * first-run prompt ("Don't ask again"). Desktop-only; web has no CLI so it's
+ * treated as always-dismissed (never prompt).
+ */
+const KEY_CLI_PROMPT_DISMISSED = "cli-prompt-dismissed";
+
+export async function loadCliPromptDismissed(): Promise<boolean> {
+  if (!isTauri()) return true;
+  const { LazyStore } = await import("@tauri-apps/plugin-store");
+  const store = new LazyStore(STORE_FILE);
+  return (await store.get<boolean>(KEY_CLI_PROMPT_DISMISSED)) === true;
+}
+
+export async function saveCliPromptDismissed(value: boolean): Promise<void> {
+  if (!isTauri()) return;
+  const { LazyStore } = await import("@tauri-apps/plugin-store");
+  const store = new LazyStore(STORE_FILE);
+  await store.set(KEY_CLI_PROMPT_DISMISSED, value);
+  await store.save();
+}
+
 export async function saveTelemetryPref(value: boolean): Promise<void> {
   if (isTauri()) {
     const { LazyStore } = await import("@tauri-apps/plugin-store");
