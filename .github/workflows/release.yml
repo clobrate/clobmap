@@ -138,6 +138,21 @@ jobs:
           args: ${{ matrix.args }}
           includeUpdaterJson: true
 
+      # The sidecar only breaks under the *real* signing pass: Tauri applies the
+      # hardened runtime there, and in v2.2.0 the missing allow-jit entitlement
+      # made every `clobmap` invocation die at V8 startup. A dist-cli smoke test
+      # can't see that (local builds are ad-hoc signed without hardened
+      # runtime), so run the binary out of the finished bundle. arm64 only — the
+      # x86_64 sidecar can't execute on the arm64 runner, and both macOS targets
+      # share one entitlements file.
+      - name: Smoke-test the signed CLI sidecar
+        if: matrix.target == 'aarch64-apple-darwin'
+        run: |
+          set -euo pipefail
+          cli="src-tauri/target/${{ matrix.target }}/release/bundle/macos/clobmap.app/Contents/MacOS/clobmap-cli"
+          codesign -d --entitlements - "$cli"
+          echo "clobmap-cli --version → $("$cli" --version)"
+
   publish:
     name: Publish release
     needs: [draft, build]

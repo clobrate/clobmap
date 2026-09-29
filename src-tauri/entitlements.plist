@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS entitlements for the signed app bundle.
+
+  Tauri signs every executable in the bundle with the hardened runtime, which
+  blocks the write-then-execute memory V8 needs for its JIT. The bundled
+  `clobmap-cli` sidecar is a Node SEA binary, so without `allow-jit` it dies at
+  startup before running a single line of JS:
+
+      Fatal process out of memory: Failed to reserve virtual memory for CodeRange
+
+  Tauri applies this one file to the GUI binary and the sidecar alike; granting
+  JIT to both is harmless (the GUI's WKWebView already JITs in its own process)
+  and `allow-jit` needs no special provisioning to notarize.
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+</dict>
+</plist>

@@ -311,6 +311,11 @@ clobmap export-notes demo.clobmap.yaml --out notes.md
 npm run clobmap -- new demo.clobmap.yaml --title "Demo"
 ```
 
+> **macOS, app version 2.2.0:** the bundled CLI crashes on every invocation with
+> `Failed to reserve virtual memory for CodeRange` — the signed bundle was
+> missing the JIT entitlement the CLI's V8 runtime needs. Update the app to get
+> a working `clobmap`; until then use the repo CLI (`npm run clobmap -- …`).
+
 It covers the full operation catalog — tree edits, notes (inline or a notes
 folder), tags + tag tree, color/size/layout/positions, query, export, and an
 atomic JSON op-list batch (`apply --ops`) — with `--dry-run` and `--json` on

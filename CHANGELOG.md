@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-09-28
+
+### Fixed
+
+- **The bundled `clobmap` CLI crashed on launch on macOS** (2.2.0). Every
+  invocation — `clobmap --help` included — died before running any code with
+  `Fatal process out of memory: Failed to reserve virtual memory for CodeRange`.
+  The signed app bundle enables the macOS hardened runtime, which blocks the
+  JIT memory V8 requires, and the bundle carried no entitlements to permit it.
+  The bundle now ships `src-tauri/entitlements.plist` granting
+  `com.apple.security.cs.allow-jit`. macOS users on 2.2.0 need this release for
+  a working CLI; Windows and Linux were unaffected.
+
 ## [2.2.0] - 2026-09-28
 
 ### Added
