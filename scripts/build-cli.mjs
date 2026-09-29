@@ -139,12 +139,14 @@ if (isMacTarget) {
   run("codesign", ["--remove-signature", BIN]);
 }
 
-// 5. Inject the blob (macho segment on macOS).
+// 5. Inject the blob (macho segment on macOS). Invoke postject's JS entry via
+//    node rather than the .bin shim — Windows can't execFileSync a .cmd without
+//    shell:true (Node throws EINVAL), and `node cli.js` is portable everywhere.
 log("injecting blob with postject…");
-const postject = path.join(ROOT, "node_modules", ".bin", process.platform === "win32" ? "postject.cmd" : "postject");
-const injectArgs = [BIN, "NODE_SEA_BLOB", BLOB, "--sentinel-fuse", FUSE];
+const postjectCli = path.join(ROOT, "node_modules", "postject", "dist", "cli.js");
+const injectArgs = [postjectCli, BIN, "NODE_SEA_BLOB", BLOB, "--sentinel-fuse", FUSE];
 if (isMacTarget) injectArgs.push("--macho-segment-name", "NODE_SEA");
-run(postject, injectArgs);
+run(process.execPath, injectArgs);
 
 // 6. macOS: ad-hoc re-sign for local runs (CI re-signs with the real identity
 //    during app bundling / notarization).
