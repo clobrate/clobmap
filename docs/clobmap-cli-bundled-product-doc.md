@@ -1,6 +1,6 @@
 # Bundled clobmap CLI — Product Document
 
-Status: **Proposed** — 2026-09-28. Branch: TBD.
+Status: **Accepted** — 2026-09-28 (decisions D1–D6 resolved; O3 open). Branch: TBD.
 Author: Kiran (with Claude)
 Related: [`clobmap-skill-product-doc.md`](./clobmap-skill-product-doc.md) (the CLI this ships), [`../skills/clobmap/SKILL.md`](../skills/clobmap/SKILL.md) (command reference), [`../RELEASING.md`](../RELEASING.md) (release pipeline), [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
@@ -119,11 +119,10 @@ The binary needs an embedded JS runtime so the user needs no Node. Candidates:
 | **Deno** `deno compile` | Single binary; good cross-compile | Adds Deno; Node-compat caveats |
 | ~~`pkg`~~ | — | Archived/deprecated; avoid |
 
-**Recommendation: Node SEA**, because the release matrix already runs
-`setup-node` on each native OS, each job can emit its own signed binary, and it
-adds no new toolchain. **Bun** is the fallback if SEA's signing/stability proves
-painful — it cross-compiles cleanly. *(This is the main decision to confirm; see
-§11.)*
+**Decision: Node SEA** (resolved 2026-09-28). The release matrix already runs
+`setup-node` on each native OS, so each job emits its own signed binary with no
+new toolchain. **Bun** stays documented as the fallback if SEA's signing or
+stability proves painful during Phase 1 — it cross-compiles cleanly.
 
 Either way, the size cost (an embedded runtime) is real — see §10.
 
@@ -147,6 +146,28 @@ The **in-app "Install command-line tool" action is the universal fallback** on
 every platform, so there's always a one-click path even where the installer
 can't do it.
 
+### First-run detection & consent
+
+Yes — the app detects PATH state and asks; it never installs silently.
+
+- **On launch**, the app runs a cheap probe (`which clobmap` / `where clobmap`,
+  and confirms it resolves to *our* binary, not a stray one). Because it re-runs
+  each launch, a moved/uninstalled binary is reflected accurately.
+- **If not installed**, a **one-time, dismissible prompt**: *"Install the
+  `clobmap` command-line tool so you and AI agents can edit maps from the
+  terminal?"* with **[Install now]**, **[Later]**, **[Don't ask again]**.
+  - **Install now** → runs the platform PATH step above and confirms the
+    resolved path (e.g. `Installed at /usr/local/bin/clobmap`).
+  - **Later / Don't ask again** → dismisses; a preference records the choice so
+    the prompt doesn't nag.
+- **Always available from Settings** — **⚙ → Settings → Command-line tool** shows
+  **live status** (`Installed at <path>` / `Not installed`) with an
+  **Install / Uninstall** toggle, so a user who chose "Later" can do it anytime,
+  and can remove it cleanly.
+
+This keeps it zero-effort for the willing (one click on first run) while staying
+consent-based (§4 / D3) and always reversible.
+
 ## 10. Distribution size
 
 Embedding a JS runtime adds **~40–90 MB** per installer (the app itself is
@@ -158,7 +179,11 @@ Embedding a JS runtime adds **~40–90 MB** per installer (the app itself is
   §11.)*
 - SEA (reuses the Node binary) tends to be leaner than bundling a second runtime.
 
-Measure the real delta in Phase 1 before committing to defaults.
+**Decision (2026-09-28):** accept the size as the cost of "no Node required" — a
+~100 MB install is acceptable for this app and its current user base. The CLI is
+**bundled unconditionally** (not an optional component or separate download).
+Revisit only if real user complaints surface as adoption grows. Still measure
+the actual delta in Phase 1 for the record.
 
 ## 11. Decisions
 
@@ -171,15 +196,19 @@ Resolved:
   the single `src/model` source of truth.
 - **D3 — Consent-based PATH.** Never modify `PATH` silently; installer prompt or
   explicit in-app action.
+- **D4 — Compiler: Node SEA** (was O1). Leverages the existing `setup-node`
+  matrix with no new toolchain; **Bun** kept as a documented Phase-1 fallback.
+- **D5 — Bundle unconditionally; accept the size** (was O2). A ~100 MB install
+  is acceptable for the current user base; revisit only on real complaints.
+- **D6 — First-run detection + Settings toggle** (see §9). Detect PATH on each
+  launch; a one-time dismissible prompt when not installed; always available
+  (with live status + Uninstall) from Settings. Never silent.
 
 Open (to confirm during Phase 1):
 
-- **O1 — Compiler: Node SEA vs Bun.** Recommend SEA; revisit if signing/size is
-  worse than Bun in practice.
-- **O2 — Always-bundle vs optional component.** Bundle unconditionally, or make
-  the CLI an optional installer component / separate asset to control size?
 - **O3 — Binary name collisions.** `clobmap` on `PATH` — confirm no conflict;
-  decide behavior if a different `clobmap` already exists.
+  decide behavior if a different `clobmap` already exists (proposed default:
+  detect and warn rather than overwrite).
 
 ## 12. Success criteria
 
@@ -196,12 +225,12 @@ Open (to confirm during Phase 1):
 
 ## 13. Risks & mitigations
 
-- **Installer bloat (embedded runtime).** → Measure early (§10); consider an
-  optional component (O2); prefer SEA.
+- **Installer bloat (embedded runtime).** → Accepted per D5 (~100 MB is fine for
+  now); measure the delta in Phase 1 and revisit only on real complaints.
 - **macOS notarization of the sidecar.** The extra binary must be signed +
   notarized or it's blocked. → Fold into the existing notarization step in
   `release.yml`; verify on a clean Mac.
-- **SEA stability / signing friction.** → Bun fallback (O1).
+- **SEA stability / signing friction.** → Bun fallback (D4).
 - **PATH-install privileges.** `/usr/local/bin` may need elevation. → Follow the
   VS Code pattern (write if possible, prompt only when needed); offer a manual
   one-liner as backup.
@@ -214,14 +243,16 @@ Open (to confirm during Phase 1):
 
 ## 14. Rollout (phased)
 
-- **Phase 1 — Compile locally.** `npm run build:cli` (esbuild bundle → SEA/Bun
-  compile). `clobmap --version` / `--help` work as a standalone binary on the
-  dev's OS. Measure size. Confirm O1/O2.
+- **Phase 1 — Compile locally.** `npm run build:cli` (esbuild bundle → **Node
+  SEA** compile; Bun only if SEA blocks). `clobmap --version` / `--help` work as
+  a standalone binary on the dev's OS. Record the size delta.
 - **Phase 2 — Bundle as a sidecar.** Wire `bundle.externalBin` in
   `tauri.conf.json`; build the binary per matrix target in `release.yml`; sign +
   notarize it alongside the app. Verify it runs from inside the installed bundle.
-- **Phase 3 — Put it on PATH.** In-app "Install / Uninstall command-line tool"
-  action (all platforms) + installer-time PATH for Windows/Linux packages.
+- **Phase 3 — Put it on PATH.** First-run PATH detection + one-time consent
+  prompt and a Settings "Command-line tool" toggle with live status (§9, D6);
+  in-app "Install / Uninstall" action on all platforms + installer-time PATH for
+  Windows/Linux packages.
 - **Phase 4 — Self-documenting + parity.** `clobmap --help` full reference and a
   `clobmap docs` (or bundled `SKILL.md` resource); CI parity check for version;
   extend the process-e2e suite to test the compiled binary.
