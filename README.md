@@ -288,16 +288,27 @@ npm run clobmap -- ...   # Headless CLI for .clobmap.yaml (see below)
 
 ## Headless CLI (the clobmap skill)
 
-[`skills/clobmap/`](./skills/clobmap/SKILL.md) is a headless, CLI-only toolkit
-for creating and editing `.clobmap.yaml` documents **without opening the app** —
-for scripts and agents. It reuses the pure model layer (`src/model`), so every
-edit **round-trips losslessly** (comments, key order, and formatting survive).
+clobmap has a **headless CLI** for creating and editing `.clobmap.yaml` documents
+from the terminal — for scripts and AI agents — without opening the app. It
+reuses the same model layer (`src/model`), so every edit **round-trips
+losslessly** (comments, key order, and formatting survive).
+
+**Two ways to get it:**
+
+- **Bundled with the desktop app** — no Node, no clone. Install clobmap, then
+  accept the first-run prompt or go to **Settings → Command-line tool →
+  Install**. The command is `clobmap` on macOS/Windows and **`clobmap-cli` on
+  Linux** (the Linux GUI binary already owns the name `clobmap`).
+- **From this repo** (for development) — `npm install`, then `npm run clobmap -- …`.
 
 ```bash
+# Bundled (macOS/Windows shown; use `clobmap-cli` on Linux):
+clobmap new demo.clobmap.yaml --title "Demo"
+clobmap add-child demo.clobmap.yaml --parent "Demo" --text "Idea"
+clobmap export-notes demo.clobmap.yaml --out notes.md
+
+# From the repo:
 npm run clobmap -- new demo.clobmap.yaml --title "Demo"
-npm run clobmap -- add-child demo.clobmap.yaml --parent "Demo" --text "Idea"
-npm run clobmap -- tag-add demo.clobmap.yaml "Idea" --tags "todo"
-npm run clobmap -- export-notes demo.clobmap.yaml --out notes.md
 ```
 
 It covers the full operation catalog — tree edits, notes (inline or a notes

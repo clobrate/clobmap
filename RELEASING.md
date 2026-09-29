@@ -17,12 +17,21 @@ That's it. The Release workflow (`.github/workflows/release.yml`) takes over:
 
 1. Creates a draft GitHub release.
 2. Matrix-builds on macOS (arm + intel), Windows, and Linux.
-3. Code-signs and notarizes the macOS bundles.
-4. Signs every platform's updater bundle.
-5. Uploads installers + signatures + `latest.json` to the draft.
-6. **Promotes the draft to published** only if every matrix job succeeded.
+3. Builds the standalone `clobmap` CLI for each target (`npm run build:cli`) and
+   stages it as the Tauri sidecar (`src-tauri/binaries/clobmap-cli-<triple>`) so
+   it's packaged into every installer.
+4. Code-signs and notarizes the macOS bundles (including the CLI sidecar).
+5. Signs every platform's updater bundle.
+6. Uploads installers + signatures + `latest.json` to the draft.
+7. Injects this version's CHANGELOG section into `latest.json`'s `notes`.
+8. **Promotes the draft to published** only if every matrix job succeeded.
 
 If any platform fails, the release stays a draft and you can retry the failed job from the GitHub Actions UI.
+
+> The bundled CLI is exposed on the user's PATH as `clobmap` (macOS/Windows) or
+> `clobmap-cli` (Linux) via the in-app **Settings → Command-line tool** action,
+> the first-run prompt, and (Linux `.deb`/`.rpm`) an install-time symlink. See
+> [`docs/clobmap-cli-bundled-product-doc.md`](docs/clobmap-cli-bundled-product-doc.md).
 
 Read on for the one-time setup (signing keys, secrets) and the manual fallback flow if you need to release without CI.
 

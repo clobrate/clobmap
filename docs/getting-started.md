@@ -112,6 +112,21 @@ also open.
 If those are what you want, look at Mural, FigJam, Excalidraw, or
 Obsidian Canvas instead.
 
+## Use it from the terminal (optional)
+
+Every clobmap document is a plain `.clobmap.yaml` file, and the app ships a
+command-line tool for editing those files from a terminal — handy for scripts or
+for letting an AI assistant reorganize a map. Turn it on from **Settings →
+Command-line tool → Install** (or accept the prompt on first launch), then:
+
+```bash
+clobmap tree ~/Documents/my-map.clobmap.yaml        # macOS / Windows
+clobmap-cli tree ~/Documents/my-map.clobmap.yaml    # Linux
+```
+
+`clobmap --help` lists every command. Edits made this way show up live in the
+open app. Full reference: [skills/clobmap/SKILL.md](../skills/clobmap/SKILL.md).
+
 ## Keep going
 
 - All keyboard shortcuts and the mind-map view's full action list:

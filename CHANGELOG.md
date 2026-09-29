@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The clobmap CLI now ships with the desktop app.** The headless CLI (the
+  `skills/clobmap` toolkit) is compiled to a self-contained binary and bundled
+  as a signed Tauri sidecar, so you no longer need Node or a repo clone to use
+  it. Install it from **Settings → Command-line tool → Install** (or accept the
+  first-run prompt); on Linux `.deb`/`.rpm` it's added to PATH automatically.
+  The command is `clobmap` on macOS/Windows and `clobmap-cli` on Linux (the
+  Linux GUI binary already owns the name `clobmap`). `clobmap --version` tracks
+  the app version; `clobmap docs` prints the full command reference. Installs
+  are consent-based and reversible (**Uninstall** in the same Settings section);
+  a foreign `clobmap` already on PATH is detected and never clobbered.
+
 ## [2.1.0] - 2026-09-28
 
 ### Added
