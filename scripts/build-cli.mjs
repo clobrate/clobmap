@@ -1,12 +1,19 @@
 /**
- * Build the standalone `clobmap` CLI binary (Phase 0 of the bundled-CLI plan).
+ * Build the standalone `clobmap` CLI binary (bundled-CLI plan, Phase 0–1).
  *
  * Pipeline: esbuild bundle (all pure-TS deps inlined) → Node SEA blob →
- * copy the node binary → postject the blob in → (macOS) re-sign ad-hoc.
- * Output: dist-cli/clobmap[.exe] — a self-contained binary needing no Node.
+ * inject the blob into a target-arch node base → (macOS) re-sign ad-hoc.
+ * Output: dist-cli/clobmap[.exe] plus the Tauri sidecar at
+ * src-tauri/binaries/clobmap-<target-triple>[.exe].
  *
- * Isolated here on purpose: if Node SEA proves painful, swapping to Bun
- * `--compile` (product doc D4 fallback) is a change to this one file.
+ * Usage: node scripts/build-cli.mjs [--target <rust-triple>]   (default: host)
+ *
+ * Cross-arch note: the SEA blob is architecture-independent, so it's generated
+ * once with a runnable SEA-capable node and injected into the *target* arch's
+ * official node — this lets the arm64 macOS runner also emit the x86_64 sidecar.
+ *
+ * Isolated here on purpose: swapping to Bun `--compile` (product doc D4
+ * fallback) is a change to this one file.
  */
 import { build } from "esbuild";
 import { execFileSync } from "node:child_process";
@@ -15,22 +22,38 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const OUT_DIR = path.join(ROOT, "dist-cli");
+const SIDECAR_DIR = path.join(ROOT, "src-tauri", "binaries");
 const BUNDLE = path.join(OUT_DIR, "clobmap.cjs");
 const BLOB = path.join(OUT_DIR, "clobmap.blob");
-const isWin = process.platform === "win32";
-const isMac = process.platform === "darwin";
-const BIN = path.join(OUT_DIR, isWin ? "clobmap.exe" : "clobmap");
+const CACHE = path.join(ROOT, ".sea-node");
 // The Node SEA fuse sentinel (fixed, documented constant).
 const FUSE = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
 
-// Rust-style target triple, for reference / Phase-1 sidecar naming.
-const TRIPLE = {
-  "darwin-arm64": "aarch64-apple-darwin",
-  "darwin-x64": "x86_64-apple-darwin",
-  "win32-x64": "x86_64-pc-windows-msvc",
-  "linux-x64": "x86_64-unknown-linux-gnu",
-  "linux-arm64": "aarch64-unknown-linux-gnu",
-}[`${process.platform}-${process.arch}`] ?? `${process.arch}-${process.platform}`;
+// Rust triple ↔ Node dist (os-arch). Windows is only ever built on a Windows
+// runner (host == target), so it never needs a cross download.
+const TRIPLE_TO_DIST = {
+  "aarch64-apple-darwin": "darwin-arm64",
+  "x86_64-apple-darwin": "darwin-x64",
+  "x86_64-unknown-linux-gnu": "linux-x64",
+  "aarch64-unknown-linux-gnu": "linux-arm64",
+  "x86_64-pc-windows-msvc": "win-x64",
+};
+const platMap = { win32: "win", darwin: "darwin", linux: "linux" };
+const HOST_DIST = `${platMap[process.platform]}-${process.arch}`;
+const HOST_TRIPLE = Object.keys(TRIPLE_TO_DIST).find((t) => TRIPLE_TO_DIST[t] === HOST_DIST);
+
+// --- args ---
+const targetArg = process.argv.indexOf("--target");
+const TARGET = targetArg >= 0 ? process.argv[targetArg + 1] : HOST_TRIPLE;
+if (!TRIPLE_TO_DIST[TARGET]) {
+  throw new Error(`Unknown --target "${TARGET}". Known: ${Object.keys(TRIPLE_TO_DIST).join(", ")}`);
+}
+const targetDist = TRIPLE_TO_DIST[TARGET];
+const isWinTarget = TARGET.includes("windows");
+const isMacTarget = TARGET.includes("darwin");
+const EXT = isWinTarget ? ".exe" : "";
+const BIN = path.join(OUT_DIR, `clobmap${EXT}`);
+const SIDECAR = path.join(SIDECAR_DIR, `clobmap-${TARGET}${EXT}`);
 
 function run(cmd, args, opts = {}) {
   execFileSync(cmd, args, { stdio: "inherit", cwd: ROOT, ...opts });
@@ -39,46 +62,50 @@ function log(msg) {
   process.stdout.write(`[build-cli] ${msg}\n`);
 }
 
-/**
- * Return a path to an SEA-capable `node`. The running node is used if it was
- * built with SEA (official builds + CI's setup-node are); otherwise (e.g.
- * Homebrew, which compiles SEA out) the matching official build is downloaded
- * and cached under `.sea-node/`. The injected base binary MUST be SEA-capable,
- * or it ignores the embedded blob — so this same node is used as the base.
- */
-async function ensureSeaNode() {
-  if (process.config?.variables?.single_executable_application) return process.execPath;
-  if (isWin) {
-    throw new Error("This node lacks SEA support; on Windows use an official Node build to run build:cli.");
-  }
-  const ver = process.version; // vX.Y.Z
-  const plat = process.platform; // darwin | linux
-  const arch = process.arch; // arm64 | x64
-  const name = `node-${ver}-${plat}-${arch}`;
-  const cacheDir = path.join(ROOT, ".sea-node");
-  const nodeBin = path.join(cacheDir, name, "bin", "node");
-  if (existsSync(nodeBin)) {
-    log(`using cached SEA-capable node (${name})`);
-    return nodeBin;
-  }
-  log(`local node lacks SEA — downloading official ${name}…`);
-  mkdirSync(cacheDir, { recursive: true });
+/** Download (and cache) an official Node build for the given dist (os-arch);
+ * returns the path to its `node` binary. Only unix (tar.gz) — Windows never
+ * cross-builds here. */
+function officialNode(dist) {
+  const ver = process.version;
+  const name = `node-${ver}-${dist}`;
+  const nodeBin = path.join(CACHE, name, "bin", "node");
+  if (existsSync(nodeBin)) return nodeBin;
+  log(`fetching official ${name}…`);
+  mkdirSync(CACHE, { recursive: true });
   const url = `https://nodejs.org/dist/${ver}/${name}.tar.gz`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`download failed (${res.status}): ${url}`);
-  const tgz = path.join(cacheDir, `${name}.tar.gz`);
-  writeFileSync(tgz, Buffer.from(await res.arrayBuffer()));
-  run("tar", ["-xzf", tgz, "-C", cacheDir]);
-  if (!existsSync(nodeBin)) throw new Error(`extracted node not found at ${nodeBin}`);
-  return nodeBin;
+  const tgz = path.join(CACHE, `${name}.tar.gz`);
+  // fetch is sync-awaited by the caller via top-level await below.
+  return fetch(url).then(async (res) => {
+    if (!res.ok) throw new Error(`download failed (${res.status}): ${url}`);
+    writeFileSync(tgz, Buffer.from(await res.arrayBuffer()));
+    run("tar", ["-xzf", tgz, "-C", CACHE]);
+    if (!existsSync(nodeBin)) throw new Error(`extracted node not found at ${nodeBin}`);
+    return nodeBin;
+  });
 }
 
-// Clean output dir.
+/** A runnable, SEA-capable node for generating the blob (must run on the host). */
+async function seaConfigNode() {
+  if (process.config?.variables?.single_executable_application) return process.execPath;
+  // Host node lacks SEA (e.g. Homebrew) → use the official host build.
+  return officialNode(HOST_DIST);
+}
+
+/** The base binary to inject into — the *target* arch's node (official builds
+ * are SEA-capable). Host-target reuses the config node / current node. */
+async function baseNode() {
+  if (targetDist === HOST_DIST) return seaConfigNode();
+  return officialNode(targetDist);
+}
+
+// --- build ---
 rmSync(OUT_DIR, { recursive: true, force: true });
 mkdirSync(OUT_DIR, { recursive: true });
+mkdirSync(SIDECAR_DIR, { recursive: true });
 
-// 1. Bundle cli.ts + all its pure-TS deps into one CJS file. package.json is
-//    inlined (version), node builtins stay external (platform: node).
+log(`target ${TARGET} (node dist ${targetDist}); host ${HOST_DIST}`);
+
+// 1. Bundle cli.ts + pure-TS deps into one CJS file (package.json inlined).
 log("bundling with esbuild…");
 await build({
   entryPoints: [path.join(ROOT, "skills/clobmap/cli.ts")],
@@ -93,35 +120,40 @@ await build({
   logOverride: { "empty-import-meta": "silent" },
 });
 
-// 2. Generate the SEA blob (embeds the bundle + SKILL.md asset). Needs an
-//    SEA-capable node (downloads one if the local node lacks it).
-const seaNode = await ensureSeaNode();
+// 2. Generate the (arch-independent) SEA blob using a runnable SEA node.
+const configNode = await seaConfigNode();
 log("generating SEA blob…");
-run(seaNode, ["--experimental-sea-config", "sea-config.json"]);
+run(configNode, ["--experimental-sea-config", "sea-config.json"]);
 
-// 3. Copy the SEA-capable node binary as the base executable.
-log("copying node runtime…");
-copyFileSync(seaNode, BIN);
+// 3. Copy the target-arch node as the base executable.
+const base = await baseNode();
+log(`base runtime: ${path.relative(ROOT, base)}`);
+copyFileSync(base, BIN);
 chmodSync(BIN, 0o755);
 
 // 4. macOS: strip the existing signature before injecting.
-if (isMac) {
+if (isMacTarget) {
   log("removing macOS signature…");
   run("codesign", ["--remove-signature", BIN]);
 }
 
 // 5. Inject the blob (macho segment on macOS).
 log("injecting blob with postject…");
-const postject = path.join(ROOT, "node_modules", ".bin", isWin ? "postject.cmd" : "postject");
+const postject = path.join(ROOT, "node_modules", ".bin", process.platform === "win32" ? "postject.cmd" : "postject");
 const injectArgs = [BIN, "NODE_SEA_BLOB", BLOB, "--sentinel-fuse", FUSE];
-if (isMac) injectArgs.push("--macho-segment-name", "NODE_SEA");
+if (isMacTarget) injectArgs.push("--macho-segment-name", "NODE_SEA");
 run(postject, injectArgs);
 
-// 6. macOS: ad-hoc re-sign so it runs locally (CI re-signs with the real identity).
-if (isMac) {
+// 6. macOS: ad-hoc re-sign for local runs (CI re-signs with the real identity
+//    during app bundling / notarization).
+if (isMacTarget) {
   log("ad-hoc re-signing…");
-  run("codesign", ["--sign", "-", BIN]);
+  run("codesign", ["--sign", "-", "--force", BIN]);
 }
 
+// 7. Stage the Tauri sidecar (triple-named).
+copyFileSync(BIN, SIDECAR);
+chmodSync(SIDECAR, 0o755);
+
 const sizeMB = (statSync(BIN).size / 1024 / 1024).toFixed(1);
-log(`done → ${path.relative(ROOT, BIN)}  (${sizeMB} MB, target ${TRIPLE})`);
+log(`done → ${path.relative(ROOT, BIN)} + ${path.relative(ROOT, SIDECAR)}  (${sizeMB} MB)`);

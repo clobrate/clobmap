@@ -51,3 +51,5 @@ stress-1000.yaml
 dist-cli
 # SEA-capable node cache (build:cli)
 .sea-node
+# Bundled CLI sidecar (built by build:cli, packaged by tauri)
+src-tauri/binaries
