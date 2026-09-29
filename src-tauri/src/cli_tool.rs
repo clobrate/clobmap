@@ -46,13 +46,17 @@ fn command_name() -> &'static str {
     }
 }
 
-/// First matching command found on PATH.
-fn which_on_path() -> Option<PathBuf> {
-    let name = command_name();
-    let path = std::env::var_os("PATH")?;
+/// First `name` found as a file across the given PATH value (pure/testable).
+fn find_in_paths(path_var: Option<std::ffi::OsString>, name: &str) -> Option<PathBuf> {
+    let path = path_var?;
     std::env::split_paths(&path)
         .map(|dir| dir.join(name))
         .find(|c| c.is_file())
+}
+
+/// First matching command found on the process PATH.
+fn which_on_path() -> Option<PathBuf> {
+    find_in_paths(std::env::var_os("PATH"), command_name())
 }
 
 /// True iff both resolve (through symlinks) to the same file.
@@ -121,17 +125,11 @@ fn unix_link() -> PathBuf {
     Path::new("/usr/local/bin").join(command_name())
 }
 
+/// O3: our installs are always symlinks, so a real (non-symlink) file at the
+/// target is a foreign `clobmap` — refuse rather than clobber it. A stale
+/// symlink of ours, or nothing there, is fine to replace.
 #[cfg(unix)]
-fn install_unix(target: &Path) -> Result<String, String> {
-    use std::os::unix::fs::symlink;
-    let link = unix_link();
-    let dst = link.as_path();
-    if let Some(parent) = dst.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    // O3: our installs are always symlinks. If a real (non-symlink) file is
-    // sitting at the target, it's a foreign `clobmap` — refuse rather than
-    // clobber it. Our own (stale) symlink is fine to replace.
+fn ensure_replaceable(dst: &Path) -> Result<(), String> {
     if let Ok(meta) = std::fs::symlink_metadata(dst) {
         if !meta.file_type().is_symlink() {
             return Err(format!(
@@ -141,6 +139,18 @@ fn install_unix(target: &Path) -> Result<String, String> {
             ));
         }
     }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn install_unix(target: &Path) -> Result<String, String> {
+    use std::os::unix::fs::symlink;
+    let link = unix_link();
+    let dst = link.as_path();
+    if let Some(parent) = dst.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    ensure_replaceable(dst)?; // O3: don't clobber a foreign non-symlink `clobmap`
     let _ = std::fs::remove_file(dst); // best-effort; replaced below if it fails
     if symlink(target, dst).is_ok() {
         return Ok(dst.display().to_string());
@@ -250,4 +260,69 @@ fn uninstall_windows() -> Result<(), String> {
         bindir.display()
     );
     run_powershell(&script)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn scratch(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("clob-cli-{}-{}", tag, std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn command_name_is_platform_appropriate() {
+        let n = command_name();
+        assert!(!n.is_empty());
+        if cfg!(target_os = "linux") {
+            assert!(n.starts_with("clobmap-cli"), "linux CLI must not shadow the GUI binary");
+        } else {
+            assert!(n.starts_with("clobmap"));
+        }
+    }
+
+    #[test]
+    fn find_in_paths_locates_a_command() {
+        let dir = scratch("which");
+        let name = command_name();
+        fs::write(dir.join(name), b"#!/bin/sh\n").unwrap();
+        let path_var = std::env::join_paths([&dir]).unwrap();
+        assert_eq!(find_in_paths(Some(path_var), name), Some(dir.join(name)));
+        assert!(find_in_paths(Some(std::ffi::OsString::from("")), name).is_none());
+        assert!(find_in_paths(None, name).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn same_file_follows_symlinks_and_distinguishes() {
+        let dir = scratch("same");
+        let real = dir.join("real");
+        fs::write(&real, b"x").unwrap();
+        let link = dir.join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        assert!(same_file(&link, &real), "symlink resolves to its target");
+        let other = dir.join("other");
+        fs::write(&other, b"y").unwrap();
+        assert!(!same_file(&real, &other));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ensure_replaceable_refuses_foreign_file_but_allows_symlink_or_absent() {
+        let dir = scratch("o3");
+        // A real (non-symlink) file → refuse (O3).
+        let foreign = dir.join("foreign");
+        fs::write(&foreign, b"#!/bin/sh\n").unwrap();
+        assert!(ensure_replaceable(&foreign).is_err());
+        // A symlink (our kind of install) → fine to replace.
+        let link = dir.join("link");
+        std::os::unix::fs::symlink(&foreign, &link).unwrap();
+        assert!(ensure_replaceable(&link).is_ok());
+        // Nothing there → fine.
+        assert!(ensure_replaceable(&dir.join("absent")).is_ok());
+    }
 }

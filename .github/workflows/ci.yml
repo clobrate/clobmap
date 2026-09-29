@@ -67,6 +67,34 @@ jobs:
       - name: Compiled-binary e2e
         run: CLOBMAP_BIN="$PWD/dist-cli/clobmap" npx vitest run skills/clobmap/__tests__/cli-process.e2e.test.ts
 
+  rust:
+    name: Rust (test)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install Linux system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # Compiles the Rust (compile-checking every PR, which release.yml did but
+      # PR CI didn't) and runs the cli_tool unit tests.
+      - name: cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
   e2e:
     name: Playwright (web E2E)
     needs: test
