@@ -66,6 +66,14 @@
     "linux": {
       "appimage": {
         "bundleMediaFramework": false
+      },
+      "deb": {
+        "postInstallScript": "linux/postinstall.sh",
+        "postRemoveScript": "linux/postremove.sh"
+      },
+      "rpm": {
+        "postInstallScript": "linux/postinstall.sh",
+        "postRemoveScript": "linux/postremove.sh"
       }
     }
   },

@@ -29,9 +29,26 @@ fn sidecar_path() -> Option<PathBuf> {
     p.exists().then_some(p)
 }
 
-/// First `clobmap[.exe]` found on PATH.
+/// The on-PATH command name. On Linux the GUI binary is already `/usr/bin/clobmap`,
+/// so the CLI is exposed as `clobmap-cli` to avoid shadowing the app launcher;
+/// on macOS/Windows the GUI binary isn't on PATH, so the CLI is plain `clobmap`.
+fn command_name() -> &'static str {
+    if cfg!(target_os = "linux") {
+        if cfg!(windows) {
+            "clobmap-cli.exe"
+        } else {
+            "clobmap-cli"
+        }
+    } else if cfg!(windows) {
+        "clobmap.exe"
+    } else {
+        "clobmap"
+    }
+}
+
+/// First matching command found on PATH.
 fn which_on_path() -> Option<PathBuf> {
-    let name = if cfg!(windows) { "clobmap.exe" } else { "clobmap" };
+    let name = command_name();
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
         .map(|dir| dir.join(name))
@@ -100,12 +117,15 @@ pub fn cli_uninstall() -> Result<(), String> {
 // ---- macOS / Linux: symlink into /usr/local/bin (on the default PATH) ----
 
 #[cfg(unix)]
-const UNIX_LINK: &str = "/usr/local/bin/clobmap";
+fn unix_link() -> PathBuf {
+    Path::new("/usr/local/bin").join(command_name())
+}
 
 #[cfg(unix)]
 fn install_unix(target: &Path) -> Result<String, String> {
     use std::os::unix::fs::symlink;
-    let dst = Path::new(UNIX_LINK);
+    let link = unix_link();
+    let dst = link.as_path();
     if let Some(parent) = dst.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
@@ -136,7 +156,8 @@ fn install_unix(target: &Path) -> Result<String, String> {
 
 #[cfg(unix)]
 fn uninstall_unix() -> Result<(), String> {
-    let dst = Path::new(UNIX_LINK);
+    let link = unix_link();
+    let dst = link.as_path();
     if std::fs::symlink_metadata(dst).is_err() {
         return Ok(()); // nothing there
     }
