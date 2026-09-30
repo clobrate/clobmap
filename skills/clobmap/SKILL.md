@@ -121,6 +121,13 @@ find <file> [--text q] [--tag t] [--color c]
 apply <file> --ops <ops.json>             # atomic JSON op-list (see below)
 ```
 
+Setup (no `<file>`):
+
+```
+docs                                      # print this reference
+skill status|install|uninstall [--json]   # this skill in ~/.claude/skills/clobmap
+```
+
 ## Batch edits — the JSON op-list
 
 `apply <file> --ops ops.json` runs many edits against one in-memory tree, **in

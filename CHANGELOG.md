@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Install clobmap's Claude Code skill from the app or the CLI.** The skill
+  teaches Claude Code to edit maps through the `clobmap` command. Install it
+  from **Settings → Claude Code skill**, the new "Also teach Claude Code to use
+  it" checkbox in the first-run CLI prompt, or `clobmap skill install` (also
+  `status` / `uninstall`, honoring `$CLAUDE_CONFIG_DIR`). It's copied to
+  `~/.claude/skills/clobmap/` with an ownership marker; the app refreshes it
+  after updates. Nothing is written without a click, `~/.claude` is never
+  created, and a skill folder clobmap didn't create is never touched.
+- **Claude Code plugin marketplace.** `claude plugin marketplace add
+  clobrate/clobmap` then `claude plugin install clobmap@clobmap` — an
+  alternative route to the same skill. Install one or the other.
+
 ## [2.2.1] - 2026-09-28
 
 ### Fixed

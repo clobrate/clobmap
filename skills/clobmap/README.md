@@ -64,6 +64,23 @@ so Claude Code can auto-discover and invoke it; other agents (e.g. Codex) don't
 read that format, so point them at `SKILL.md` as the command reference and have
 them call the CLI (`clobmap …`, or `npm run clobmap -- …` from a repo clone).
 
+To install the skill for Claude Code from the terminal:
+
+```bash
+clobmap skill install     # copies SKILL.md to ~/.claude/skills/clobmap/
+clobmap skill status      # installed? which version? (--json for scripts)
+clobmap skill uninstall   # removes it — only if clobmap installed it
+```
+
+It uses `$CLAUDE_CONFIG_DIR` when set. The desktop app's **Settings → Claude
+Code skill** does the same thing, and the two recognize each other's install
+via the `.clobmap-install.json` marker (`skill-install.ts` here,
+`src-tauri/src/skill_tool.rs` in the app — keep them in step; the contract is in
+[`docs/clobmap-skill-app-install-product-doc.md`](../../docs/clobmap-skill-app-install-product-doc.md)
+§9). A folder without that marker — e.g. your own symlink to this repo — is
+never modified. The marketplace plugin (`clobmap@clobmap`) is the alternative
+route; install one or the other.
+
 ## Layout
 
 | File | Role |
@@ -75,6 +92,7 @@ them call the CLI (`clobmap …`, or `npm run clobmap -- …` from a repo clone)
 | `notes-fs.ts` | Node twin of the app's note I/O; sandboxed to the doc's folder. |
 | `export.ts` | `export-notes` markdown (app-identical) + `find`. |
 | `batch.ts` | `apply` — atomic JSON op-list applier. |
+| `skill-install.ts` | `skill status/install/uninstall` — the Claude Code skill in `~/.claude/skills/clobmap`. |
 | `format.ts` | `tree` outline + dry-run line diff. |
 | `__tests__/` | Unit + recipe smoke suites (`vitest`). |
 

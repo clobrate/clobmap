@@ -1,6 +1,7 @@
 use std::env;
 
 mod cli_tool;
+mod skill_tool;
 
 #[cfg(desktop)]
 use tauri::{Emitter, Manager};
@@ -115,7 +116,12 @@ pub fn run() {
                         tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                     ])
                     .build(),
-            );
+            )
+            .setup(|_app| {
+                // Off the main thread: it's file I/O, and the window shouldn't wait.
+                std::thread::spawn(skill_tool::refresh_on_launch);
+                Ok(())
+            });
     }
 
     let context = tauri::generate_context!();
@@ -127,7 +133,10 @@ pub fn run() {
             path_is_within,
             cli_tool::cli_status,
             cli_tool::cli_install,
-            cli_tool::cli_uninstall
+            cli_tool::cli_uninstall,
+            skill_tool::skill_status,
+            skill_tool::skill_install,
+            skill_tool::skill_uninstall
         ])
         .build(context)
         .expect("error while building tauri application");

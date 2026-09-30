@@ -13,8 +13,9 @@ puts it anywhere Claude Code looks.
   `~/.claude/skills/clobmap` → `skills/clobmap/`. Symlinked skill folders are an
   officially supported pattern. Remove with `rm ~/.claude/skills/clobmap`.
   This does nothing for anyone else.
-- **No `.claude-plugin/` exists in this repo.** No marketplace, no plugin
-  manifest. There is currently no distribution mechanism of any kind.
+- **Update 2026-09-29:** steps 1–3 below are done on
+  `dev/kchava/skillEasilyAvailable` — the repo is a plugin marketplace, and the
+  app / `clobmap skill install` can install the skill. Step 4 is what's left.
 
 ## How skill distribution actually works
 
@@ -46,11 +47,11 @@ the skill. The customer never needs to learn what a SKILL.md is — which answer
 
 ## Plan, in order
 
-1. **Fix the SKILL.md examples.** Prerequisite, cheap, do this first. Nearly all
+1. ✅ **Done.** **Fix the SKILL.md examples.** Prerequisite, cheap, do this first. Nearly all
    ~20 examples use `npm run clobmap -- …` (the repo form), which is broken for
    anyone who never clones. The "Running it" section (line ~35) documents the
    PATH form but every example contradicts it. Lead with bare `clobmap …`.
-2. **Add a marketplace to this repo** — `.claude-plugin/marketplace.json` plus a
+2. ✅ **Done.** **Add a marketplace to this repo** — `.claude-plugin/marketplace.json` plus a
    `plugin.json`. Close to free, since `skills/clobmap/` already exists. Buys two
    README lines:
    ```bash
@@ -63,6 +64,10 @@ the skill. The customer never needs to learn what a SKILL.md is — which answer
 3. **Wire the app installer to drop the skill.** The real UX win and the most
    work: needs consent, an uninstall path, and a "Claude Code isn't installed"
    case. Deserves its own product doc + implementation plan before any code.
+   ✅ **Done** — see
+   [`docs/clobmap-skill-app-install-product-doc.md`](./docs/clobmap-skill-app-install-product-doc.md)
+   and its implementation plan. Manual pass (`manual-testing-guide.md` §20)
+   still pending.
 4. **Submit to Anthropic's directory** once 1–3 are solid. Requires a paid
    claude.ai plan and a GitHub repo holding the plugin.
 

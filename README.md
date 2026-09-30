@@ -325,16 +325,35 @@ command reference and recipes: [`skills/clobmap/SKILL.md`](./skills/clobmap/SKIL
 
 ### Use it from Claude Code
 
-This repo is a Claude Code plugin marketplace. Install the skill so Claude knows
-how to drive the CLI:
+clobmap's Claude Code skill teaches Claude the CLI's commands, so it edits your
+maps through `clobmap` instead of hand-editing YAML. Install it **one** of these
+ways (they're alternatives — pick one, or Claude sees two copies):
 
-```bash
-claude plugin marketplace add clobrate/clobmap
-claude plugin install clobmap@clobmap
-```
+- **From the app** — **Settings → Claude Code skill → Install**, or leave
+  "Also teach Claude Code to use it" checked in the first-run CLI prompt.
+  Copies the skill to `~/.claude/skills/clobmap/` and refreshes it after each
+  app update. Offered only when Claude Code is on the machine (`~/.claude`
+  exists).
+- **From the terminal** — with the CLI installed:
 
-The skill teaches Claude the commands; it doesn't ship the CLI itself, so you
-still need `clobmap` on PATH (or a repo checkout) as described above.
+  ```bash
+  clobmap skill install      # also: clobmap skill status | clobmap skill uninstall
+  ```
+
+  Honors `$CLAUDE_CONFIG_DIR`. After an app update, re-run it if you use a
+  custom config dir (the app only refreshes `~/.claude`).
+- **As a plugin** — this repo is a Claude Code plugin marketplace:
+
+  ```bash
+  claude plugin marketplace add clobrate/clobmap
+  claude plugin install clobmap@clobmap
+  ```
+
+Start a new Claude Code session afterwards. The app and `clobmap skill` share
+one install: either can update or remove what the other wrote, and neither
+touches a `~/.claude/skills/clobmap` folder it didn't create. The skill doesn't
+ship the CLI itself, so you still need `clobmap` on PATH (or a repo checkout) as
+described above.
 
 ---
 
