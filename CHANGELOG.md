@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-29
+
 ### Added
 
 - **Install clobmap's Claude Code skill from the app or the CLI.** The skill
