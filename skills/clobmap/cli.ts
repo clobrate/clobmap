@@ -23,6 +23,7 @@
  *   clobmap export-notes <file> [--out PATH]
  *   clobmap find <file> [--text q] [--tag t] [--color c]
  *   clobmap apply <file> --ops <ops.json>   (atomic JSON op-list batch)
+ *   clobmap skill status|install|uninstall  (the Claude Code skill)
  * Global flags: --dry-run (preview a diff, no write), --json (machine output).
  */
 import { promises as fsp } from "node:fs";
@@ -61,6 +62,7 @@ import { readNote, writeNote, joinAppend, joinPrepend } from "./notes-fs";
 import { req, resolveMode, resolveTagId, tagList, asSide, asNum } from "./helpers";
 import { exportNotes, findNodes } from "./export";
 import { applyOps, type Op } from "./batch";
+import { claudeDir, skillStatus, skillInstall, skillUninstall } from "./skill-install";
 
 export interface RunResult {
   code: number;
@@ -193,6 +195,9 @@ export async function run(argv: string[]): Promise<RunResult> {
 
       case "docs":
         return { code: 0, out: await docsText(), err: "" };
+
+      case "skill":
+        return await skillCommand(positionals[0], json);
 
       case "new": {
         req(file, "Usage: new <file> [--title]");
@@ -570,6 +575,46 @@ export async function run(argv: string[]): Promise<RunResult> {
   }
 }
 
+/** `skill status|install|uninstall` — manage the Claude Code skill (this
+ * SKILL.md, copied into Claude Code's personal skills folder). */
+async function skillCommand(sub: string | undefined, json: boolean): Promise<RunResult> {
+  const claude = claudeDir();
+  const ok = (data: object, text: string): RunResult => ({
+    code: 0,
+    out: json ? JSON.stringify(data) : text,
+    err: "",
+  });
+  switch (sub) {
+    case "status": {
+      const s = await skillStatus(claude);
+      const text = !s.claudeDetected
+        ? `Claude Code not found (no ${claude}).`
+        : s.isOurs
+          ? `Claude Code skill installed at ${s.path} (clobmap ${s.version}).`
+          : s.installed
+            ? `A different 'clobmap' skill is at ${s.path} (not created by clobmap).`
+            : `Claude Code skill not installed. Run: clobmap skill install`;
+      return ok(s, text);
+    }
+    case "install": {
+      const dir = await skillInstall(claude, await docsText(), VERSION);
+      return ok(
+        { ok: true, path: dir },
+        `Installed Claude Code skill → ${dir}\nStart a new Claude Code session to pick it up.`,
+      );
+    }
+    case "uninstall": {
+      const removed = await skillUninstall(claude);
+      return ok(
+        { ok: true, removed },
+        removed ? "Removed Claude Code skill." : "Claude Code skill wasn't installed; nothing to remove.",
+      );
+    }
+    default:
+      throw new Error("Usage: skill status|install|uninstall [--json]");
+  }
+}
+
 function countNodes(tree: MindDocument): number {
   let count = 0;
   const walk = (n: { children: unknown[] }): void => {
@@ -612,6 +657,8 @@ function usage(): string {
     "  find <file> [--text q] [--tag t] [--color c]\n" +
     "  apply <file> --ops <ops.json>  (JSON array of ops, applied atomically)\n" +
     "  docs                            (print the full command reference)\n" +
+    "  skill status|install|uninstall  (Claude Code skill in ~/.claude/skills/clobmap;\n" +
+    "                                   honors $CLAUDE_CONFIG_DIR)\n" +
     "  --version | -v                  (print the version)\n" +
     "  (refs: node id | title | 'A › B › C' path; tags: name | tag id)  flags: --dry-run --json"
   );

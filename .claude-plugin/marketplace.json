@@ -1,0 +1,16 @@
+{
+  "name": "clobmap",
+  "owner": {
+    "name": "clobrate",
+    "url": "https://github.com/clobrate"
+  },
+  "description": "The clobmap skill for Claude Code.",
+  "plugins": [
+    {
+      "name": "clobmap",
+      "source": "./",
+      "description": "Create and edit clobmap mind-map documents (.clobmap.yaml) from the command line.",
+      "category": "productivity"
+    }
+  ]
+}

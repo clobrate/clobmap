@@ -102,4 +102,125 @@ describe("CliInstallPrompt", () => {
     await waitFor(() => expect(dialog()).not.toBeInTheDocument());
     expect(mockSaveDismissed).not.toHaveBeenCalled();
   });
+
+  describe("Claude Code skill checkbox", () => {
+    const SKILL_ABSENT = {
+      claude_detected: true,
+      installed: false,
+      is_ours: false,
+      path: "/Users/me/.claude/skills/clobmap",
+      version: null,
+    };
+    /** cli_status → NOT_INSTALLED; skill_status → `skill`; installs per `fail`. */
+    function withSkill(
+      skill: typeof SKILL_ABSENT | Error,
+      fail: { cli?: string; skill?: string } = {},
+    ): void {
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "cli_status") return Promise.resolve(NOT_INSTALLED);
+        if (cmd === "skill_status")
+          return skill instanceof Error ? Promise.reject(skill) : Promise.resolve(skill);
+        if (cmd === "cli_install")
+          return fail.cli ? Promise.reject(fail.cli) : Promise.resolve("/usr/local/bin/clobmap");
+        if (cmd === "skill_install")
+          return fail.skill ? Promise.reject(fail.skill) : Promise.resolve(SKILL_ABSENT.path);
+        return Promise.reject(new Error(`unexpected command ${cmd}`));
+      });
+    }
+    const checkbox = () => screen.queryByRole("checkbox", { name: /teach claude code/i });
+
+    it("is offered, checked, when Claude Code is present and the skill isn't", async () => {
+      withSkill(SKILL_ABSENT);
+      render(<CliInstallPrompt />);
+      await waitFor(() => expect(dialog()).toBeInTheDocument());
+      expect(checkbox()).toBeChecked();
+    });
+
+    it.each([
+      ["Claude Code isn't installed", { ...SKILL_ABSENT, claude_detected: false }],
+      ["a skill is already there", { ...SKILL_ABSENT, installed: true }],
+      ["skill status fails", new Error("HOME is not set.")],
+    ])("is hidden when %s", async (_label, skill) => {
+      withSkill(skill);
+      render(<CliInstallPrompt />);
+      await waitFor(() => expect(dialog()).toBeInTheDocument());
+      expect(checkbox()).not.toBeInTheDocument();
+    });
+
+    it("checked: Install now installs the CLI and the skill", async () => {
+      withSkill(SKILL_ABSENT);
+      render(<CliInstallPrompt />);
+      await waitFor(() => expect(dialog()).toBeInTheDocument());
+      await userEvent.click(screen.getByRole("button", { name: /install now/i }));
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("skill_install"));
+      expect(mockInvoke).toHaveBeenCalledWith("cli_install");
+      expect(await screen.findByText(/Run it from your terminal/)).toBeInTheDocument();
+      expect(screen.getByText(/Claude Code skill installed/)).toBeInTheDocument();
+    });
+
+    it("unchecked: Install now installs only the CLI", async () => {
+      withSkill(SKILL_ABSENT);
+      render(<CliInstallPrompt />);
+      await waitFor(() => expect(dialog()).toBeInTheDocument());
+      await userEvent.click(checkbox()!);
+      await userEvent.click(screen.getByRole("button", { name: /install now/i }));
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("cli_install"));
+      expect(mockInvoke).not.toHaveBeenCalledWith("skill_install");
+    });
+
+    it("a skill failure doesn't hide the CLI success, and the prompt stays up", async () => {
+      withSkill(SKILL_ABSENT, { skill: "A different 'clobmap' skill already exists at x" });
+      render(<CliInstallPrompt />);
+      await waitFor(() => expect(dialog()).toBeInTheDocument());
+      await userEvent.click(screen.getByRole("button", { name: /install now/i }));
+      expect(await screen.findByText(/Run it from your terminal/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Couldn't install the Claude Code skill: A different/),
+      ).toBeInTheDocument();
+      await new Promise((r) => setTimeout(r, 2600));
+      expect(dialog()).toBeInTheDocument();
+    }, 10_000);
+
+    it("shows a fallback message when the CLI install fails with a non-string error", async () => {
+      mockInvoke.mockImplementation((cmd: string) =>
+        cmd === "cli_status"
+          ? Promise.resolve(NOT_INSTALLED)
+          : cmd === "skill_status"
+            ? Promise.resolve({ ...SKILL_ABSENT, claude_detected: false })
+            : Promise.reject(new Error("boom")),
+      );
+      render(<CliInstallPrompt />);
+      await waitFor(() => expect(dialog()).toBeInTheDocument());
+      await userEvent.click(screen.getByRole("button", { name: /install now/i }));
+      expect(await screen.findByText(/try Settings → Command-line tool/)).toBeInTheDocument();
+    });
+
+    it("does nothing if unmounted while the skill status is still loading", async () => {
+      let resolveSkill: (s: typeof SKILL_ABSENT) => void = () => {};
+      mockInvoke.mockImplementation((cmd: string) =>
+        cmd === "cli_status"
+          ? Promise.resolve(NOT_INSTALLED)
+          : new Promise((r) => {
+              resolveSkill = r;
+            }),
+      );
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { unmount } = render(<CliInstallPrompt />);
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("skill_status"));
+      unmount();
+      resolveSkill(SKILL_ABSENT);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(errors).not.toHaveBeenCalled(); // no state update after unmount
+      errors.mockRestore();
+    });
+
+    it("a CLI failure doesn't stop the skill install", async () => {
+      withSkill(SKILL_ABSENT, { cli: "Authorization was cancelled or failed." });
+      render(<CliInstallPrompt />);
+      await waitFor(() => expect(dialog()).toBeInTheDocument());
+      await userEvent.click(screen.getByRole("button", { name: /install now/i }));
+      expect(await screen.findByText("Authorization was cancelled or failed.")).toBeInTheDocument();
+      expect(screen.getByText(/Claude Code skill installed/)).toBeInTheDocument();
+    });
+  });
 });

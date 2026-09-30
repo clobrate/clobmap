@@ -613,6 +613,29 @@ app with a saved `.clobmap.yaml` file.** Default on desktop is **Notes folder**.
 
 ---
 
+## 20. Claude Code skill install (desktop only)
+
+The install rules (ownership marker, refusals, refresh) are unit-tested in Rust
+(`skill_tool.rs`) and the CLI (`skill-install.ts`); this covers the real app and
+the real `~/.claude`. **Back up or move any existing `~/.claude/skills/clobmap`
+first.** Run on macOS and Windows.
+
+| # | Check | Pass criteria |
+|---|---|---|
+| 20.1 | Fresh install, Claude Code present, CLI not installed → first-run prompt | "Also teach Claude Code to use it" is shown and checked. |
+| 20.2 | **Install now** with the box checked | Two confirmation lines. `~/.claude/skills/clobmap/` holds `SKILL.md` (identical to `clobmap docs` output) and `.clobmap-install.json` with the app version. |
+| 20.3 | New Claude Code session, ask it to add a node to a map | It uses the `clobmap` skill / command, not a hand edit. |
+| 20.4 | Settings → Claude Code skill | Shows "Installed at …" and **Remove**; the plugin note is visible. |
+| 20.5 | **Remove** | The folder is gone; nothing else under `~/.claude` changed; the row offers **Install**. |
+| 20.6 | Uncheck the box in the first-run prompt, then Install now | Only the CLI is installed. |
+| 20.7 | Machine (or user) with no `~/.claude` | No checkbox in the prompt; Settings says "Claude Code not found"; `~/.claude` is not created. |
+| 20.8 | Put your own folder or symlink at `~/.claude/skills/clobmap`, then Install from Settings and `clobmap skill install` | Both refuse with "not created by clobmap"; the folder / link target is unchanged. |
+| 20.9 | Install from the app, then `clobmap skill status`; install with `clobmap skill install`, then open Settings | Each side reports the other's install as installed (ours). |
+| 20.10 | Install the skill on an older build, update the app, relaunch | `SKILL.md` and the marker version match the new build; the app log has "Refreshed Claude Code skill". |
+| 20.11 | Remove the skill, update the app, relaunch | The skill stays removed. |
+
+---
+
 ## What's excluded from manual testing
 
 - The pure model layer (parse / serialize / apply / ops / diff /

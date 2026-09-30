@@ -116,7 +116,7 @@ When CI is unavailable, you can still release by hand. Mostly the steps below ar
 npm run version:bump -- 0.2.0
 ```
 
-This atomically updates `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Refuses to downgrade.
+This atomically updates `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and `.claude-plugin/plugin.json` (the Claude Code plugin — existing installs only pick up a new skill when this version changes). Refuses to downgrade.
 
 ### 2. Sanity-check locally
 

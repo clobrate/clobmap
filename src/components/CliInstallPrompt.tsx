@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { isMobile, isTauri } from "../lib/env";
 import { loadCliPromptDismissed, saveCliPromptDismissed } from "../lib/settings";
+import type { SkillStatus } from "./ClaudeSkillSection";
 
 interface CliStatus {
   installed: boolean;
@@ -14,11 +15,17 @@ interface CliStatus {
  * `clobmap` CLI isn't already installed and the user hasn't opted out, offer a
  * one-click install. Never installs silently; always dismissible; and always
  * available afterwards from Settings → Command-line tool.
+ *
+ * When Claude Code is on this machine and the skill isn't installed yet, it also
+ * offers the Claude Code skill as a checkbox, checked by default (S6). The two
+ * installs are independent: each reports its own result.
  */
 export function CliInstallPrompt(): React.ReactElement | null {
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<string[] | null>(null);
+  const [offerSkill, setOfferSkill] = useState(false);
+  const [withSkill, setWithSkill] = useState(true);
 
   useEffect(() => {
     if (!isTauri() || isMobile()) return;
@@ -29,7 +36,13 @@ export function CliInstallPrompt(): React.ReactElement | null {
       if (await loadCliPromptDismissed()) return;
       const { invoke } = await import("@tauri-apps/api/core");
       const status = await invoke<CliStatus>("cli_status");
-      if (!cancelled && status.target && !status.is_ours) setVisible(true);
+      if (cancelled || !status.target || status.is_ours) return;
+      // Offer the skill only when there's a Claude Code to install it into and
+      // nothing is there yet (not even someone else's skill).
+      const skill = await invoke<SkillStatus>("skill_status").catch(() => null);
+      if (cancelled) return;
+      setOfferSkill(Boolean(skill?.claude_detected && !skill.installed));
+      setVisible(true);
     })();
     return () => {
       cancelled = true;
@@ -40,16 +53,30 @@ export function CliInstallPrompt(): React.ReactElement | null {
 
   const install = async (): Promise<void> => {
     setBusy(true);
+    const { invoke } = await import("@tauri-apps/api/core");
+    const lines: string[] = [];
+    let allOk = true;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
       await invoke<string>("cli_install");
-      setDone("Installed. Run it from your terminal.");
-      setTimeout(() => setVisible(false), 2500);
+      lines.push("Installed. Run it from your terminal.");
     } catch (e) {
-      setDone(typeof e === "string" ? e : "Couldn't install — try Settings → Command-line tool.");
-    } finally {
-      setBusy(false);
+      allOk = false;
+      lines.push(
+        typeof e === "string" ? e : "Couldn't install — try Settings → Command-line tool.",
+      );
     }
+    if (offerSkill && withSkill) {
+      try {
+        await invoke<string>("skill_install");
+        lines.push("Claude Code skill installed. Start a new Claude Code session to use it.");
+      } catch (e) {
+        allOk = false;
+        lines.push(`Couldn't install the Claude Code skill: ${String(e)}`);
+      }
+    }
+    setDone(lines);
+    setBusy(false);
+    if (allOk) setTimeout(() => setVisible(false), 2500);
   };
 
   const dismissForever = async (): Promise<void> => {
@@ -70,8 +97,23 @@ export function CliInstallPrompt(): React.ReactElement | null {
       <p className="mt-0.5 text-xs text-neutral-500">
         Edit your maps from the terminal — handy for scripts and AI agents.
       </p>
+      {offerSkill && !done && (
+        <label className="mt-2 flex items-center gap-1.5 text-xs text-neutral-700 dark:text-neutral-300">
+          <input
+            type="checkbox"
+            checked={withSkill}
+            disabled={busy}
+            onChange={(e) => setWithSkill(e.target.checked)}
+          />
+          Also teach Claude Code to use it (adds a skill to ~/.claude/skills)
+        </label>
+      )}
       {done ? (
-        <p className="mt-2 text-xs text-neutral-500">{done}</p>
+        <div className="mt-2 space-y-0.5 text-xs text-neutral-500">
+          {done.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
       ) : (
         <div className="mt-2 flex items-center gap-2">
           <button

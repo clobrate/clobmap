@@ -27,8 +27,15 @@ interface Proc {
   stderr: string;
 }
 function clob(...args: string[]): Proc {
+  return clobEnv({}, ...args);
+}
+function clobEnv(env: Record<string, string>, ...args: string[]): Proc {
   const [cmd, cmdArgs] = compiledBin ? [compiledBin, args] : [tsxBin, [cli, ...args]];
-  const r = spawnSync(cmd, cmdArgs, { cwd: repoRoot, encoding: "utf8" });
+  const r = spawnSync(cmd, cmdArgs, {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
   return { code: r.status ?? -1, stdout: r.stdout.trim(), stderr: r.stderr.trim() };
 }
 async function tmpFile(): Promise<string> {
@@ -88,5 +95,69 @@ describe("cli process e2e", () => {
     expect(r.code).toBe(0);
     expect(r.stdout).toMatch(/name: clobmap/); // SKILL.md frontmatter
     expect(r.stdout).toMatch(/Command reference/i);
+  }, 30_000);
+
+  it("skill install writes the embedded SKILL.md into CLAUDE_CONFIG_DIR", async () => {
+    const claude = await fs.mkdtemp(path.join(os.tmpdir(), "clob-e2e-claude-"));
+    const env = { CLAUDE_CONFIG_DIR: claude };
+    const installed = clobEnv(env, "skill", "install", "--json");
+    expect(installed.code).toBe(0);
+    const dir = JSON.parse(installed.stdout).path as string;
+    expect(await fs.readFile(path.join(dir, "SKILL.md"), "utf8")).toBe(clob("docs").stdout + "\n");
+
+    const status = JSON.parse(clobEnv(env, "skill", "status", "--json").stdout);
+    expect(status).toMatchObject({ isOurs: true, version: clob("--version").stdout });
+    expect(clobEnv(env, "skill", "uninstall").code).toBe(0);
+  }, 30_000);
+
+  it("skill install upgrades an older copy it installed", async () => {
+    const claude = await fs.mkdtemp(path.join(os.tmpdir(), "clob-e2e-claude-"));
+    const dir = path.join(claude, "skills", "clobmap");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "SKILL.md"), "stale");
+    await fs.writeFile(
+      path.join(dir, ".clobmap-install.json"),
+      '{"installedBy":"clobmap","version":"0.0.1"}\n',
+    );
+
+    const r = clobEnv({ CLAUDE_CONFIG_DIR: claude }, "skill", "install");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain(`Installed Claude Code skill → ${dir}`);
+    expect(await fs.readFile(path.join(dir, "SKILL.md"), "utf8")).not.toBe("stale");
+    expect(JSON.parse(await fs.readFile(path.join(dir, ".clobmap-install.json"), "utf8"))).toEqual({
+      installedBy: "clobmap",
+      version: clob("--version").stdout,
+    });
+  }, 30_000);
+
+  it("skill install/uninstall refuse a folder clobmap didn't create: exit 1, stderr, untouched", async () => {
+    const claude = await fs.mkdtemp(path.join(os.tmpdir(), "clob-e2e-claude-"));
+    const dir = path.join(claude, "skills", "clobmap");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "SKILL.md"), "someone else's");
+    const env = { CLAUDE_CONFIG_DIR: claude };
+
+    for (const sub of ["install", "uninstall"]) {
+      const r = clobEnv(env, "skill", sub);
+      expect(r.code).toBe(1);
+      expect(r.stdout).toBe("");
+      expect(r.stderr).toMatch(/not created by clobmap/);
+    }
+    expect(await fs.readFile(path.join(dir, "SKILL.md"), "utf8")).toBe("someone else's");
+    expect(await fs.readdir(dir)).toEqual(["SKILL.md"]);
+  }, 30_000);
+
+  it("skill install without a Claude dir exits 1 with a JSON error and creates nothing", async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), "clob-e2e-noclaude-"));
+    const claude = path.join(parent, ".claude");
+    const r = clobEnv({ CLAUDE_CONFIG_DIR: claude }, "skill", "install", "--json");
+    expect(r.code).toBe(1);
+    expect(r.stdout).toBe("");
+    expect(JSON.parse(r.stderr).error).toMatch(/Claude Code wasn't found/);
+    expect(await fs.readdir(parent)).toEqual([]);
+
+    const status = clobEnv({ CLAUDE_CONFIG_DIR: claude }, "skill", "status", "--json");
+    expect(status.code).toBe(0);
+    expect(JSON.parse(status.stdout)).toMatchObject({ claudeDetected: false, installed: false });
   }, 30_000);
 });

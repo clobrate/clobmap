@@ -19,6 +19,7 @@ import { openExternal } from "../lib/openExternal";
 import { isTelemetryAvailable } from "../lib/telemetry";
 import { clearAllPositions, setLayoutMode, type LayoutMode } from "../model";
 import { materializeManualPositions } from "../lib/layout";
+import { ClaudeSkillSection } from "./ClaudeSkillSection";
 
 const PRIVACY_URL = "https://github.com/clobrate/clobmap/blob/main/PRIVACY.md";
 const ISSUE_URL = "https://github.com/clobrate/clobmap/issues/new?labels=bug";
@@ -387,7 +388,12 @@ export function SettingsMenu() {
               }}
             />
           )}
-          {isTauri() && !isMobile() && <CliToolSection />}
+          {isTauri() && !isMobile() && (
+            <>
+              <CliToolSection />
+              <ClaudeSkillSection />
+            </>
+          )}
         </div>
       )}
     </div>
