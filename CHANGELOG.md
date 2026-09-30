@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **clobmap.com landing page refreshed** for everything shipped since 1.0: a
+  Notelets preview alongside the YAML / mind-map demo; new feature cards for
+  Notelets, tags, notes-as-Markdown-files, and exports; a "Scriptable, and
+  ready for Claude Code" section covering the bundled `clobmap` CLI and the
+  one-click Claude Code skill; and updated download notes and meta tags.
+
 ## [2.3.0] - 2026-09-29
 
 ### Added

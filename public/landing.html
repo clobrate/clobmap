@@ -8,14 +8,14 @@
     <title>clobmap — mind maps that are also YAML</title>
     <meta
       name="description"
-      content="A minimalistic mind-mapping app where the YAML view and the mind-map view are equally first-class. Edit either; the other follows."
+      content="A minimalistic mind-mapping app where YAML, mind-map, and notebook views are equally first-class. Edit any one; the others follow. Scriptable from the command line and Claude Code."
     />
     <link rel="icon" type="image/svg+xml" href="/clobmap.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:title" content="clobmap — mind maps that are also YAML" />
     <meta
       property="og:description"
-      content="Edit a mind map as YAML or as a tree. Edits in either view propagate to the other. Local-first. Free and open source."
+      content="Edit a mind map as YAML, as a tree, or as a notebook of pages. Edits in any view propagate to the others. Local-first. Free and open source."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://clobmap.com/" />
@@ -171,6 +171,67 @@
         font-size: 13px;
         color: var(--fg-faint);
       }
+      .new-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        padding: 4px 12px 4px 4px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: 13px;
+        color: var(--fg-muted);
+        text-decoration: none;
+      }
+      .new-pill:hover {
+        border-color: var(--border-strong);
+        color: var(--fg);
+      }
+      .new-pill .tag {
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 12px;
+      }
+      .badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 600;
+        vertical-align: 2px;
+      }
+      .feat code,
+      section.cli p code {
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 0.9em;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--code-bg);
+      }
+
+      section.cli {
+        padding: 64px 0;
+        border-top: 1px solid var(--border);
+      }
+      section.cli h2 {
+        font-size: 24px;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+      }
+      section.cli p.sub {
+        color: var(--fg-muted);
+        margin: 0 0 24px;
+        max-width: 680px;
+      }
+      section.cli .pane {
+        margin-bottom: 16px;
+      }
 
       section.demo {
         padding: 24px 0 64px;
@@ -217,6 +278,131 @@
         display: block;
         width: 100%;
         height: auto;
+      }
+
+      .demo-caption {
+        margin: 28px 0 10px;
+        font-size: 14px;
+        color: var(--fg-muted);
+      }
+      .demo-caption strong {
+        color: var(--fg);
+      }
+      .visual.single {
+        grid-template-columns: 1fr;
+      }
+      .nb {
+        display: grid;
+        grid-template-columns: 190px 1fr;
+        font-size: 13px;
+      }
+      @media (max-width: 720px) {
+        .nb {
+          grid-template-columns: 1fr;
+        }
+        .nb-toc {
+          display: none;
+        }
+        .nb-tabs .hm {
+          display: none;
+        }
+        .nb-pages {
+          padding: 4px 18px 8px;
+        }
+      }
+      .nb-toc {
+        background: var(--bg-soft);
+        border-right: 1px solid var(--border);
+        padding: 8px 0;
+      }
+      .nb-toc div {
+        padding: 3px 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--fg-muted);
+      }
+      .nb-toc .d0 {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .nb-toc .d1 {
+        padding-left: 24px;
+      }
+      .nb-toc .d2 {
+        padding-left: 36px;
+      }
+      .nb-toc .on {
+        background: var(--bg-deep);
+        color: var(--fg);
+      }
+      .nb-main {
+        min-width: 0;
+      }
+      .nb-tabs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--fg-muted);
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .nb-tabs span {
+        padding: 3px 8px;
+        border-radius: 5px;
+      }
+      .nb-tabs .on {
+        background: var(--bg-deep);
+        color: var(--fg);
+      }
+      .nb-tabs .mode {
+        margin-left: auto;
+        display: inline-flex;
+        padding: 2px;
+        border-radius: 6px;
+        background: var(--bg-deep);
+      }
+      .nb-tabs .mode span.on {
+        background: var(--bg);
+      }
+      .nb-pages {
+        padding: 6px 28px 10px;
+        max-width: 560px;
+      }
+      .nb-page {
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .nb-page:last-child {
+        border-bottom: 0;
+      }
+      .nb-page h4 {
+        margin: 0 0 2px;
+        font-size: 18px;
+        letter-spacing: -0.01em;
+      }
+      .nb-page .nb-tags {
+        font-size: 11px;
+        color: var(--fg-faint);
+        margin-bottom: 8px;
+      }
+      .nb-page .nb-tags em {
+        color: var(--fg-muted);
+      }
+      .nb-page p,
+      .nb-page ul {
+        margin: 0 0 6px;
+        color: var(--fg);
+      }
+      .nb-page ul {
+        padding-left: 20px;
+      }
+      .nb-page h5 {
+        margin: 0 0 4px;
+        font-size: 14px;
       }
 
       section.features {
@@ -355,13 +541,18 @@
     <main>
       <section class="hero">
         <div class="wrap">
+          <a class="new-pill" href="#cli">
+            <span class="tag">New in 2.3</span>
+            Let Claude Code edit your maps →
+          </a>
           <h1>
             Mind maps that are <span class="accent">also YAML</span>.
           </h1>
           <p class="lede">
-            Edit a mind map as a tree of branches, or as plain YAML — whichever
-            view fits the moment. Changes in either propagate to the other.
-            Local-first, free, and open source.
+            Edit a mind map as a tree of branches, as plain YAML, or as a
+            notebook of pages — whichever view fits the moment. Changes in one
+            show up in the others. Local-first, scriptable, free, and open
+            source.
           </p>
           <div class="ctas">
             <a class="btn btn-primary" href="/app">Open in browser →</a>
@@ -443,6 +634,65 @@ root:
               </svg>
             </div>
           </div>
+
+          <p class="demo-caption">
+            <strong>The same document as a notebook.</strong> In the Notelets
+            view, the tree becomes a table of contents and each node's notes
+            become a page.
+          </p>
+          <div class="visual single">
+            <div class="pane">
+              <div class="pane-title">Notelets</div>
+              <div class="nb">
+                <div class="nb-toc" aria-hidden="true">
+                  <div class="d0">My day</div>
+                  <div class="d1">Morning Routine</div>
+                  <div class="d1">Urgent</div>
+                  <div class="d1">Important</div>
+                  <div class="d1">To-dos</div>
+                  <div class="d1">Meetings</div>
+                  <div class="d2">Standup</div>
+                  <div class="d2 on">1:1 with manager</div>
+                  <div class="d2">Brainstorming</div>
+                </div>
+                <div class="nb-main">
+                  <div class="nb-tabs" aria-hidden="true">
+                    <span>Overview</span>
+                    <span class="hm">Morning Routine</span>
+                    <span class="hm">Urgent</span>
+                    <span class="hm">Important</span>
+                    <span class="hm">To-dos</span>
+                    <span class="on">Meetings</span>
+                    <span class="mode"><span class="on">Scroll</span><span>Page</span></span>
+                  </div>
+                  <div class="nb-pages">
+                    <div class="nb-page">
+                      <h4>Standup</h4>
+                      <div class="nb-tags">tags: <em>&lt;none&gt;</em></div>
+                      <p>Yesterday / Today / Blockers.<br />Keep it under 15 minutes.</p>
+                    </div>
+                    <div class="nb-page">
+                      <h4>1:1 with manager</h4>
+                      <div class="nb-tags">tags: <em>&lt;none&gt;</em></div>
+                      <h5>Agenda</h5>
+                      <ul>
+                        <li>Priorities this week</li>
+                        <li>Feedback</li>
+                        <li>Growth / goals</li>
+                      </ul>
+                    </div>
+                    <div class="nb-page">
+                      <h4>Brainstorming</h4>
+                      <div class="nb-tags">tags: <em>&lt;none&gt;</em></div>
+                      <h5>Ideas</h5>
+                      <h5>Parking lot</h5>
+                      <h5>Next steps</h5>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -482,7 +732,72 @@ root:
                 scrubbing is unit-tested.
               </p>
             </div>
+            <div class="feat">
+              <h3>Notelets: your map as a notebook <span class="badge">New</span></h3>
+              <p>
+                A view where the tree becomes a table of contents and each
+                node becomes a Markdown page. You can scroll through every page
+                or read one at a time, and edit in place. Restructure from the
+                sidebar with the same keys you use on the canvas.
+              </p>
+            </div>
+            <div class="feat">
+              <h3>Tags, with a tree of their own <span class="badge">New</span></h3>
+              <p>
+                Tag any node (<kbd>T</kbd>) and arrange the tags into their own
+                hierarchy. Click a tag to highlight every match, or filter the
+                map down to a tag's branch. Renames and deletes apply
+                everywhere, and one undo reverses them.
+              </p>
+            </div>
+            <div class="feat">
+              <h3>Notes are real Markdown files <span class="badge">New</span></h3>
+              <p>
+                On desktop, each node's notes live as a <code>.md</code> file
+                next to your map. You can grep them, diff them, and edit them
+                in any editor, and clobmap picks up changes live. Deleting a
+                node archives its note file instead of destroying it.
+              </p>
+            </div>
+            <div class="feat">
+              <h3>Export anywhere</h3>
+              <p>
+                Export a map as PNG, SVG, or PDF, or export all its notes as a
+                single Markdown file with tags and colors kept. Open several
+                maps in tabs, and let auto-save handle the rest.
+              </p>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section class="cli" id="cli">
+        <div class="wrap">
+          <h2>Scriptable, and ready for Claude Code <span class="badge">New</span></h2>
+          <p class="sub">
+            The desktop app ships with a <code>clobmap</code> command-line tool
+            that uses the same engine as the app. Edits keep your comments and
+            formatting, every change can be previewed with
+            <code>--dry-run</code>, and a batch of edits either fully applies
+            or doesn't apply at all. You can install it from
+            <strong>Settings → Command-line tool</strong>, with no Node or
+            repository clone needed.
+          </p>
+          <div class="pane">
+            <div class="pane-title">Terminal</div>
+            <pre>$ clobmap new trip.clobmap.yaml --title "Japan Trip"
+$ clobmap add-child trip.clobmap.yaml --parent "Japan Trip" --text "Hotels"
+$ clobmap tag-add trip.clobmap.yaml "Hotels" --tags booked
+$ clobmap find trip.clobmap.yaml --tag booked
+Hotels [n2]</pre>
+          </div>
+          <p class="sub" style="margin-bottom: 0">
+            <strong>Let Claude Code edit your maps.</strong> One click in
+            <strong>Settings → Claude Code skill</strong> (or
+            <code>clobmap skill install</code>) teaches Claude Code to use the
+            CLI. Then you can ask it to <em>“turn this meeting transcript into
+            a map”</em> or <em>“tag everything that's still open”</em>.
+          </p>
         </div>
       </section>
 
@@ -508,10 +823,12 @@ root:
             </a>
             <a href="https://github.com/clobrate/clobmap/releases/latest">
               <span class="platform">Linux</span>
-              <span class="detail">.AppImage and .deb</span>
+              <span class="detail">.AppImage, .deb, and .rpm</span>
             </a>
           </div>
           <p class="quiet" style="margin-top: 18px">
+            Desktop builds update themselves and include the
+            <code>clobmap</code> CLI (<code>clobmap-cli</code> on Linux).
             iOS app available — TestFlight setup is in progress. Build it
             yourself today: see
             <a href="https://github.com/clobrate/clobmap/blob/main/RELEASING.md">RELEASING.md</a>.
