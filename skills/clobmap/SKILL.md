@@ -33,22 +33,20 @@ files. Hand-editing silently corrupts those invariants.
 
 ## Running it
 
-If the desktop app is installed and its CLI has been enabled (Settings →
-Command-line tool), just run it on PATH — `clobmap` on macOS/Windows,
-`clobmap-cli` on Linux:
-
 ```bash
-clobmap <command> <file> [args]        # macOS / Windows
-clobmap-cli <command> <file> [args]    # Linux
+clobmap <command> <file> [args]
 ```
 
-From a source checkout instead (no app needed), run it from the repo root:
+`clobmap` is on PATH once the desktop app is installed and its CLI is enabled
+(Settings → Command-line tool). **Every example below uses this form.**
+Substitute as needed:
 
-```bash
-npm run clobmap -- <command> <file> [args]
-# or directly:
-npx tsx skills/clobmap/cli.ts <command> <file> [args]
-```
+- **Linux** — the binary is `clobmap-cli`:
+  `clobmap-cli <command> <file> [args]`
+- **Source checkout, no app** — run from the repo root:
+  `npm run --silent clobmap -- <command> <file> [args]`
+  (or `npx tsx skills/clobmap/cli.ts <command> <file> [args]`). Keep
+  `--silent` when capturing output, or npm's banner lines end up in it.
 
 Global flags on any mutating command:
 
@@ -151,28 +149,28 @@ Note ops accept `notesMode` / `notesFolder` per op (same meaning as the flags).
 ### 1. Create a document and add a subject with pages
 
 ```bash
-npm run clobmap -- new trip.clobmap.yaml --title "Japan Trip"
-ROOT=$(npm run --silent clobmap -- tree trip.clobmap.yaml | head -1 | sed -E 's/.*\[([^]]+)\].*/\1/')
-npm run clobmap -- add-child trip.clobmap.yaml --parent "$ROOT" --text "Flights" --json
-npm run clobmap -- add-child trip.clobmap.yaml --parent "$ROOT" --text "Hotels"  --json
+clobmap new trip.clobmap.yaml --title "Japan Trip"
+ROOT=$(clobmap tree trip.clobmap.yaml | sed -nE 's/^[^ ].*\[([^]]+)\]$/\1/p' | head -1)   # root node id
+clobmap add-child trip.clobmap.yaml --parent "$ROOT" --text "Flights" --json
+clobmap add-child trip.clobmap.yaml --parent "$ROOT" --text "Hotels"  --json
 ```
 
 ### 2. Add notes to a node (folder mode — one .md per node)
 
 ```bash
-# For multi-line notes use bash $'...' (real newlines) or --from PATH;
+# For multi-line notes use bash $'...' (real newlines) or --from PATH (recipe 7);
 # a plain "...\n..." passes a literal backslash-n, not a newline.
-npm run clobmap -- note-set trip.clobmap.yaml "Flights" \
+clobmap note-set trip.clobmap.yaml "Flights" \
   --text $'# Depart\n\nSFO → HND, 11:00' --notes-mode folder
-npm run clobmap -- note-append trip.clobmap.yaml "Flights" --text "Seat 32A"
+clobmap note-append trip.clobmap.yaml "Flights" --text "Seat 32A"
 ```
 
 ### 3. Tag + color a subtree
 
 ```bash
-npm run clobmap -- tag-add   trip.clobmap.yaml "Hotels" --tags "booked,paid"
-npm run clobmap -- color-set trip.clobmap.yaml "Hotels" --color "#22c55e"
-npm run clobmap -- tag-move  trip.clobmap.yaml "paid" --under "booked"
+clobmap tag-add   trip.clobmap.yaml "Hotels" --tags "booked,paid"
+clobmap color-set trip.clobmap.yaml "Hotels" --color "#22c55e"
+clobmap tag-move  trip.clobmap.yaml "paid" --under "booked"
 ```
 
 ### 4. Batch several edits atomically
@@ -185,15 +183,45 @@ cat > ops.json <<'JSON'
   { "op": "tag-add",   "ref": "Air travel", "tags": ["confirmed"] }
 ]
 JSON
-npm run clobmap -- apply trip.clobmap.yaml --ops ops.json --dry-run   # preview
-npm run clobmap -- apply trip.clobmap.yaml --ops ops.json             # commit
+clobmap apply trip.clobmap.yaml --ops ops.json --dry-run   # preview
+clobmap apply trip.clobmap.yaml --ops ops.json             # commit
 ```
 
 ### 5. Query and export
 
 ```bash
-npm run clobmap -- find trip.clobmap.yaml --tag booked --json
-npm run clobmap -- export-notes trip.clobmap.yaml --out trip-notes.md
+clobmap find trip.clobmap.yaml --tag booked --json
+clobmap export-notes trip.clobmap.yaml --out trip-notes.md
+```
+
+### 6. Edit an existing document by id
+
+The usual job is changing a map that already exists: look first, resolve ids,
+then edit by id.
+
+```bash
+clobmap tree trip.clobmap.yaml                  # every node as "Title [id]"
+clobmap find trip.clobmap.yaml --text Hotel --json
+# {"matches":[{"id":"n3","text":"Hotels"}]}    — may be 0 or several; check
+TOKYO=$(clobmap add-child trip.clobmap.yaml --parent n1 --text "Tokyo" --json \
+  | sed -E 's/.*"affected":\["([^"]+)".*/\1/')  # new node's id from `affected`
+clobmap move   trip.clobmap.yaml n3 --to "$TOKYO" --dry-run   # preview diff
+clobmap move   trip.clobmap.yaml n3 --to "$TOKYO"
+clobmap rename trip.clobmap.yaml n3 --text "Hotels (Tokyo)"
+```
+
+### 7. Long notes from a file
+
+Easier than quoting: write the markdown to a file and pass `--from`.
+
+```bash
+cat > hotels.md <<'MD'
+# Hotels
+
+- Tokyo: Park Hyatt, 3 nights
+- Kyoto: ryokan, 2 nights
+MD
+clobmap note-set trip.clobmap.yaml n3 --from hotels.md
 ```
 
 ## Notes-folder & safety
