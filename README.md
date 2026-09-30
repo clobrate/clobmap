@@ -323,6 +323,19 @@ every mutation. **Never hand-edit a `.clobmap.yaml`;** go through the CLI so ids
 stay unique, the tag tree stays consistent, and note files stay sandboxed. Full
 command reference and recipes: [`skills/clobmap/SKILL.md`](./skills/clobmap/SKILL.md).
 
+### Use it from Claude Code
+
+This repo is a Claude Code plugin marketplace. Install the skill so Claude knows
+how to drive the CLI:
+
+```bash
+claude plugin marketplace add clobrate/clobmap
+claude plugin install clobmap@clobmap
+```
+
+The skill teaches Claude the commands; it doesn't ship the CLI itself, so you
+still need `clobmap` on PATH (or a repo checkout) as described above.
+
 ---
 
 ## Roadmap

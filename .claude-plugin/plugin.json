@@ -1,0 +1,14 @@
+{
+  "name": "clobmap",
+  "version": "2.2.1",
+  "description": "Create and edit clobmap mind-map documents (.clobmap.yaml) from the command line — nodes, notes, tags, layout, query, export, and atomic batch edits.",
+  "author": {
+    "name": "clobrate",
+    "url": "https://github.com/clobrate"
+  },
+  "homepage": "https://clobmap.com",
+  "repository": "https://github.com/clobrate/clobmap",
+  "license": "GPL-3.0-only",
+  "keywords": ["mind-map", "notes", "yaml", "clobmap"],
+  "skills": ["./skills/clobmap"]
+}

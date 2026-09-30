@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * Atomic version bump across the three places clobmap tracks its version:
+ * Atomic version bump across the four places clobmap tracks its version:
  *   • package.json
  *   • src-tauri/Cargo.toml
  *   • src-tauri/tauri.conf.json
+ *   • .claude-plugin/plugin.json (the Claude Code plugin; installs only update
+ *     when this changes)
  *
  * Usage:
  *   node scripts/bump-version.mjs 0.2.0
@@ -27,6 +29,7 @@ if (!target || !/^\d+\.\d+\.\d+(?:[-+].+)?$/.test(target)) {
 const PKG = path.join(repoRoot, "package.json");
 const CARGO = path.join(repoRoot, "src-tauri/Cargo.toml");
 const TAURI = path.join(repoRoot, "src-tauri/tauri.conf.json");
+const PLUGIN = path.join(repoRoot, ".claude-plugin/plugin.json");
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -50,6 +53,7 @@ function compareSemver(a, b) {
 
 const pkg = readJson(PKG);
 const conf = readJson(TAURI);
+const plugin = readJson(PLUGIN);
 const cargoText = fs.readFileSync(CARGO, "utf8");
 const cargoMatch = cargoText.match(/^version = "(.+)"$/m);
 if (!cargoMatch) {
@@ -61,6 +65,7 @@ const current = {
   package: pkg.version,
   cargo: cargoMatch[1],
   tauri: conf.version,
+  plugin: plugin.version,
 };
 
 for (const [name, version] of Object.entries(current)) {
@@ -79,7 +84,11 @@ fs.writeFileSync(CARGO, cargoUpdated);
 conf.version = target;
 writeJson(TAURI, conf);
 
+plugin.version = target;
+writeJson(PLUGIN, plugin);
+
 console.log(`Bumped to ${target}:`);
 console.log(`  package.json     ${current.package}  →  ${target}`);
 console.log(`  Cargo.toml       ${current.cargo}  →  ${target}`);
 console.log(`  tauri.conf.json  ${current.tauri}  →  ${target}`);
+console.log(`  plugin.json      ${current.plugin}  →  ${target}`);
